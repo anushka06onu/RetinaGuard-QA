@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - MODEL_PATH=artifacts/models/model.onnx
+      - PREPROCESSING_CONFIG=artifacts/models/preprocessing.json
+      - DECISION_POLICY_CONFIG=configs/calibration.yaml
+    volumes:
+      - ./artifacts:/app/artifacts:ro
+      - ./configs:/app/configs:ro
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    restart: unless-stopped
