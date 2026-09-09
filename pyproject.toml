@@ -60,6 +60,7 @@ retinaguard = "app.backend.main:start"
 [tool.pytest.ini_options]
 testpaths = ["tests", "api/tests"]
 python_files = ["test_*.py"]
+pythonpath = [".", "src"]
 addopts = "-v --tb=short"
 
 [tool.black]
