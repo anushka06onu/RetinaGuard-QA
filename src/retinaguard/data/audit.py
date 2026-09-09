@@ -2,10 +2,11 @@
 
 import json
 from pathlib import Path
-from typing import Dict, List, Set, Union, Any, Optional
+from typing import Any, Dict, List, Set, Union
+
+import imagehash
 import pandas as pd
 from PIL import Image
-import imagehash
 
 from src.retinaguard.utils.hashing import compute_sha256
 
@@ -15,7 +16,9 @@ def compute_file_hash(file_path: Union[str, Path]) -> str:
     return compute_sha256(file_path)
 
 
-def compute_perceptual_hash(image: Union[Image.Image, str, Path], hash_type: str = "dhash") -> imagehash.ImageHash:
+def compute_perceptual_hash(
+    image: Union[Image.Image, str, Path], hash_type: str = "dhash"
+) -> imagehash.ImageHash:
     """Compute perceptual hash (dHash/pHash) for an image."""
     if isinstance(image, (str, Path)):
         with Image.open(image) as img:
@@ -40,16 +43,14 @@ def inspect_image_file(file_path: Union[str, Path]) -> Dict[str, Any]:
             "width": w,
             "height": h,
             "mode": mode,
-            "size_bytes": p.stat().st_size
+            "size_bytes": p.stat().st_size,
         }
     except Exception as exc:
         return {"is_valid": False, "error": str(exc)}
 
 
 def find_duplicate_images(
-    image_paths: List[Union[str, Path]],
-    check_perceptual: bool = True,
-    phash_threshold: int = 4
+    image_paths: List[Union[str, Path]], check_perceptual: bool = True, phash_threshold: int = 4
 ) -> Dict[str, Any]:
     """Find exact (SHA-256) and near-duplicate (dHash/pHash) image groups."""
     sha_map: Dict[str, List[str]] = {}
@@ -82,7 +83,7 @@ def find_duplicate_images(
     return {
         "total_scanned": len(image_paths),
         "exact_duplicates": exact_duplicates,
-        "near_duplicates": near_duplicates
+        "near_duplicates": near_duplicates,
     }
 
 
@@ -111,7 +112,7 @@ def verify_patient_split_isolation(splits: Dict[str, List[str]]) -> Dict[str, An
     return {
         "isolation_passed": len(leaked_patients) == 0,
         "leaked_patient_ids": leaked_patients,
-        "split_patient_counts": {k: len(v) for k, v in split_patients.items()}
+        "split_patient_counts": {k: len(v) for k, v in split_patients.items()},
     }
 
 
@@ -119,17 +120,27 @@ def audit_dataset_integrity(manifest_df: pd.DataFrame) -> Dict[str, Any]:
     """Audit single manifest for duplicates, class counts, missing fields, and corrupt images."""
     total_images = len(manifest_df)
     readable_count = 0
-    missing_labels = manifest_df["quality_canonical"].isna().sum() if "quality_canonical" in manifest_df.columns else 0
+    missing_labels = (
+        manifest_df["quality_canonical"].isna().sum()
+        if "quality_canonical" in manifest_df.columns
+        else 0
+    )
 
     # Exact duplicate detection
     sha_counts = manifest_df["sha256"].dropna().value_counts()
     exact_duplicates = sha_counts[sha_counts > 1].to_dict()
 
     # Quality class distribution
-    class_dist = manifest_df["quality_canonical"].value_counts(dropna=False).to_dict() if "quality_canonical" in manifest_df.columns else {}
+    class_dist = (
+        manifest_df["quality_canonical"].value_counts(dropna=False).to_dict()
+        if "quality_canonical" in manifest_df.columns
+        else {}
+    )
 
     # Patient counts
-    unique_patients = manifest_df["patient_id"].dropna().nunique() if "patient_id" in manifest_df.columns else 0
+    unique_patients = (
+        manifest_df["patient_id"].dropna().nunique() if "patient_id" in manifest_df.columns else 0
+    )
 
     resolutions = []
     if "path" in manifest_df.columns:
@@ -152,13 +163,12 @@ def audit_dataset_integrity(manifest_df: pd.DataFrame) -> Dict[str, Any]:
         "unique_patients": int(unique_patients),
         "exact_duplicate_groups": len(exact_duplicates),
         "exact_duplicates": exact_duplicates,
-        "resolution_samples": resolutions[:10]
+        "resolution_samples": resolutions[:10],
     }
 
 
 def run_leakage_and_duplicate_audit(
-    splits: Dict[str, pd.DataFrame],
-    reports_dir: Union[str, Path] = "artifacts/reports"
+    splits: Dict[str, pd.DataFrame], reports_dir: Union[str, Path] = "artifacts/reports"
 ) -> Dict[str, Any]:
     """Verify 0% patient and hash leakage across splits, and generate audit reports."""
     reports_p = Path(reports_dir)
@@ -168,8 +178,12 @@ def run_leakage_and_duplicate_audit(
     sha_sets: Dict[str, Set[str]] = {}
 
     for split_name, df in splits.items():
-        patient_sets[split_name] = set(df["patient_id"].dropna().astype(str)) if "patient_id" in df.columns else set()
-        sha_sets[split_name] = set(df["sha256"].dropna().astype(str)) if "sha256" in df.columns else set()
+        patient_sets[split_name] = (
+            set(df["patient_id"].dropna().astype(str)) if "patient_id" in df.columns else set()
+        )
+        sha_sets[split_name] = (
+            set(df["sha256"].dropna().astype(str)) if "sha256" in df.columns else set()
+        )
 
     patient_leaks = {}
     sha_leaks = {}
@@ -193,7 +207,7 @@ def run_leakage_and_duplicate_audit(
         "split_counts": {s: len(df) for s, df in splits.items()},
         "patient_counts": {s: len(p_ids) for s, p_ids in patient_sets.items()},
         "patient_leakages": patient_leaks,
-        "sha256_leakages": sha_leaks
+        "sha256_leakages": sha_leaks,
     }
 
     # Save JSON report
@@ -214,14 +228,14 @@ def run_leakage_and_duplicate_audit(
     for s in split_names:
         md_content += f"| {s} | {len(splits[s])} | {len(patient_sets[s])} |\n"
 
-    md_content += f"\n## Patient Leakage Details\n"
+    md_content += "\n## Patient Leakage Details\n"
     if patient_leaks:
         for k, v in patient_leaks.items():
             md_content += f"- **{k}:** {len(v)} leaked patient IDs: {v[:5]}...\n"
     else:
         md_content += "No patient identities cross partition boundaries (0% patient leakage).\n"
 
-    md_content += f"\n## Hash (SHA-256) Leakage Details\n"
+    md_content += "\n## Hash (SHA-256) Leakage Details\n"
     if sha_leaks:
         for k, v in sha_leaks.items():
             md_content += f"- **{k}:** {len(v)} duplicate file hashes crossing splits.\n"

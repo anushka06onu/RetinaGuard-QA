@@ -3,31 +3,52 @@
 import argparse
 import json
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from scipy.special import softmax
 import torch
+from scipy.special import softmax
 
-from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
 from src.retinaguard.data.datasets import RetinalQualityDataset
-from src.retinaguard.evaluation.calibration import fit_temperature_scaling, compute_ece, compute_brier_score
-from src.retinaguard.evaluation.selective import compute_risk_coverage_curve, evaluate_selective_abstention
+from src.retinaguard.evaluation.calibration import (
+    compute_brier_score,
+    compute_ece,
+    fit_temperature_scaling,
+)
+from src.retinaguard.evaluation.selective import (
+    compute_risk_coverage_curve,
+    evaluate_selective_abstention,
+)
+from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Calibrate probability outputs and evaluate selective prediction on validation data.")
-    parser.add_argument("--checkpoint", type=str, required=True, help="Path to trained PyTorch checkpoint (.ckpt)")
-    parser.add_argument("--val-split", type=str, default="data/splits/eyeq_val.csv", help="Path to EyeQ validation split CSV")
+    parser = argparse.ArgumentParser(
+        description="Calibrate probability outputs and evaluate selective prediction on validation data."
+    )
+    parser.add_argument(
+        "--checkpoint", type=str, required=True, help="Path to trained PyTorch checkpoint (.ckpt)"
+    )
+    parser.add_argument(
+        "--val-split",
+        type=str,
+        default="data/splits/eyeq_val.csv",
+        help="Path to EyeQ validation split CSV",
+    )
     parser.add_argument("--output-dir", type=str, default="artifacts/metrics")
     args = parser.parse_args()
 
     ckpt_p = Path(args.checkpoint)
     if not ckpt_p.is_file():
-        raise FileNotFoundError(f"Trained checkpoint not found at {args.checkpoint}. Calibration requires a genuine trained model.")
+        raise FileNotFoundError(
+            f"Trained checkpoint not found at {args.checkpoint}. Calibration requires a genuine trained model."
+        )
 
     val_p = Path(args.val_split)
     if not val_p.is_file():
-        raise FileNotFoundError(f"Validation split file not found at {args.val_split}. Calibration requires verified validation data.")
+        raise FileNotFoundError(
+            f"Validation split file not found at {args.val_split}. Calibration requires verified validation data."
+        )
 
     out_p = Path(args.output_dir)
     out_p.mkdir(parents=True, exist_ok=True)
@@ -69,32 +90,38 @@ def main():
     confs = np.max(cal_probs, axis=-1)
     preds = np.argmax(cal_probs, axis=-1)
     rc_curve = compute_risk_coverage_curve(confs, preds, labels)
-    abstention_eval = evaluate_selective_abstention(confs, preds, labels, min_confidence_threshold=0.75)
+    abstention_eval = evaluate_selective_abstention(
+        confs, preds, labels, min_confidence_threshold=0.75
+    )
 
     cal_results = {
         "checkpoint": str(ckpt_p),
         "validation_split": str(val_p),
-        "num_validation_samples": int(len(labels)),
+        "num_validation_samples": len(labels),
         "optimal_temperature": round(float(best_temp), 4),
         "uncalibrated_ece": uncal_ece,
         "calibrated_ece": cal_ece,
         "uncalibrated_brier": uncal_brier,
         "calibrated_brier": cal_brier,
         "aurc": rc_curve["aurc"],
-        "selective_abstention_at_0_75": abstention_eval
+        "selective_abstention_at_0_75": abstention_eval,
     }
 
     with open(out_p / "calibration.json", "w", encoding="utf-8") as f:
         json.dump(cal_results, f, indent=2)
 
     with open(out_p / "selective_prediction.json", "w", encoding="utf-8") as f:
-        json.dump({
-            "aurc": rc_curve["aurc"],
-            "selective_abstention": abstention_eval,
-            "coverages": rc_curve["coverages"].tolist()[:20],
-            "accuracies": rc_curve["accuracies"].tolist()[:20],
-            "risks": rc_curve["risks"].tolist()[:20]
-        }, f, indent=2)
+        json.dump(
+            {
+                "aurc": rc_curve["aurc"],
+                "selective_abstention": abstention_eval,
+                "coverages": rc_curve["coverages"].tolist()[:20],
+                "accuracies": rc_curve["accuracies"].tolist()[:20],
+                "risks": rc_curve["risks"].tolist()[:20],
+            },
+            f,
+            indent=2,
+        )
 
     # Save calibration temperature metadata
     cal_meta_p = Path("artifacts/models/calibration_metadata.json")

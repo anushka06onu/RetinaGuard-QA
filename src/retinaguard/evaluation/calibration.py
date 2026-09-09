@@ -1,15 +1,15 @@
 """Probability calibration, Expected Calibration Error (ECE), and Brier score."""
 
-from typing import Dict, Any, Union
+from typing import Dict, Union
+
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from scipy.special import softmax
+from torch import nn, optim
 
 
 class TemperatureScaler(nn.Module):
     """Post-hoc scalar temperature scaling module."""
+
     def __init__(self, init_temp: float = 1.0):
         super().__init__()
         self.temperature = nn.Parameter(torch.ones(1) * init_temp)
@@ -23,7 +23,7 @@ def fit_temperature_scaling(
     logits: Union[np.ndarray, torch.Tensor],
     labels: Union[np.ndarray, torch.Tensor],
     max_iter: int = 100,
-    lr: float = 0.01
+    lr: float = 0.01,
 ) -> float:
     """Optimize scalar temperature T on validation logits to minimize NLL."""
     if isinstance(logits, np.ndarray):
@@ -52,11 +52,7 @@ def fit_temperature_scaling(
     return best_temp
 
 
-def compute_ece(
-    probs: np.ndarray,
-    labels: np.ndarray,
-    num_bins: int = 15
-) -> Dict[str, float]:
+def compute_ece(probs: np.ndarray, labels: np.ndarray, num_bins: int = 15) -> Dict[str, float]:
     """Compute Expected Calibration Error (ECE) and Maximum Calibration Error (MCE)."""
     confidences = np.max(probs, axis=-1)
     predictions = np.argmax(probs, axis=-1)
@@ -84,7 +80,7 @@ def compute_ece(
         "ece": round(float(ece), 4),
         "mce": round(float(mce), 4),
         "avg_confidence": round(float(np.mean(confidences)), 4),
-        "accuracy": round(float(np.mean(accuracies)), 4)
+        "accuracy": round(float(np.mean(accuracies)), 4),
     }
 
 

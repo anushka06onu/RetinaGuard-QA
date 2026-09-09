@@ -1,10 +1,11 @@
 """PyTorch Dataset loader supporting masked multi-task annotations."""
 
 from pathlib import Path
-from typing import Dict, Optional, Union, Callable, Any
+from typing import Any, Callable, Dict, Optional, Union
+
 import pandas as pd
-from PIL import Image
 import torch
+from PIL import Image
 from torch.utils.data import Dataset
 
 from .preprocessing import get_train_transforms, get_val_transforms
@@ -28,7 +29,7 @@ class RetinalQualityDataset(Dataset):
         transform: Optional[Callable] = None,
         is_training: bool = False,
         image_size: int = 384,
-        allow_synthetic_fallback: bool = False
+        allow_synthetic_fallback: bool = False,
     ):
         if isinstance(manifest_or_csv, pd.DataFrame):
             self.df = manifest_or_csv.reset_index(drop=True)
@@ -40,7 +41,9 @@ class RetinalQualityDataset(Dataset):
         if transform is not None:
             self.transform = transform
         else:
-            self.transform = get_train_transforms(image_size) if is_training else get_val_transforms(image_size)
+            self.transform = (
+                get_train_transforms(image_size) if is_training else get_val_transforms(image_size)
+            )
 
     def __len__(self) -> int:
         return len(self.df)
@@ -80,7 +83,9 @@ class RetinalQualityDataset(Dataset):
         def parse_attr(val):
             if pd.notna(val):
                 try:
-                    return torch.tensor(int(val), dtype=torch.long), torch.tensor(1.0, dtype=torch.float32)
+                    return torch.tensor(int(val), dtype=torch.long), torch.tensor(
+                        1.0, dtype=torch.float32
+                    )
                 except Exception:
                     pass
             return torch.tensor(0, dtype=torch.long), torch.tensor(0.0, dtype=torch.float32)
@@ -100,5 +105,5 @@ class RetinalQualityDataset(Dataset):
             "clarity_target": cla_target,
             "clarity_mask": cla_mask,
             "field_definition_target": fld_target,
-            "field_definition_mask": fld_mask
+            "field_definition_mask": fld_mask,
         }

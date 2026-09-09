@@ -1,13 +1,15 @@
 """Unit tests for models, masked multi-task losses, and baselines."""
 
 import numpy as np
-from PIL import Image
 import torch
-import pytest
+from PIL import Image
 
-from src.retinaguard.models.baselines import ClassicalFeatureExtractor, ClassicalQualityModel, SingleTaskQualityModel
-from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
+from src.retinaguard.models.baselines import (
+    ClassicalFeatureExtractor,
+    SingleTaskQualityModel,
+)
 from src.retinaguard.models.losses import MaskedMultiTaskLoss
+from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
 
 def test_classical_feature_extractor():
@@ -43,7 +45,7 @@ def test_multitask_model_forward_and_loss():
         "clarity_target": torch.tensor([1, 1]),
         "clarity_mask": torch.tensor([0.0, 1.0]),
         "field_definition_target": torch.tensor([0, 0]),
-        "field_definition_mask": torch.tensor([1.0, 1.0])
+        "field_definition_mask": torch.tensor([1.0, 1.0]),
     }
 
     loss_dict = criterion(preds, batch)

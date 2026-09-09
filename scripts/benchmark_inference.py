@@ -2,9 +2,10 @@
 
 import argparse
 import json
-import time
 import platform
+import time
 from pathlib import Path
+
 import numpy as np
 import onnxruntime as ort
 
@@ -22,12 +23,16 @@ def main():
 
     model_p = Path(args.model)
     if not model_p.is_file():
-        raise FileNotFoundError(f"ONNX model file not found: {args.model}. Run scripts/export_onnx.py first with a valid trained checkpoint.")
+        raise FileNotFoundError(
+            f"ONNX model file not found: {args.model}. Run scripts/export_onnx.py first with a valid trained checkpoint."
+        )
 
     print(f"=== Running CPU Latency Benchmark on {model_p} ({args.iterations} Iterations) ===")
     opts = ort.SessionOptions()
     opts.intra_op_num_threads = 4
-    session = ort.InferenceSession(str(model_p), sess_options=opts, providers=["CPUExecutionProvider"])
+    session = ort.InferenceSession(
+        str(model_p), sess_options=opts, providers=["CPUExecutionProvider"]
+    )
     inp_name = session.get_inputs()[0].name
     dummy_input = np.random.randn(1, 3, 384, 384).astype(np.float32)
 
@@ -69,7 +74,7 @@ def main():
         "latency_p95_ms": round(p95_lat, 2),
         "latency_p99_ms": round(p99_lat, 2),
         "throughput_fps": round(fps, 2),
-        "model_file_size_mb": round(model_size_mb, 2)
+        "model_file_size_mb": round(model_size_mb, 2),
     }
 
     with open(out_p, "w", encoding="utf-8") as f:

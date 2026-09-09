@@ -2,17 +2,16 @@
 
 import json
 from pathlib import Path
-from typing import Tuple, Union, Optional, Dict, Any
+from typing import Any, Dict, Union
+
 import numpy as np
-from PIL import Image
 import torch
 import torchvision.transforms as T
+from PIL import Image
 
 
 def crop_retinal_fov(
-    image: Union[Image.Image, np.ndarray],
-    threshold: int = 15,
-    margin_ratio: float = 0.02
+    image: Union[Image.Image, np.ndarray], threshold: int = 15, margin_ratio: float = 0.02
 ) -> Image.Image:
     """Detect circular retinal fundus field boundary and crop empty black outer borders.
 
@@ -53,7 +52,7 @@ def crop_retinal_fov(
         padded = np.zeros((max_dim, max_dim, 3), dtype=cropped.dtype)
         y_off = (max_dim - ch) // 2
         x_off = (max_dim - cw) // 2
-        padded[y_off:y_off + ch, x_off:x_off + cw] = cropped
+        padded[y_off : y_off + ch, x_off : x_off + cw] = cropped
         return Image.fromarray(padded)
 
     return Image.fromarray(cropped)
@@ -61,6 +60,7 @@ def crop_retinal_fov(
 
 class CanonicalRetinalTransform:
     """Callable canonical FOV crop transform."""
+
     def __init__(self, threshold: int = 15, margin_ratio: float = 0.02):
         self.threshold = threshold
         self.margin_ratio = margin_ratio
@@ -69,32 +69,45 @@ class CanonicalRetinalTransform:
         return crop_retinal_fov(img, self.threshold, self.margin_ratio)
 
 
-def get_train_transforms(image_size: int = 384) -> T.Compose:
-    """Training-only transforms with quality-aware augmentations."""
-    return T.Compose([
-        CanonicalRetinalTransform(),
-        T.Resize((image_size, image_size), interpolation=T.InterpolationMode.BILINEAR),
-        T.RandomHorizontalFlip(p=0.5),
-        T.RandomRotation(degrees=15),
-        T.ColorJitter(brightness=0.10, contrast=0.10, saturation=0.08, hue=0.04),
-        T.ToTensor(),
-        T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
+def get_train_transforms(image_size: Union[int, list, tuple] = 384) -> T.Compose:
+    """Training augmentations preserving retinal diagnostic fidelity without altering quality classes."""
+    size_tuple = (
+        (image_size[0], image_size[1])
+        if isinstance(image_size, (list, tuple))
+        else (int(image_size), int(image_size))
+    )
+    return T.Compose(
+        [
+            CanonicalRetinalTransform(),
+            T.Resize(size_tuple, interpolation=T.InterpolationMode.BILINEAR),
+            T.RandomHorizontalFlip(p=0.5),
+            T.RandomRotation(degrees=10),
+            T.ColorJitter(brightness=0.10, contrast=0.10, saturation=0.08, hue=0.04),
+            T.ToTensor(),
+            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
 
 
-def get_val_transforms(image_size: int = 384) -> T.Compose:
+def get_val_transforms(image_size: Union[int, list, tuple] = 384) -> T.Compose:
     """Deterministic validation, test, and production deployment transform."""
-    return T.Compose([
-        CanonicalRetinalTransform(),
-        T.Resize((image_size, image_size), interpolation=T.InterpolationMode.BILINEAR),
-        T.ToTensor(),
-        T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
+    size_tuple = (
+        (image_size[0], image_size[1])
+        if isinstance(image_size, (list, tuple))
+        else (int(image_size), int(image_size))
+    )
+    return T.Compose(
+        [
+            CanonicalRetinalTransform(),
+            T.Resize(size_tuple, interpolation=T.InterpolationMode.BILINEAR),
+            T.ToTensor(),
+            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
 
 
 def preprocess_image_canonical(
-    image: Union[Image.Image, np.ndarray],
-    image_size: int = 384
+    image: Union[Image.Image, np.ndarray], image_size: Union[int, list, tuple] = 384
 ) -> torch.Tensor:
     """End-to-end preprocessing into a normalized tensor [1, 3, H, W]."""
     if not isinstance(image, Image.Image):
@@ -105,8 +118,7 @@ def preprocess_image_canonical(
 
 
 def export_preprocessing_metadata(
-    output_path: Union[str, Path] = "artifacts/models/preprocessing.json",
-    image_size: int = 384
+    output_path: Union[str, Path] = "artifacts/models/preprocessing.json", image_size: int = 384
 ) -> Dict[str, Any]:
     """Export canonical preprocessing metadata so API reads from versioned artifact."""
     out_p = Path(output_path)
@@ -119,11 +131,8 @@ def export_preprocessing_metadata(
         "fov_threshold": 15,
         "margin_ratio": 0.02,
         "padding": "square_pad_preserve_aspect",
-        "normalization": {
-            "mean": [0.485, 0.456, 0.406],
-            "std": [0.229, 0.224, 0.225]
-        },
-        "color_space": "RGB"
+        "normalization": {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]},
+        "color_space": "RGB",
     }
 
     with open(out_p, "w", encoding="utf-8") as f:

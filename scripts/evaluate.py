@@ -3,20 +3,23 @@
 import argparse
 import json
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import torch
 
-from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
 from src.retinaguard.data.datasets import RetinalQualityDataset
-from src.retinaguard.evaluation.metrics import compute_quality_metrics
 from src.retinaguard.evaluation.bootstrap import compute_patient_bootstrap_ci
+from src.retinaguard.evaluation.metrics import compute_quality_metrics
+from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
 
 def evaluate_dataset_partition(model, csv_path: str, dataset_name: str, device: str = "cpu"):
     p = Path(csv_path)
     if not p.is_file():
-        raise FileNotFoundError(f"Split manifest file not found: {csv_path}. Genuine evaluation requires verified split manifests.")
+        raise FileNotFoundError(
+            f"Split manifest file not found: {csv_path}. Genuine evaluation requires verified split manifests."
+        )
 
     df = pd.read_csv(p)
     if len(df) == 0:
@@ -42,13 +45,17 @@ def evaluate_dataset_partition(model, csv_path: str, dataset_name: str, device: 
     ci = compute_patient_bootstrap_ci(y_true, np.argmax(logits, axis=-1), patient_ids=patients)
     metrics["macro_f1_95_ci"] = ci
     metrics["dataset"] = dataset_name
-    metrics["num_samples"] = int(len(y_true))
+    metrics["num_samples"] = len(y_true)
     return metrics
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluate RetinaGuard model checkpoint with strict verification.")
-    parser.add_argument("--checkpoint", type=str, required=True, help="Path to trained PyTorch checkpoint (.ckpt)")
+    parser = argparse.ArgumentParser(
+        description="Evaluate RetinaGuard model checkpoint with strict verification."
+    )
+    parser.add_argument(
+        "--checkpoint", type=str, required=True, help="Path to trained PyTorch checkpoint (.ckpt)"
+    )
     parser.add_argument("--eyeq-split", type=str, default="data/splits/eyeq_test.csv")
     parser.add_argument("--deepdrid-split", type=str, default="data/splits/deepdrid_test.csv")
     parser.add_argument("--output-dir", type=str, default="artifacts/metrics")
@@ -56,7 +63,9 @@ def main():
 
     ckpt_p = Path(args.checkpoint)
     if not ckpt_p.is_file():
-        raise FileNotFoundError(f"Trained checkpoint not found at {args.checkpoint}. Scientific evaluation cannot run on missing weights.")
+        raise FileNotFoundError(
+            f"Trained checkpoint not found at {args.checkpoint}. Scientific evaluation cannot run on missing weights."
+        )
 
     out_p = Path(args.output_dir)
     out_p.mkdir(parents=True, exist_ok=True)
@@ -72,14 +81,18 @@ def main():
     eyeq_metrics = evaluate_dataset_partition(model, args.eyeq_split, "EyeQ (Internal Test)")
     with open(out_p / "internal_eyeq.json", "w", encoding="utf-8") as f:
         json.dump(eyeq_metrics, f, indent=2)
-    print(f"EyeQ Internal Macro-F1: {eyeq_metrics['macro_f1']} (95% CI: [{eyeq_metrics['macro_f1_95_ci']['ci_lower']}, {eyeq_metrics['macro_f1_95_ci']['ci_upper']}])")
+    print(
+        f"EyeQ Internal Macro-F1: {eyeq_metrics['macro_f1']} (95% CI: [{eyeq_metrics['macro_f1_95_ci']['ci_lower']}, {eyeq_metrics['macro_f1_95_ci']['ci_upper']}])"
+    )
 
     # 2. External DeepDRiD Evaluation
     print(f"Loading DeepDRiD external split from {args.deepdrid_split}...")
     deepdrid_metrics = evaluate_dataset_partition(model, args.deepdrid_split, "DeepDRiD (External)")
     with open(out_p / "external_deepdrid.json", "w", encoding="utf-8") as f:
         json.dump(deepdrid_metrics, f, indent=2)
-    print(f"DeepDRiD External Macro-F1: {deepdrid_metrics['macro_f1']} (95% CI: [{deepdrid_metrics['macro_f1_95_ci']['ci_lower']}, {deepdrid_metrics['macro_f1_95_ci']['ci_upper']}])")
+    print(
+        f"DeepDRiD External Macro-F1: {deepdrid_metrics['macro_f1']} (95% CI: [{deepdrid_metrics['macro_f1_95_ci']['ci_lower']}, {deepdrid_metrics['macro_f1_95_ci']['ci_upper']}])"
+    )
 
 
 if __name__ == "__main__":

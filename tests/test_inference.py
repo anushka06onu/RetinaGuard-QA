@@ -1,15 +1,14 @@
 """Unit tests for inference runtime, decision policy engine, and ONNX parity."""
 
 from pathlib import Path
-import numpy as np
-from PIL import Image
-import torch
-import pytest
 
-from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
-from src.retinaguard.inference.schemas import DecisionAction
+import torch
+from PIL import Image
+
 from src.retinaguard.inference.decision_policy import DecisionPolicyEngine
 from src.retinaguard.inference.predictor import RetinaGuardPredictor
+from src.retinaguard.inference.schemas import DecisionAction
+from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
 
 def test_decision_engine_rules():
@@ -21,11 +20,11 @@ def test_decision_engine_rules():
         uncertainty=0.35,
         ood_score=3.5,
         is_valid_modality=True,
-        attributes_raw={"artifact": 0, "clarity": 0, "field_definition": 0}
+        attributes_raw={"artifact": 0, "clarity": 0, "field_definition": 0},
     )
     assert res_good.decision == DecisionAction.ACCEPT
     assert res_good.quality == "good"
-    assert "Ready for clinical review" in res_good.feedback[0]
+    assert "technically acceptable" in res_good.feedback[0]
 
     # Case 2: Reject quality with poor clarity -> RECAPTURE
     res_reject = engine.evaluate(
@@ -33,7 +32,7 @@ def test_decision_engine_rules():
         uncertainty=0.45,
         ood_score=2.8,
         is_valid_modality=True,
-        attributes_raw={"artifact": 0, "clarity": 2, "field_definition": 0}
+        attributes_raw={"artifact": 0, "clarity": 2, "field_definition": 0},
     )
     assert res_reject.decision == DecisionAction.RECAPTURE
     assert res_reject.quality == "reject"
@@ -44,7 +43,7 @@ def test_decision_engine_rules():
         probs={"good": 0.40, "usable": 0.35, "reject": 0.25},
         uncertainty=1.52,  # > 0.85
         ood_score=2.5,
-        is_valid_modality=True
+        is_valid_modality=True,
     )
     assert res_uncertain.decision == DecisionAction.MANUAL_REVIEW
 
@@ -53,7 +52,7 @@ def test_decision_engine_rules():
         probs={"good": 0.33, "usable": 0.33, "reject": 0.34},
         uncertainty=1.58,
         ood_score=-5.0,
-        is_valid_modality=False
+        is_valid_modality=False,
     )
     assert res_ood.decision == DecisionAction.UNSUPPORTED_INPUT
 
@@ -70,15 +69,25 @@ def test_predictor_onnx_inference(tmp_path):
             dummy,
             str(onnx_path),
             input_names=["input_image"],
-            output_names=["quality_logits", "artifact_logits", "clarity_logits", "field_logits", "features"],
-            opset_version=18
+            output_names=[
+                "quality_logits",
+                "artifact_logits",
+                "clarity_logits",
+                "field_logits",
+                "features",
+            ],
+            opset_version=18,
         )
 
     predictor = RetinaGuardPredictor(model_path=str(onnx_path))
     test_img = Image.new("RGB", (200, 200), color=(180, 80, 30))
     res = predictor.predict(test_img)
-    assert res.decision in [DecisionAction.ACCEPT, DecisionAction.MANUAL_REVIEW, DecisionAction.RECAPTURE, DecisionAction.UNSUPPORTED_INPUT]
+    assert res.decision in [
+        DecisionAction.ACCEPT,
+        DecisionAction.MANUAL_REVIEW,
+        DecisionAction.RECAPTURE,
+        DecisionAction.UNSUPPORTED_INPUT,
+    ]
     assert res.calibrated_confidence > 0
     assert res.probabilities.good >= 0
     assert res.latency_ms is not None and res.latency_ms > 0
-

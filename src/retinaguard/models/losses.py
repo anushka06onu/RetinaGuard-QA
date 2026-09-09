@@ -1,9 +1,9 @@
 """Masked multi-task loss functions per Phase 8 of blueprint."""
 
-from typing import Dict, Optional
+from typing import Dict
+
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import nn
 
 
 class MaskedMultiTaskLoss(nn.Module):
@@ -18,7 +18,7 @@ class MaskedMultiTaskLoss(nn.Module):
         weight_artifact: float = 0.5,
         weight_clarity: float = 0.5,
         weight_field_def: float = 0.5,
-        label_smoothing: float = 0.05
+        label_smoothing: float = 0.05,
     ):
         super().__init__()
         self.w_q = weight_quality
@@ -30,9 +30,7 @@ class MaskedMultiTaskLoss(nn.Module):
         self.ce = nn.CrossEntropyLoss(label_smoothing=label_smoothing, reduction="none")
 
     def forward(
-        self,
-        preds: Dict[str, torch.Tensor],
-        batch: Dict[str, torch.Tensor]
+        self, preds: Dict[str, torch.Tensor], batch: Dict[str, torch.Tensor]
     ) -> Dict[str, torch.Tensor]:
         device = preds["quality_logits"].device
 
@@ -47,38 +45,33 @@ class MaskedMultiTaskLoss(nn.Module):
         l_q = calc_masked_loss(
             preds["quality_logits"],
             batch.get("quality_target", torch.zeros(1, dtype=torch.long, device=device)),
-            batch.get("quality_mask", torch.ones(1, device=device))
+            batch.get("quality_mask", torch.ones(1, device=device)),
         )
 
         l_art = calc_masked_loss(
             preds["artifact_logits"],
             batch.get("artifact_target", torch.zeros(1, dtype=torch.long, device=device)),
-            batch.get("artifact_mask", torch.zeros(1, device=device))
+            batch.get("artifact_mask", torch.zeros(1, device=device)),
         )
 
         l_cla = calc_masked_loss(
             preds["clarity_logits"],
             batch.get("clarity_target", torch.zeros(1, dtype=torch.long, device=device)),
-            batch.get("clarity_mask", torch.zeros(1, device=device))
+            batch.get("clarity_mask", torch.zeros(1, device=device)),
         )
 
         l_fld = calc_masked_loss(
             preds["field_definition_logits"],
             batch.get("field_definition_target", torch.zeros(1, dtype=torch.long, device=device)),
-            batch.get("field_definition_mask", torch.zeros(1, device=device))
+            batch.get("field_definition_mask", torch.zeros(1, device=device)),
         )
 
-        total_loss = (
-            self.w_q * l_q +
-            self.w_art * l_art +
-            self.w_cla * l_cla +
-            self.w_fld * l_fld
-        )
+        total_loss = self.w_q * l_q + self.w_art * l_art + self.w_cla * l_cla + self.w_fld * l_fld
 
         return {
             "loss_total": total_loss,
             "loss_quality": l_q,
             "loss_artifact": l_art,
             "loss_clarity": l_cla,
-            "loss_field_def": l_fld
+            "loss_field_def": l_fld,
         }

@@ -1,6 +1,7 @@
 """Patient-level and sample-level non-parametric bootstrap confidence intervals."""
 
-from typing import Tuple, List, Callable, Dict, Any, Optional
+from typing import Callable, Dict, Optional
+
 import numpy as np
 from sklearn.metrics import f1_score
 
@@ -12,7 +13,7 @@ def compute_patient_bootstrap_ci(
     metric_fn: Callable = lambda yt, yp: f1_score(yt, yp, average="macro", zero_division=0),
     n_bootstraps: int = 1000,
     ci: float = 0.95,
-    seed: int = 2026
+    seed: int = 2026,
 ) -> Dict[str, float]:
     """Compute 95% bootstrap confidence intervals, grouping by patient ID when provided."""
     rng = np.random.RandomState(seed)
@@ -50,5 +51,5 @@ def compute_patient_bootstrap_ci(
         "point_estimate": round(point_est, 4),
         "ci_lower": round(lower, 4),
         "ci_upper": round(upper, 4),
-        "ci_level": ci
+        "ci_level": ci,
     }

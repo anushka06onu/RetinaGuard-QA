@@ -2,13 +2,14 @@
 
 import argparse
 from pathlib import Path
+
 import numpy as np
-import torch
 import onnx
 import onnxruntime as ort
+import torch
 
-from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
 from src.retinaguard.data.preprocessing import export_preprocessing_metadata
+from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
 
 class OnnxMultiTaskWrapper(torch.nn.Module):
@@ -24,20 +25,24 @@ class OnnxMultiTaskWrapper(torch.nn.Module):
             out["artifact_logits"],
             out["clarity_logits"],
             out["field_definition_logits"],
-            out["latent_features"]
+            out["latent_features"],
         )
 
 
 def main():
     parser = argparse.ArgumentParser(description="Export RetinaGuard checkpoint to ONNX.")
-    parser.add_argument("--checkpoint", type=str, required=True, help="Path to trained PyTorch checkpoint (.ckpt)")
+    parser.add_argument(
+        "--checkpoint", type=str, required=True, help="Path to trained PyTorch checkpoint (.ckpt)"
+    )
     parser.add_argument("--output-onnx", type=str, default="artifacts/models/model.onnx")
     parser.add_argument("--opset-version", type=int, default=18)
     args = parser.parse_args()
 
     ckpt_p = Path(args.checkpoint)
     if not ckpt_p.is_file():
-        raise FileNotFoundError(f"A trained checkpoint is required for ONNX export. Checkpoint not found: {args.checkpoint}")
+        raise FileNotFoundError(
+            f"A trained checkpoint is required for ONNX export. Checkpoint not found: {args.checkpoint}"
+        )
 
     out_p = Path(args.output_onnx)
     out_p.parent.mkdir(parents=True, exist_ok=True)
@@ -59,7 +64,7 @@ def main():
         "artifact_logits",
         "clarity_logits",
         "field_definition_logits",
-        "latent_features"
+        "latent_features",
     ]
 
     torch.onnx.export(
@@ -71,7 +76,7 @@ def main():
         do_constant_folding=True,
         input_names=input_names,
         output_names=output_names,
-        dynamic_axes={"input_image": {0: "batch_size"}}
+        dynamic_axes={"input_image": {0: "batch_size"}},
     )
 
     onnx_model = onnx.load(str(out_p))

@@ -1,7 +1,8 @@
 """API Service Layer managing model lifecycles and image analysis."""
 
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
+
 from PIL import Image
 
 from src.retinaguard.inference.predictor import RetinaGuardPredictor
@@ -11,14 +12,9 @@ from src.retinaguard.inference.schemas import PredictionResponse
 class QualityAssessmentService:
     """Service layer coordinating preprocessing, ONNX Runtime, and decision engine."""
 
-    def __init__(
-        self,
-        model_path: str = "artifacts/models/model.onnx",
-        image_size: int = 384
-    ):
+    def __init__(self, model_path: str = "artifacts/models/model.onnx", image_size: int = 384):
         self.predictor = RetinaGuardPredictor(
-            model_path=model_path if Path(model_path).exists() else None,
-            image_size=image_size
+            model_path=model_path if Path(model_path).exists() else None, image_size=image_size
         )
 
     def analyze_image(self, image: Image.Image) -> PredictionResponse:

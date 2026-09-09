@@ -3,16 +3,21 @@
 import json
 import time
 from pathlib import Path
-from typing import Dict, Any, Union, Optional
+from typing import Optional, Union
+
 import numpy as np
+import torch
 from PIL import Image
 from scipy.special import softmax
-import torch
 
 from src.retinaguard.data.preprocessing import preprocess_image_canonical
-from src.retinaguard.evaluation.ood import compute_energy_score, RetinalModalityValidator
-from .schemas import PredictionResponse
+from src.retinaguard.evaluation.ood import (
+    RetinalModalityValidator,
+    compute_energy_score,
+)
+
 from .decision_policy import DecisionPolicyEngine
+from .schemas import PredictionResponse
 
 
 def compute_entropy(probs: np.ndarray, base: float = 2.0) -> float:
@@ -27,10 +32,14 @@ class RetinaGuardPredictor:
     def __init__(
         self,
         model_path: Optional[Union[str, Path]] = "artifacts/models/model.onnx",
-        preprocessing_config_path: Optional[Union[str, Path]] = "artifacts/models/preprocessing.json",
-        calibration_config_path: Optional[Union[str, Path]] = "artifacts/models/calibration_metadata.json",
+        preprocessing_config_path: Optional[
+            Union[str, Path]
+        ] = "artifacts/models/preprocessing.json",
+        calibration_config_path: Optional[
+            Union[str, Path]
+        ] = "artifacts/models/calibration_metadata.json",
         policy_engine: Optional[DecisionPolicyEngine] = None,
-        image_size: int = 384
+        image_size: int = 384,
     ):
         self.image_size = image_size
         self.temperature = 1.0
@@ -66,11 +75,15 @@ class RetinaGuardPredictor:
 
         if path.suffix == ".onnx":
             import onnxruntime as ort
+
             opts = ort.SessionOptions()
             opts.intra_op_num_threads = 4
-            self.ort_session = ort.InferenceSession(str(path), sess_options=opts, providers=["CPUExecutionProvider"])
+            self.ort_session = ort.InferenceSession(
+                str(path), sess_options=opts, providers=["CPUExecutionProvider"]
+            )
         else:
             from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
+
             model = RetinaGuardMultiTaskModel(pretrained=False)
             state = torch.load(str(path), map_location="cpu")
             if isinstance(state, dict) and "state_dict" in state:
@@ -86,7 +99,9 @@ class RetinaGuardPredictor:
         t0 = time.perf_counter()
 
         if self.ort_session is None and self.pt_model is None:
-            raise RuntimeError("No model loaded in RetinaGuardPredictor. Inference requires a valid ONNX or PyTorch model.")
+            raise RuntimeError(
+                "No model loaded in RetinaGuardPredictor. Inference requires a valid ONNX or PyTorch model."
+            )
 
         if isinstance(image, (str, Path)):
             pil_img = Image.open(image).convert("RGB")
@@ -121,7 +136,9 @@ class RetinaGuardPredictor:
                 q_logits = out["calibrated_quality_logits"][0].cpu().numpy()
                 attributes_raw["artifact"] = int(torch.argmax(out["artifact_logits"][0]).item())
                 attributes_raw["clarity"] = int(torch.argmax(out["clarity_logits"][0]).item())
-                attributes_raw["field_definition"] = int(torch.argmax(out["field_definition_logits"][0]).item())
+                attributes_raw["field_definition"] = int(
+                    torch.argmax(out["field_definition_logits"][0]).item()
+                )
 
         # 4. Probabilities & Temperature Scaling
         scaled_logits = q_logits / max(self.temperature, 1e-4)
@@ -129,7 +146,7 @@ class RetinaGuardPredictor:
         probs_dict = {
             "good": float(probs_arr[0]),
             "usable": float(probs_arr[1]),
-            "reject": float(probs_arr[2])
+            "reject": float(probs_arr[2]),
         }
         uncertainty = compute_entropy(probs_arr)
         ood_score = float(compute_energy_score(q_logits[None, :])[0])
@@ -143,5 +160,5 @@ class RetinaGuardPredictor:
             ood_score=ood_score,
             is_valid_modality=is_valid_modality,
             attributes_raw=attributes_raw,
-            latency_ms=latency_ms
+            latency_ms=latency_ms,
         )

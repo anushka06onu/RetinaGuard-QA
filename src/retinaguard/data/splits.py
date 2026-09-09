@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from typing import Dict, Union
-import numpy as np
+
 import pandas as pd
 from sklearn.model_selection import StratifiedGroupKFold
 
@@ -13,14 +13,14 @@ def create_patient_grouped_splits(
     test_ratio: float = 0.15,
     seed: int = 2026,
     patient_col: str = "patient_id",
-    stratify_col: str = "quality_canonical"
+    stratify_col: str = "quality_canonical",
 ) -> Dict[str, pd.DataFrame]:
     """Partition dataset into Train, Val, and Test ensuring zero patient leakage and stratified quality balance."""
     df = manifest_df.copy().reset_index(drop=True)
 
     # Fill missing patient IDs with individual image IDs if unprovable
     df[patient_col] = df[patient_col].fillna(df["image_id"]).astype(str)
-    
+
     # Stratification target (fill missing with 'unlabeled')
     strat_target = df[stratify_col].fillna("unlabeled").astype(str)
 
@@ -37,22 +37,20 @@ def create_patient_grouped_splits(
     # Sub-split train_val into train and val
     strat_tv = df_train_val[stratify_col].fillna("unlabeled").astype(str)
     sgkf_val = StratifiedGroupKFold(n_splits=n_splits - 1, shuffle=True, random_state=seed)
-    train_idx, val_idx = next(sgkf_val.split(df_train_val, y=strat_tv, groups=df_train_val[patient_col]))
+    train_idx, val_idx = next(
+        sgkf_val.split(df_train_val, y=strat_tv, groups=df_train_val[patient_col])
+    )
 
     df_train = df_train_val.iloc[train_idx].reset_index(drop=True)
     df_val = df_train_val.iloc[val_idx].reset_index(drop=True)
 
-    return {
-        "train": df_train,
-        "val": df_val,
-        "test": df_test
-    }
+    return {"train": df_train, "val": df_val, "test": df_test}
 
 
 def save_split_manifests(
     splits: Dict[str, pd.DataFrame],
     output_dir: Union[str, Path] = "data/splits",
-    prefix: str = "eyeq"
+    prefix: str = "eyeq",
 ) -> Dict[str, Path]:
     """Save split CSV files to data/splits/."""
     out_dir = Path(output_dir)

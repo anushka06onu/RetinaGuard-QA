@@ -1,17 +1,17 @@
 """FastAPI application matching Phase 18 & Phase 24 of blueprint."""
 
 import io
+import logging
 import os
 import uuid
-import logging
-from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
+
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
-from fastapi.middleware.cors import CORSMiddleware
-
 from src.retinaguard.inference.schemas import PredictionResponse
+
 from .service import QualityAssessmentService, get_service
 
 logger = logging.getLogger("retinaguard.api")
@@ -24,11 +24,14 @@ MIN_DIMENSION = 32
 app = FastAPI(
     title="RetinaGuard-QA API",
     description="Uncertainty-aware and device-robust quality control for retinal fundus images.",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # CORS Configuration from environment or defaults
-cors_origins_raw = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000")
+cors_origins_raw = os.environ.get(
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000",
+)
 allowed_origins = [o.strip() for o in cors_origins_raw.split(",") if o.strip()]
 
 app.add_middleware(
@@ -43,12 +46,18 @@ app.add_middleware(
 @app.get("/health")
 def health_check(service: QualityAssessmentService = Depends(get_service)) -> Dict[str, Any]:
     """Liveness check and model loaded state."""
-    model_loaded = bool(service.predictor.ort_session is not None or service.predictor.pt_model is not None)
+    model_loaded = bool(
+        service.predictor.ort_session is not None or service.predictor.pt_model is not None
+    )
     return {
         "status": "healthy" if model_loaded else "degraded",
         "model_loaded": model_loaded,
-        "runtime_engine": "onnxruntime_cpu" if service.predictor.ort_session else ("pytorch_cpu" if service.predictor.pt_model else "none"),
-        "version": "1.0.0"
+        "runtime_engine": (
+            "onnxruntime_cpu"
+            if service.predictor.ort_session
+            else ("pytorch_cpu" if service.predictor.pt_model else "none")
+        ),
+        "version": "1.0.0",
     }
 
 
@@ -64,14 +73,13 @@ def model_info() -> Dict[str, Any]:
         "quality_attributes": ["artifact", "clarity", "field_definition"],
         "triage_decisions": ["accept", "recapture", "manual_review", "unsupported_input"],
         "clinical_disclaimer": "Technical image-quality assessment only; not a diagnosis or clinical recommendation.",
-        "prohibited_use": "Direct diagnostic disease grading or automated treatment dispatch without clinical oversight."
+        "prohibited_use": "Direct diagnostic disease grading or automated treatment dispatch without clinical oversight.",
     }
 
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict_quality(
-    file: UploadFile = File(...),
-    service: QualityAssessmentService = Depends(get_service)
+    file: UploadFile = File(...), service: QualityAssessmentService = Depends(get_service)
 ) -> PredictionResponse:
     """Analyze single uploaded fundus photograph."""
     req_id = str(uuid.uuid4())[:8]
@@ -79,7 +87,9 @@ async def predict_quality(
     # 1. Read buffer with size safeguard
     contents = await file.read()
     if len(contents) > MAX_UPLOAD_SIZE:
-        raise HTTPException(status_code=413, detail="File too large. Maximum permitted size is 15MB.")
+        raise HTTPException(
+            status_code=413, detail="File too large. Maximum permitted size is 15MB."
+        )
 
     # 2. Content decoding and decompression bomb prevention
     try:
@@ -87,15 +97,21 @@ async def predict_quality(
         raw_img = Image.open(io.BytesIO(contents))
         fmt = raw_img.format
         if fmt not in ["JPEG", "PNG", "MPO"]:
-            raise HTTPException(status_code=400, detail=f"Unsupported format: {fmt}. Please provide JPEG or PNG.")
+            raise HTTPException(
+                status_code=400, detail=f"Unsupported format: {fmt}. Please provide JPEG or PNG."
+            )
         raw_img.verify()
 
         pil_img = Image.open(io.BytesIO(contents)).convert("RGB")
         w, h = pil_img.size
         if w < MIN_DIMENSION or h < MIN_DIMENSION:
-            raise HTTPException(status_code=400, detail=f"Image dimensions ({w}x{h}) are too small.")
+            raise HTTPException(
+                status_code=400, detail=f"Image dimensions ({w}x{h}) are too small."
+            )
         if w > MAX_DIMENSION or h > MAX_DIMENSION:
-            raise HTTPException(status_code=400, detail=f"Image dimensions ({w}x{h}) exceed maximum permitted size.")
+            raise HTTPException(
+                status_code=400, detail=f"Image dimensions ({w}x{h}) exceed maximum permitted size."
+            )
 
     except HTTPException:
         raise
@@ -111,5 +127,5 @@ async def predict_quality(
         logger.error(f"[{req_id}] Quality prediction runtime error: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Image quality assurance processing error [Request ID: {req_id}]"
+            detail=f"Image quality assurance processing error [Request ID: {req_id}]",
         )

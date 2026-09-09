@@ -1,8 +1,9 @@
 """Data adapters constructing canonical manifest CSVs per blueprint Section 8."""
 
-from pathlib import Path
 import re
-from typing import Dict, List, Optional, Union
+from pathlib import Path
+from typing import List, Optional, Union
+
 import pandas as pd
 from PIL import Image
 
@@ -23,7 +24,7 @@ MANIFEST_COLUMNS = [
     "clarity",
     "field_definition",
     "source_split",
-    "label_available"
+    "label_available",
 ]
 
 
@@ -37,7 +38,9 @@ def extract_patient_and_eye(filename_or_id: str) -> tuple[Optional[str], Optiona
         eye = "right"
 
     # Match patient ID (digits or prefixed string)
-    match = re.match(r"^([a-zA-Z0-9]+)_(left|right|OD|OS|1|2|macula|optic_disc)", stem, re.IGNORECASE)
+    match = re.match(
+        r"^([a-zA-Z0-9]+)_(left|right|OD|OS|1|2|macula|optic_disc)", stem, re.IGNORECASE
+    )
     if match:
         return match.group(1), eye
 
@@ -49,9 +52,7 @@ def extract_patient_and_eye(filename_or_id: str) -> tuple[Optional[str], Optiona
 
 
 def parse_eyeq_metadata(
-    csv_path: Union[str, Path],
-    images_dir: Union[str, Path],
-    source_split: str = "train"
+    csv_path: Union[str, Path], images_dir: Union[str, Path], source_split: str = "train"
 ) -> pd.DataFrame:
     """Parse EyeQ raw labels CSV into canonical schema."""
     df_raw = pd.read_csv(csv_path)
@@ -82,31 +83,31 @@ def parse_eyeq_metadata(
             except Exception:
                 pass
 
-        rows.append({
-            "dataset": "eyeq",
-            "image_id": Path(img_name).stem,
-            "patient_id": p_id,
-            "eye": eye,
-            "path": rel_path,
-            "width": w,
-            "height": h,
-            "sha256": sha,
-            "quality_raw": raw_label,
-            "quality_canonical": canonical_label,
-            "artifact": None,
-            "clarity": None,
-            "field_definition": None,
-            "source_split": source_split,
-            "label_available": canonical_label is not None
-        })
+        rows.append(
+            {
+                "dataset": "eyeq",
+                "image_id": Path(img_name).stem,
+                "patient_id": p_id,
+                "eye": eye,
+                "path": rel_path,
+                "width": w,
+                "height": h,
+                "sha256": sha,
+                "quality_raw": raw_label,
+                "quality_canonical": canonical_label,
+                "artifact": None,
+                "clarity": None,
+                "field_definition": None,
+                "source_split": source_split,
+                "label_available": canonical_label is not None,
+            }
+        )
 
     return pd.DataFrame(rows, columns=MANIFEST_COLUMNS)
 
 
 def parse_deepdrid_metadata(
-    csv_path: Union[str, Path],
-    images_dir: Union[str, Path],
-    source_split: str = "train"
+    csv_path: Union[str, Path], images_dir: Union[str, Path], source_split: str = "train"
 ) -> pd.DataFrame:
     """Parse DeepDRiD raw fold labels CSV into canonical schema."""
     df_raw = pd.read_csv(csv_path)
@@ -136,23 +137,27 @@ def parse_deepdrid_metadata(
             except Exception:
                 pass
 
-        rows.append({
-            "dataset": "deepdrid",
-            "image_id": Path(img_name).stem,
-            "patient_id": p_id,
-            "eye": eye,
-            "path": rel_path,
-            "width": w,
-            "height": h,
-            "sha256": sha,
-            "quality_raw": overall_q,
-            "quality_canonical": str(overall_q).lower() if overall_q in ["good", "usable", "reject"] else None,
-            "artifact": artifact,
-            "clarity": clarity,
-            "field_definition": field_def,
-            "source_split": source_split,
-            "label_available": overall_q is not None
-        })
+        rows.append(
+            {
+                "dataset": "deepdrid",
+                "image_id": Path(img_name).stem,
+                "patient_id": p_id,
+                "eye": eye,
+                "path": rel_path,
+                "width": w,
+                "height": h,
+                "sha256": sha,
+                "quality_raw": overall_q,
+                "quality_canonical": (
+                    str(overall_q).lower() if overall_q in ["good", "usable", "reject"] else None
+                ),
+                "artifact": artifact,
+                "clarity": clarity,
+                "field_definition": field_def,
+                "source_split": source_split,
+                "label_available": overall_q is not None,
+            }
+        )
 
     return pd.DataFrame(rows, columns=MANIFEST_COLUMNS)
 

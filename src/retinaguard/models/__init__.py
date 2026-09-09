@@ -1,15 +1,15 @@
 from .baselines import (
     ClassicalFeatureExtractor,
     ClassicalQualityModel,
-    SingleTaskQualityModel
+    SingleTaskQualityModel,
 )
-from .multitask import RetinaGuardMultiTaskModel
 from .losses import MaskedMultiTaskLoss
+from .multitask import RetinaGuardMultiTaskModel
 
 __all__ = [
     "ClassicalFeatureExtractor",
     "ClassicalQualityModel",
-    "SingleTaskQualityModel",
+    "MaskedMultiTaskLoss",
     "RetinaGuardMultiTaskModel",
-    "MaskedMultiTaskLoss"
+    "SingleTaskQualityModel",
 ]

@@ -1,9 +1,9 @@
 """API endpoint and safeguard unit tests per Phase 26 of blueprint."""
 
 import io
-from PIL import Image
-import pytest
+
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from api.app.main import app
 
@@ -33,10 +33,7 @@ def test_api_predict_valid_jpeg():
     img.save(buf, format="JPEG")
     buf.seek(0)
 
-    res = client.post(
-        "/predict",
-        files={"file": ("fundus_test.jpg", buf, "image/jpeg")}
-    )
+    res = client.post("/predict", files={"file": ("fundus_test.jpg", buf, "image/jpeg")})
     assert res.status_code == 200
     data = res.json()
     assert "quality" in data
@@ -50,11 +47,10 @@ def test_api_predict_valid_jpeg():
 def test_api_predict_corrupt_file():
     corrupt_bytes = b"NOT_A_VALID_IMAGE_HEADER_DATA"
     res = client.post(
-        "/predict",
-        files={"file": ("bad_image.jpg", io.BytesIO(corrupt_bytes), "image/jpeg")}
+        "/predict", files={"file": ("bad_image.jpg", io.BytesIO(corrupt_bytes), "image/jpeg")}
     )
     assert res.status_code == 400
-    assert "Invalid or corrupted" in res.json()["detail"]
+    assert "Invalid or unreadable" in res.json()["detail"]
 
 
 def test_api_predict_grayscale_ood():
@@ -63,10 +59,7 @@ def test_api_predict_grayscale_ood():
     img.save(buf, format="PNG")
     buf.seek(0)
 
-    res = client.post(
-        "/predict",
-        files={"file": ("grayscale_xray.png", buf, "image/png")}
-    )
+    res = client.post("/predict", files={"file": ("grayscale_xray.png", buf, "image/png")})
     assert res.status_code == 200
     data = res.json()
     assert data["decision"] in ["unsupported_input", "manual_review"]

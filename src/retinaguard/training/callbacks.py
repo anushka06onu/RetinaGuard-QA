@@ -2,12 +2,14 @@
 
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional, Union
+from typing import Any, Dict, Optional, Union
+
 import torch
 
 
 class EarlyStopping:
     """Early stopping monitor based on validation metric."""
+
     def __init__(self, patience: int = 7, mode: str = "max", delta: float = 1e-4):
         self.patience = patience
         self.mode = mode
@@ -35,7 +37,10 @@ class EarlyStopping:
 
 class ModelCheckpointSaver:
     """Saves best model weights and history to artifacts/models/."""
-    def __init__(self, save_dir: Union[str, Path] = "artifacts/models", filename: str = "best.ckpt"):
+
+    def __init__(
+        self, save_dir: Union[str, Path] = "artifacts/models", filename: str = "best.ckpt"
+    ):
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
         self.filepath = self.save_dir / filename
@@ -47,10 +52,16 @@ class ModelCheckpointSaver:
 
 class MetricHistoryLogger:
     """Logs training & validation loss and metric histories to CSV / JSON."""
+
     def __init__(self, output_path: Union[str, Path] = "artifacts/metrics/train_history.json"):
         self.output_path = Path(output_path)
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
-        self.history: Dict[str, list] = {"epoch": [], "train_loss": [], "val_loss": [], "val_macro_f1": []}
+        self.history: Dict[str, list] = {
+            "epoch": [],
+            "train_loss": [],
+            "val_loss": [],
+            "val_macro_f1": [],
+        }
 
     def log(self, epoch: int, train_loss: float, val_loss: float, val_macro_f1: float):
         self.history["epoch"].append(epoch)

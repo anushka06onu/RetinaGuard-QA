@@ -7,8 +7,8 @@
 ## Partition Counts
 | Split | Total Images | Unique Patients |
 |---|---|---|
-| train | 68 | 34 |
-| val | 16 | 8 |
+| train | 70 | 35 |
+| val | 14 | 7 |
 | test | 16 | 8 |
 
 ## Patient Leakage Details

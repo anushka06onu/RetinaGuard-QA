@@ -1,13 +1,18 @@
 """Training runner script supporting config-driven execution and smoke tests."""
 
 import argparse
-from pathlib import Path
+
 from src.retinaguard.training.train import run_training_experiment
 
 
 def main():
     parser = argparse.ArgumentParser(description="Train RetinaGuard models.")
-    parser.add_argument("--config", type=str, default="configs/train_multitask.yaml", help="Path to YAML training config")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="configs/train_multitask.yaml",
+        help="Path to YAML training config",
+    )
     parser.add_argument("--smoke-test", action="store_true", help="Run rapid smoke test for CI/CD")
     args = parser.parse_args()
 

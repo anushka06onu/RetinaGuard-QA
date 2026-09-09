@@ -1,22 +1,26 @@
 """Training orchestration runner matching Phase 9 of blueprint."""
 
 from pathlib import Path
-from typing import Dict, Any, Optional, Union
-import yaml
+from typing import Any, Dict, Union
+
 import torch
+import yaml
 from torch.utils.data import DataLoader
 
-from src.retinaguard.utils.reproducibility import seed_everything, get_device
 from src.retinaguard.data.datasets import RetinalQualityDataset
-from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
 from src.retinaguard.models.losses import MaskedMultiTaskLoss
-from src.retinaguard.training.engine import train_one_epoch, evaluate_epoch
-from src.retinaguard.training.callbacks import EarlyStopping, ModelCheckpointSaver, MetricHistoryLogger
+from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
+from src.retinaguard.training.callbacks import (
+    EarlyStopping,
+    MetricHistoryLogger,
+    ModelCheckpointSaver,
+)
+from src.retinaguard.training.engine import evaluate_epoch, train_one_epoch
+from src.retinaguard.utils.reproducibility import get_device, seed_everything
 
 
 def run_training_experiment(
-    config_path: Union[str, Path] = "configs/train_multitask.yaml",
-    smoke_test: bool = False
+    config_path: Union[str, Path] = "configs/train_multitask.yaml", smoke_test: bool = False
 ) -> Dict[str, Any]:
     """Execute complete training experiment defined by YAML config."""
     with open(config_path, "r", encoding="utf-8") as f:
@@ -33,22 +37,26 @@ def run_training_experiment(
     if not train_split_p.exists():
         # Build synthetic DataFrame for smoke test / CI run
         import pandas as pd
+
         rows = []
         for i in range(60):
-            rows.append({
-                "dataset": "eyeq",
-                "image_id": f"syn_{i}",
-                "patient_id": f"p_{i//2}",
-                "path": f"data/raw/eyeq/images/syn_{i}.jpg",
-                "quality_canonical": ["good", "usable", "reject"][i % 3],
-                "artifact": i % 3,
-                "clarity": i % 3,
-                "field_definition": i % 3
-            })
+            rows.append(
+                {
+                    "dataset": "eyeq",
+                    "image_id": f"syn_{i}",
+                    "patient_id": f"p_{i//2}",
+                    "path": f"data/raw/eyeq/images/syn_{i}.jpg",
+                    "quality_canonical": ["good", "usable", "reject"][i % 3],
+                    "artifact": i % 3,
+                    "clarity": i % 3,
+                    "field_definition": i % 3,
+                }
+            )
         df_all = pd.DataFrame(rows)
         train_df, val_df = df_all.iloc[:40], df_all.iloc[40:]
     else:
         import pandas as pd
+
         train_df = pd.read_csv(train_split_p)
         val_df = pd.read_csv(val_split_p)
 
@@ -65,14 +73,14 @@ def run_training_experiment(
     # Initialize Multi-Task Model & Loss
     model = RetinaGuardMultiTaskModel(
         backbone_name=cfg.get("model", {}).get("backbone", "mobilenetv3_large_100"),
-        pretrained=False
+        pretrained=False,
     ).to(device)
 
     criterion = MaskedMultiTaskLoss()
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=cfg.get("training", {}).get("learning_rate", 3e-4),
-        weight_decay=cfg.get("training", {}).get("weight_decay", 1e-4)
+        weight_decay=cfg.get("training", {}).get("weight_decay", 1e-4),
     )
 
     early_stopping = EarlyStopping(
@@ -88,7 +96,9 @@ def run_training_experiment(
         val_loss, val_f1, _, _ = evaluate_epoch(model, val_loader, criterion, device)
 
         history_logger.log(epoch, train_loss, val_loss, val_f1)
-        print(f"Epoch {epoch:02d}/{epochs:02d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Macro-F1: {val_f1:.4f}")
+        print(
+            f"Epoch {epoch:02d}/{epochs:02d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Macro-F1: {val_f1:.4f}"
+        )
 
         is_best = early_stopping(val_f1)
         if is_best:
@@ -102,5 +112,5 @@ def run_training_experiment(
     return {
         "best_val_macro_f1": best_val_f1,
         "epochs_trained": epoch,
-        "checkpoint_path": str(checkpoint_saver.filepath)
+        "checkpoint_path": str(checkpoint_saver.filepath),
     }

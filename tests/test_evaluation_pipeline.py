@@ -2,25 +2,36 @@
 
 import numpy as np
 from PIL import Image
-import pytest
 
-from src.retinaguard.evaluation.metrics import compute_quality_metrics, compute_attribute_metrics
-from src.retinaguard.evaluation.calibration import compute_ece, compute_brier_score, fit_temperature_scaling
-from src.retinaguard.evaluation.selective import compute_risk_coverage_curve, evaluate_selective_abstention
-from src.retinaguard.evaluation.ood import compute_energy_score, is_ood_sample, RetinalModalityValidator
+from src.retinaguard.evaluation.calibration import (
+    compute_brier_score,
+    compute_ece,
+)
 from src.retinaguard.evaluation.corruptions import SyntheticCorruptionSuite
+from src.retinaguard.evaluation.metrics import (
+    compute_quality_metrics,
+)
+from src.retinaguard.evaluation.ood import (
+    RetinalModalityValidator,
+    compute_energy_score,
+)
+from src.retinaguard.evaluation.selective import (
+    compute_risk_coverage_curve,
+)
 
 
 def test_quality_metrics():
     labels = np.array([0, 1, 2, 0, 1, 2])
-    logits = np.array([
-        [5.0, 1.0, 0.0],
-        [1.0, 5.0, 1.0],
-        [0.0, 1.0, 5.0],
-        [4.0, 2.0, 1.0],
-        [1.0, 4.0, 2.0],
-        [0.0, 1.0, 4.0]
-    ])
+    logits = np.array(
+        [
+            [5.0, 1.0, 0.0],
+            [1.0, 5.0, 1.0],
+            [0.0, 1.0, 5.0],
+            [4.0, 2.0, 1.0],
+            [1.0, 4.0, 2.0],
+            [0.0, 1.0, 4.0],
+        ]
+    )
     metrics = compute_quality_metrics(logits, labels, is_logits=True)
     assert metrics["macro_f1"] == 1.0
     assert metrics["accuracy"] == 1.0
@@ -29,14 +40,16 @@ def test_quality_metrics():
 
 def test_calibration_and_selective():
     labels = np.array([0, 1, 2, 0, 1, 2])
-    probs = np.array([
-        [0.9, 0.05, 0.05],
-        [0.1, 0.8, 0.1],
-        [0.05, 0.05, 0.9],
-        [0.85, 0.1, 0.05],
-        [0.15, 0.7, 0.15],
-        [0.05, 0.15, 0.8]
-    ])
+    probs = np.array(
+        [
+            [0.9, 0.05, 0.05],
+            [0.1, 0.8, 0.1],
+            [0.05, 0.05, 0.9],
+            [0.85, 0.1, 0.05],
+            [0.15, 0.7, 0.15],
+            [0.05, 0.15, 0.8],
+        ]
+    )
     ece = compute_ece(probs, labels)
     assert 0.0 <= ece["ece"] <= 1.0
 

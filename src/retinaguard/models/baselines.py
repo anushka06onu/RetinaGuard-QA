@@ -1,14 +1,15 @@
 """Baseline models per Phase 7 of blueprint."""
 
-from typing import List, Union, Tuple
+from typing import List, Union
+
 import numpy as np
+import timm
+import torch
 from PIL import Image
 from scipy.ndimage import laplace, sobel
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-import torch
-import torch.nn as nn
-import timm
+from torch import nn
 
 
 class ClassicalFeatureExtractor:
@@ -42,7 +43,7 @@ class ClassicalFeatureExtractor:
 
         gx = sobel(gray, axis=0)
         gy = sobel(gray, axis=1)
-        tenengrad = float(np.mean(gx ** 2 + gy ** 2))
+        tenengrad = float(np.mean(gx**2 + gy**2))
 
         hist, _ = np.histogram(gray, bins=256, range=(0, 256), density=True)
         hist = hist[hist > 0]
@@ -61,18 +62,29 @@ class ClassicalFeatureExtractor:
 
         h, w = gray.shape
         quads = [
-            gray[:h//2, :w//2].mean(),
-            gray[:h//2, w//2:].mean(),
-            gray[h//2:, :w//2].mean(),
-            gray[h//2:, w//2:].mean()
+            gray[: h // 2, : w // 2].mean(),
+            gray[: h // 2, w // 2 :].mean(),
+            gray[h // 2 :, : w // 2].mean(),
+            gray[h // 2 :, w // 2 :].mean(),
         ]
         uniformity = float(np.std(quads))
         mask_ratio = float(np.sum(gray > 20.0) / tot)
 
-        return np.array([
-            lap_var, tenengrad, entropy, rms_contrast, mean_lum,
-            under, over, rg_ratio, uniformity, mask_ratio
-        ], dtype=np.float32)
+        return np.array(
+            [
+                lap_var,
+                tenengrad,
+                entropy,
+                rms_contrast,
+                mean_lum,
+                under,
+                over,
+                rg_ratio,
+                uniformity,
+                mask_ratio,
+            ],
+            dtype=np.float32,
+        )
 
 
 class ClassicalQualityModel:
@@ -107,13 +119,17 @@ class SingleTaskQualityModel(nn.Module):
         backbone_name: str = "mobilenetv3_small_100",
         pretrained: bool = True,
         num_classes: int = 3,
-        dropout: float = 0.2
+        dropout: float = 0.2,
     ):
         super().__init__()
         try:
-            self.backbone = timm.create_model(backbone_name, pretrained=pretrained, num_classes=0, drop_rate=dropout)
+            self.backbone = timm.create_model(
+                backbone_name, pretrained=pretrained, num_classes=0, drop_rate=dropout
+            )
         except Exception:
-            self.backbone = timm.create_model(backbone_name, pretrained=False, num_classes=0, drop_rate=dropout)
+            self.backbone = timm.create_model(
+                backbone_name, pretrained=False, num_classes=0, drop_rate=dropout
+            )
 
         # Dynamic feature dim check
         with torch.no_grad():
@@ -124,7 +140,7 @@ class SingleTaskQualityModel(nn.Module):
             nn.Linear(in_features, 256),
             nn.SiLU(),
             nn.Dropout(p=dropout),
-            nn.Linear(256, num_classes)
+            nn.Linear(256, num_classes),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

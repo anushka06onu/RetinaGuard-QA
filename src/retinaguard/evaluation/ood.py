@@ -1,15 +1,15 @@
 """Out-of-Distribution detection, Energy Scoring, and Modality Validation per Phase 13."""
 
-from typing import Dict, Union, Tuple, List, Any
+from typing import Any, Dict, List, Union
+
 import numpy as np
+import torch
 from PIL import Image
 from scipy.special import logsumexp
-import torch
 
 
 def compute_energy_score(
-    logits: Union[np.ndarray, torch.Tensor],
-    temperature: float = 1.0
+    logits: Union[np.ndarray, torch.Tensor], temperature: float = 1.0
 ) -> Union[np.ndarray, torch.Tensor]:
     """Compute Energy Score S_energy(x) = T * LogSumExp(f(x) / T)."""
     if isinstance(logits, torch.Tensor):
@@ -19,9 +19,7 @@ def compute_energy_score(
 
 
 def is_ood_sample(
-    logits: Union[np.ndarray, torch.Tensor],
-    threshold: float = 1.0,
-    temperature: float = 1.0
+    logits: Union[np.ndarray, torch.Tensor], threshold: float = 1.0, temperature: float = 1.0
 ) -> Union[np.ndarray, torch.Tensor]:
     """Classify as OOD if energy score is below threshold."""
     energy = compute_energy_score(logits, temperature=temperature)
@@ -30,6 +28,7 @@ def is_ood_sample(
 
 class MahalanobisOOD:
     """Class-conditional Gaussian Mahalanobis distance in latent feature space."""
+
     def __init__(self, num_classes: int = 3, feature_dim: int = 128):
         self.num_classes = num_classes
         self.feature_dim = feature_dim
@@ -97,10 +96,18 @@ class RetinalModalityValidator:
         rb_ratio = mean_r / max(1.0, mean_b)
 
         if is_grayscale:
-            return {"is_fundus": False, "confidence": 0.15, "reason": "Monochromatic non-fundus image (X-Ray/Microscopy)"}
+            return {
+                "is_fundus": False,
+                "confidence": 0.15,
+                "reason": "Monochromatic non-fundus image (X-Ray/Microscopy)",
+            }
 
         if rb_ratio < 1.05 and mean_b > mean_r:
             return {"is_fundus": False, "confidence": 0.25, "reason": "Inverted chromatic profile"}
 
         conf = min(1.0, 0.5 + 0.5 * (rb_ratio / 2.0))
-        return {"is_fundus": True, "confidence": round(float(conf), 3), "reason": "Passed retinal modality validation"}
+        return {
+            "is_fundus": True,
+            "confidence": round(float(conf), 3),
+            "reason": "Passed retinal modality validation",
+        }

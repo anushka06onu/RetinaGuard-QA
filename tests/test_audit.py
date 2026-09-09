@@ -1,18 +1,14 @@
 """Unit tests for cryptographic/perceptual hashing and patient leakage audit."""
 
-from pathlib import Path
 import numpy as np
 from PIL import Image
-import pytest
 
-from src.retinaguard.data.audit import (
-    compute_file_hash,
-    find_duplicate_images,
-    compute_perceptual_hash,
-    inspect_image_file,
-    verify_patient_split_isolation
-)
 from src.retinaguard.data.adapters import extract_patient_and_eye
+from src.retinaguard.data.audit import (
+    find_duplicate_images,
+    inspect_image_file,
+    verify_patient_split_isolation,
+)
 
 
 def test_extract_patient_id():
@@ -31,7 +27,7 @@ def test_verify_patient_split_isolation():
     clean_splits = {
         "train": ["10_left.jpg", "10_right.jpg", "11_left.jpg"],
         "val": ["12_left.jpg", "12_right.jpg"],
-        "test": ["13_left.jpg"]
+        "test": ["13_left.jpg"],
     }
     report = verify_patient_split_isolation(clean_splits)
     assert report["isolation_passed"] is True
@@ -41,7 +37,7 @@ def test_verify_patient_split_isolation():
     leaked_splits = {
         "train": ["10_left.jpg", "11_left.jpg"],
         "val": ["10_right.jpg", "12_left.jpg"],
-        "test": ["13_left.jpg"]
+        "test": ["13_left.jpg"],
     }
     report_leaked = verify_patient_split_isolation(leaked_splits)
     assert report_leaked["isolation_passed"] is False

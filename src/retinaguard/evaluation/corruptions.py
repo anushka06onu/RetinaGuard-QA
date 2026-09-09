@@ -1,7 +1,8 @@
 """Controlled synthetic corruption benchmark suite (10 types x 5 severities) per Phase 14."""
 
 import io
-from typing import Dict, List, Callable, Union
+from typing import Callable, Dict, List
+
 import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter
 from scipy.signal import convolve2d
@@ -23,7 +24,6 @@ def apply_motion_blur(image: Image.Image, severity: int = 1) -> Image.Image:
     kernel_sizes = [5, 9, 15, 21, 31]
     k_size = kernel_sizes[min(max(severity - 1, 0), 4)]
     kernel = np.zeros((k_size, k_size), dtype=np.float32)
-    center = k_size // 2
     for i in range(k_size):
         kernel[i, i] = 1.0
     kernel /= max(1.0, kernel.sum())
@@ -85,7 +85,7 @@ def apply_uneven_illumination(image: Image.Image, severity: int = 1) -> Image.Im
     h, w, _ = arr.shape
     y = np.linspace(-1, 1, h)[:, None]
     x = np.linspace(-1, 1, w)[None, :]
-    dist = np.sqrt(x ** 2 + y ** 2)
+    dist = np.sqrt(x**2 + y**2)
     gradient = np.clip(1.0 - s * (dist / np.max(dist)), 0.1, 1.0)[:, :, None]
     return Image.fromarray(np.clip(arr * gradient, 0, 255).astype(np.uint8))
 
@@ -101,7 +101,7 @@ class SyntheticCorruptionSuite:
         "gamma_shift": apply_gamma_shift,
         "jpeg_compression": apply_jpeg_compression,
         "sensor_noise": apply_sensor_noise,
-        "uneven_illumination": apply_uneven_illumination
+        "uneven_illumination": apply_uneven_illumination,
     }
 
     @classmethod

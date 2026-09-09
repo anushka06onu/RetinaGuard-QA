@@ -1,10 +1,11 @@
 """Multi-task neural network architecture per Phase 8 of blueprint."""
 
-from typing import Dict, Tuple, Optional
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from typing import Dict
+
 import timm
+import torch
+import torch.nn.functional as F
+from torch import nn
 
 
 class RetinaGuardMultiTaskModel(nn.Module):
@@ -22,16 +23,20 @@ class RetinaGuardMultiTaskModel(nn.Module):
         backbone_name: str = "mobilenetv3_large_100",
         pretrained: bool = True,
         dropout: float = 0.2,
-        latent_dim: int = 128
+        latent_dim: int = 128,
     ):
         super().__init__()
         self.backbone_name = backbone_name
         self.latent_dim = latent_dim
 
         try:
-            self.backbone = timm.create_model(backbone_name, pretrained=pretrained, num_classes=0, drop_rate=dropout)
+            self.backbone = timm.create_model(
+                backbone_name, pretrained=pretrained, num_classes=0, drop_rate=dropout
+            )
         except Exception:
-            self.backbone = timm.create_model(backbone_name, pretrained=False, num_classes=0, drop_rate=dropout)
+            self.backbone = timm.create_model(
+                backbone_name, pretrained=False, num_classes=0, drop_rate=dropout
+            )
 
         with torch.no_grad():
             dummy = torch.randn(1, 3, 224, 224)
@@ -39,10 +44,7 @@ class RetinaGuardMultiTaskModel(nn.Module):
 
         # Common neck
         self.neck = nn.Sequential(
-            nn.Linear(in_features, 512),
-            nn.BatchNorm1d(512),
-            nn.SiLU(),
-            nn.Dropout(p=dropout)
+            nn.Linear(in_features, 512), nn.BatchNorm1d(512), nn.SiLU(), nn.Dropout(p=dropout)
         )
 
         # 1. EyeQ Quality Head (Good, Usable, Reject)
@@ -57,10 +59,7 @@ class RetinaGuardMultiTaskModel(nn.Module):
         self.field_def_head = nn.Linear(512, 3)
 
         # 4. Latent Projection for OOD
-        self.projection_head = nn.Sequential(
-            nn.Linear(512, latent_dim),
-            nn.BatchNorm1d(latent_dim)
-        )
+        self.projection_head = nn.Sequential(nn.Linear(512, latent_dim), nn.BatchNorm1d(latent_dim))
 
         # Post-hoc temperature calibration parameter
         self.temperature = nn.Parameter(torch.ones(1) * 1.0, requires_grad=False)
@@ -87,7 +86,7 @@ class RetinaGuardMultiTaskModel(nn.Module):
             "clarity_logits": cla_logits,
             "field_definition_logits": fld_logits,
             "latent_features": latent,
-            "features": neck_out
+            "features": neck_out,
         }
 
     def set_temperature(self, temp: float):

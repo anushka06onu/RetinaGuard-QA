@@ -1,14 +1,13 @@
 """Training and validation epoch execution loops."""
 
-from typing import Dict, Any, Tuple
+from typing import Any, Optional, Tuple
+
 import numpy as np
 import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader
 from sklearn.metrics import f1_score
+from torch import nn
+from torch.utils.data import DataLoader
 
-
-from typing import Dict, Any, Tuple, Optional
 
 def train_one_epoch(
     model: nn.Module,
@@ -16,7 +15,7 @@ def train_one_epoch(
     optimizer: torch.optim.Optimizer,
     criterion: nn.Module,
     device: torch.device,
-    scaler: Optional[Any] = None
+    scaler: Optional[Any] = None,
 ) -> float:
     """Run one training epoch over dataloader."""
     model.train()
@@ -28,7 +27,9 @@ def train_one_epoch(
         images = batch["image"].to(device)
 
         # Move targets to device
-        batch_dev = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
+        batch_dev = {
+            k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()
+        }
 
         out = model(images)
         if isinstance(out, dict):
@@ -45,10 +46,7 @@ def train_one_epoch(
 
 
 def evaluate_epoch(
-    model: nn.Module,
-    dataloader: DataLoader,
-    criterion: nn.Module,
-    device: torch.device
+    model: nn.Module, dataloader: DataLoader, criterion: nn.Module, device: torch.device
 ) -> Tuple[float, float, np.ndarray, np.ndarray]:
     """Run validation evaluation returning average loss, Macro-F1, all logits, and labels."""
     model.eval()
@@ -60,7 +58,9 @@ def evaluate_epoch(
     with torch.no_grad():
         for batch in dataloader:
             images = batch["image"].to(device)
-            batch_dev = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
+            batch_dev = {
+                k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()
+            }
 
             out = model(images)
             if isinstance(out, dict):

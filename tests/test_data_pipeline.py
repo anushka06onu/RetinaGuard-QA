@@ -1,17 +1,15 @@
 """Unit tests for Data Pipeline (manifests, leakage check, transforms, datasets)."""
 
-from pathlib import Path
 import numpy as np
 import pandas as pd
-from PIL import Image
-import torch
 import pytest
+from PIL import Image
 
 from src.retinaguard.data.adapters import extract_patient_and_eye
-from src.retinaguard.data.splits import create_patient_grouped_splits
 from src.retinaguard.data.audit import run_leakage_and_duplicate_audit
-from src.retinaguard.data.preprocessing import crop_retinal_fov, preprocess_image_canonical
 from src.retinaguard.data.datasets import RetinalQualityDataset
+from src.retinaguard.data.preprocessing import crop_retinal_fov
+from src.retinaguard.data.splits import create_patient_grouped_splits
 
 
 def test_patient_and_eye_extraction():
@@ -25,13 +23,15 @@ def test_patient_and_eye_extraction():
 def test_patient_grouped_splitting():
     rows = []
     for i in range(100):
-        rows.append({
-            "image_id": f"img_{i}",
-            "patient_id": f"patient_{i // 2}",
-            "path": f"data/raw/eyeq/images/img_{i}.jpg",
-            "quality_canonical": ["good", "usable", "reject"][i % 3],
-            "sha256": f"sha_{i}"
-        })
+        rows.append(
+            {
+                "image_id": f"img_{i}",
+                "patient_id": f"patient_{i // 2}",
+                "path": f"data/raw/eyeq/images/img_{i}.jpg",
+                "quality_canonical": ["good", "usable", "reject"][i % 3],
+                "sha256": f"sha_{i}",
+            }
+        )
     df = pd.DataFrame(rows)
 
     splits = create_patient_grouped_splits(df, val_ratio=0.15, test_ratio=0.15, seed=2026)
@@ -56,15 +56,19 @@ def test_dataset_loader(tmp_path):
     img_file = tmp_path / "valid_fundus.png"
     Image.new("RGB", (100, 100), color=(180, 80, 30)).save(img_file)
 
-    df = pd.DataFrame([{
-        "image_id": "test_1",
-        "patient_id": "P001",
-        "path": str(img_file),
-        "quality_canonical": "good",
-        "artifact": 0,
-        "clarity": 1,
-        "field_definition": 0
-    }])
+    df = pd.DataFrame(
+        [
+            {
+                "image_id": "test_1",
+                "patient_id": "P001",
+                "path": str(img_file),
+                "quality_canonical": "good",
+                "artifact": 0,
+                "clarity": 1,
+                "field_definition": 0,
+            }
+        ]
+    )
     ds = RetinalQualityDataset(df, image_size=384)
     item = ds[0]
     assert item["image"].shape == (3, 384, 384)
@@ -72,12 +76,16 @@ def test_dataset_loader(tmp_path):
     assert item["quality_mask"].item() == 1.0
 
     # 2. Verify FileNotFoundError when missing image is encountered without fallback
-    df_missing = pd.DataFrame([{
-        "image_id": "missing_1",
-        "patient_id": "P002",
-        "path": str(tmp_path / "nonexistent.jpg"),
-        "quality_canonical": "usable"
-    }])
+    df_missing = pd.DataFrame(
+        [
+            {
+                "image_id": "missing_1",
+                "patient_id": "P002",
+                "path": str(tmp_path / "nonexistent.jpg"),
+                "quality_canonical": "usable",
+            }
+        ]
+    )
     ds_strict = RetinalQualityDataset(df_missing, allow_synthetic_fallback=False)
     with pytest.raises(FileNotFoundError):
         _ = ds_strict[0]
