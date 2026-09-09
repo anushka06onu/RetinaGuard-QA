@@ -1,0 +1,46 @@
+# DeepDRiD Dataset Label Specifications & Ordinal Mappings
+# Source: DeepDRiD Challenge (Evaluation of Diabetic Retinopathy Image Dataset)
+# https://github.com/deepdrdoc/DeepDRiD
+
+dataset: "DeepDRiD"
+description: "Regular fundus image quality, artifact, clarity, and field definition attributes"
+
+# 1. Overall Quality
+overall_quality:
+  description: "Global acquisition grade for clinical reading"
+  scale_type: "categorical"
+  raw_labels:
+    0: "Good"
+    1: "Usable"
+    2: "Reject"
+  canonical_mapping:
+    0: "good"
+    1: "usable"
+    2: "reject"
+
+# 2. Artifacts
+artifact:
+  description: "Presence of optical dust, reflection, eyelashes, or camera smudge"
+  scale_type: "ordinal"
+  levels:
+    0: "None / Negligible"
+    1: "Mild (peripheral, non-foveal)"
+    2: "Severe (central field obstructed)"
+
+# 3. Clarity
+clarity:
+  description: "Optical sharpness and vascular edge contrast"
+  scale_type: "ordinal"
+  levels:
+    0: "High clarity (fine vascular branches visible)"
+    1: "Moderate clarity (main arcades visible, minor blur)"
+    2: "Low clarity (severe defocus, optic disc obscured)"
+
+# 4. Field Definition
+field_definition:
+  description: "Completeness of retinal field coverage (macula + optic disc centration)"
+  scale_type: "ordinal"
+  levels:
+    0: "Adequate (Standard 45/50 degree FOV complete)"
+    1: "Incomplete (minor margin clipping)"
+    2: "Poor (major anatomical landmark missing)"
