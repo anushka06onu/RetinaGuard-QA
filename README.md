@@ -5,7 +5,14 @@
 [![CI](https://github.com/anushka06onu/RetinaGuard-QA/actions/workflows/ci.yml/badge.svg)](https://github.com/anushka06onu/RetinaGuard-QA/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](LICENSE)
 [![Python: 3.10 | 3.11](https://img.shields.io/badge/Python-3.10%20%7C%203.11-blue.svg)](#)
-[![Runtime: ONNX CPU](https://img.shields.io/badge/Runtime-ONNX%20CPU%20%3C30ms-emerald.svg)](#)
+[![Runtime: ONNX CPU](https://img.shields.io/badge/Runtime-ONNX%20CPU-slate.svg)](#)
+
+---
+
+## Project Status
+
+> [!IMPORTANT]
+> **Engineering Pipeline Verification Stage:** The engineering pipeline and software architecture are under active research and development. The repository currently includes testing fixtures and rigorous test suites for validating data ingestion, model heads, temperature calibration, OOD detection, inference, and the web interface. Real empirical results on the EyeQ and DeepDRiD datasets will be reported only after executing the frozen experimental protocol on legally acquired data. No fixture-derived result is presented as empirical research evidence.
 
 ---
 
@@ -17,26 +24,26 @@ An algorithm should **never analyze an image that is inadequate or outside its k
 
 $$\text{Retinal Image} \longrightarrow \text{Modality Gate} \longrightarrow \text{Multi-Task Quality Model} \longrightarrow \text{Uncertainty \& OOD Check} \longrightarrow \text{Triage Action}$$
 
-It returns one of three clear clinical actions:
-1. **Accept**: Image satisfies diagnostic quality standards.
-2. **Recapture**: Severe optical/acquisition defect detected; operator guidance provided.
-3. **Manual review**: High epistemic uncertainty near decision boundary.
+It returns one of three clear operational actions:
+1. **Accept**: The model classified this image as technically acceptable under its experimental quality-assessment protocol. Clinical suitability still requires qualified review.
+2. **Recapture**: Acquisition artifact or clarity degradation detected; capture guidance provided.
+3. **Manual review**: High epistemic uncertainty near decision boundary or unfamiliar optical distribution.
 
 > **CLINICAL BOUNDARY NOTICE:** RetinaGuard-QA assesses physical and optical acquisition quality only. It does **not** diagnose disease, predict DR grade, or replace clinical evaluation by a certified eye-care professional.
 
 ---
 
-## 2. Benchmark Results
+## 2. Planned Empirical Benchmark Protocol
 
-All metrics are evaluated across seeded runs with 95% bootstrap confidence intervals:
+Once training on the full authorized datasets completes, results will be populated across 3 independent seeds with 95% patient-clustered bootstrap confidence intervals:
 
 | Model | Test Source | Macro-F1 | Balanced Acc | QWK | ECE ($\downarrow$) | Parameters | CPU p95 Latency |
 |---|---|---:|---:|---:|---:|---:|---:|
-| Classical Features (Random Forest) | EyeQ Internal | 0.7180 | 0.7040 | 0.6510 | 0.1820 | — | 12.4 ms |
-| MobileNetV3-Small (Single-Task) | EyeQ Internal | 0.8410 | 0.8320 | 0.8050 | 0.0520 | 2.54M | 24.1 ms |
-| EfficientNet-B0 (Single-Task) | EyeQ Internal | 0.8520 | 0.8440 | 0.8190 | 0.0480 | 5.29M | 38.2 ms |
-| **RetinaGuard-QA (Multi-Task)** | **EyeQ Internal** | **0.8940** | **0.8870** | **0.8620** | **0.0380** | **4.21M** | **28.6 ms** |
-| **RetinaGuard-QA (Multi-Task)** | **DeepDRiD External** | **0.8120** | **0.8060** | **0.7780** | **0.0610** | **4.21M** | **28.6 ms** |
+| Classical Features (Random Forest) | EyeQ Internal | TBD | TBD | TBD | TBD | — | TBD |
+| MobileNetV3-Small (Single-Task) | EyeQ Internal | TBD | TBD | TBD | TBD | TBD | TBD |
+| EfficientNet-B0 (Single-Task) | EyeQ Internal | TBD | TBD | TBD | TBD | TBD | TBD |
+| **RetinaGuard-QA (Multi-Task)** | **EyeQ Internal** | **TBD** | **TBD** | **TBD** | **TBD** | **TBD** | **TBD** |
+| **RetinaGuard-QA (Multi-Task)** | **DeepDRiD External** | **TBD** | **TBD** | **TBD** | **TBD** | **TBD** | **TBD** |
 
 ---
 
@@ -52,7 +59,7 @@ retinaguard-qa/
 ├── web/                 # React, TypeScript, and Tailwind CSS operator web interface
 ├── artifacts/           # Versioned ONNX models, JSON metrics, and markdown reports
 ├── docs/                # Data card, model card, methodology, limitations, and ethics
-└── tests/               # Unit, data leakage, and integration test suite
+└── tests/               # Unit, data leakage, scientific rigor, and integration test suite
 ```
 
 ### Complete Reproduction Commands
@@ -90,7 +97,17 @@ make web
 
 ---
 
-## 4. Citation & License
+## 4. Documentation & Cards
+
+- [Data Card](docs/data-card.md) - Dataset provenance, licensing, patient groupings, and audit protocols.
+- [Model Card](docs/model-card.md) - Model architecture, training objective, intended use, and limitations.
+- [Methodology](docs/methodology.md) - Mathematical formulations for calibration, selective prediction, and masked losses.
+- [Limitations & Failure Modes](docs/limitations.md) - Detailed failure analysis and known edge cases.
+- [Ethics & Intended Use](docs/ethics-and-intended-use.md) - Clinical boundaries, privacy protections, and safety gates.
+
+---
+
+## 5. Citation & License
 
 ```bibtex
 @software{retinaguard_qa_2026,
