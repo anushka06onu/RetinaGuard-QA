@@ -21,12 +21,10 @@ def main():
     out_p.parent.mkdir(parents=True, exist_ok=True)
 
     model_p = Path(args.model)
-    if not model_p.exists():
-        # Export dummy ONNX first if not yet created
-        from scripts.export_onnx import main as export_fn
-        export_fn()
+    if not model_p.is_file():
+        raise FileNotFoundError(f"ONNX model file not found: {args.model}. Run scripts/export_onnx.py first with a valid trained checkpoint.")
 
-    print(f"=== Running CPU Latency Benchmark ({args.iterations} Iterations) ===")
+    print(f"=== Running CPU Latency Benchmark on {model_p} ({args.iterations} Iterations) ===")
     opts = ort.SessionOptions()
     opts.intra_op_num_threads = 4
     session = ort.InferenceSession(str(model_p), sess_options=opts, providers=["CPUExecutionProvider"])
@@ -43,16 +41,23 @@ def main():
         t0 = time.perf_counter()
         session.run(None, {inp_name: dummy_input})
         t1 = time.perf_counter()
-        timings.append((t1 - t0) * 1000.0) # ms
+        timings.append((t1 - t0) * 1000.0)  # ms
 
     timings = np.array(timings)
     median_lat = float(np.median(timings))
     p95_lat = float(np.percentile(timings, 95))
     p99_lat = float(np.percentile(timings, 99))
     fps = float(1000.0 / np.mean(timings))
-    model_size_mb = float(model_p.stat().st_size / (1024 * 1024))
+
+    # Compute combined size including external weights file if present
+    total_size = model_p.stat().st_size
+    data_p = Path(str(model_p) + ".data")
+    if data_p.is_file():
+        total_size += data_p.stat().st_size
+    model_size_mb = float(total_size / (1024 * 1024))
 
     results = {
+        "model_path": str(model_p),
         "system_platform": platform.platform(),
         "processor": platform.processor() or "CPU",
         "onnxruntime_version": ort.__version__,
@@ -74,7 +79,7 @@ def main():
     print(f"p95 Latency:    {p95_lat:.2f} ms")
     print(f"p99 Latency:    {p99_lat:.2f} ms")
     print(f"Throughput:     {fps:.2f} images/sec")
-    print(f"Model Size:     {model_size_mb:.2f} MB")
+    print(f"Total Model Size: {model_size_mb:.2f} MB")
     print(f"Saved benchmark results to: {out_p}")
 
 

@@ -1,4 +1,4 @@
-"""Export trained model checkpoint to ONNX format with dynamic batching."""
+"""Export trained model checkpoint to ONNX format with dynamic batching and strict checkpoint verification."""
 
 import argparse
 from pathlib import Path
@@ -30,21 +30,24 @@ class OnnxMultiTaskWrapper(torch.nn.Module):
 
 def main():
     parser = argparse.ArgumentParser(description="Export RetinaGuard checkpoint to ONNX.")
-    parser.add_argument("--checkpoint", type=str, default="artifacts/models/best.ckpt")
+    parser.add_argument("--checkpoint", type=str, required=True, help="Path to trained PyTorch checkpoint (.ckpt)")
     parser.add_argument("--output-onnx", type=str, default="artifacts/models/model.onnx")
     parser.add_argument("--opset-version", type=int, default=18)
     args = parser.parse_args()
 
+    ckpt_p = Path(args.checkpoint)
+    if not ckpt_p.is_file():
+        raise FileNotFoundError(f"A trained checkpoint is required for ONNX export. Checkpoint not found: {args.checkpoint}")
+
     out_p = Path(args.output_onnx)
     out_p.parent.mkdir(parents=True, exist_ok=True)
 
-    print(f"=== Exporting RetinaGuard to ONNX ({out_p}) ===")
+    print(f"=== Exporting Trained RetinaGuard Checkpoint ({ckpt_p}) to ONNX ({out_p}) ===")
     model = RetinaGuardMultiTaskModel(pretrained=False)
-    if Path(args.checkpoint).exists():
-        state = torch.load(args.checkpoint, map_location="cpu")
-        model.load_state_dict(state.get("state_dict", state))
-
+    state = torch.load(ckpt_p, map_location="cpu")
+    model.load_state_dict(state.get("state_dict", state))
     model.eval()
+
     wrapper = OnnxMultiTaskWrapper(model)
     wrapper.eval()
 

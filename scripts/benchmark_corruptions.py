@@ -1,9 +1,10 @@
-"""Run controlled optical corruption robustness sweep (10 types x 5 severities)."""
+"""Run controlled optical corruption robustness sweep (10 types x 5 severities) on genuine held-out test data."""
 
 import argparse
 import json
 from pathlib import Path
 import numpy as np
+import pandas as pd
 from PIL import Image
 import torch
 
@@ -14,35 +15,51 @@ from src.retinaguard.evaluation.metrics import compute_quality_metrics
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run synthetic corruption robustness benchmark.")
-    parser.add_argument("--checkpoint", type=str, default="artifacts/models/best.ckpt")
+    parser = argparse.ArgumentParser(description="Run synthetic corruption robustness benchmark on real test data.")
+    parser.add_argument("--checkpoint", type=str, required=True, help="Path to trained PyTorch checkpoint (.ckpt)")
+    parser.add_argument("--test-split", type=str, default="data/splits/eyeq_test.csv", help="Path to EyeQ test split CSV")
     parser.add_argument("--output-dir", type=str, default="artifacts/metrics")
+    parser.add_argument("--max-samples", type=int, default=100, help="Maximum test samples to evaluate per corruption")
     args = parser.parse_args()
+
+    ckpt_p = Path(args.checkpoint)
+    if not ckpt_p.is_file():
+        raise FileNotFoundError(f"Trained checkpoint not found at {args.checkpoint}. Robustness benchmark requires trained model weights.")
+
+    test_p = Path(args.test_split)
+    if not test_p.is_file():
+        raise FileNotFoundError(f"Test split manifest not found at {args.test_split}. Robustness benchmark requires real test image split.")
 
     out_p = Path(args.output_dir)
     out_p.mkdir(parents=True, exist_ok=True)
 
-    print("=== Running Controlled Optical Corruption Benchmark (10 Types x 5 Severities) ===")
+    print(f"=== Running Optical Corruption Robustness Benchmark on {test_p} ===")
     model = RetinaGuardMultiTaskModel(pretrained=False)
-    if Path(args.checkpoint).exists():
-        state = torch.load(args.checkpoint, map_location="cpu")
-        model.load_state_dict(state.get("state_dict", state))
+    state = torch.load(ckpt_p, map_location="cpu")
+    model.load_state_dict(state.get("state_dict", state))
     model.eval()
 
-    # Generate synthetic clean test set
-    n_samples = 30
+    test_df = pd.read_csv(test_p)
+    if len(test_df) == 0:
+        raise ValueError(f"Test split {test_p} is empty.")
+
+    # Quality label map
+    q_map = {"good": 0, "usable": 1, "reject": 2, 0: 0, 1: 1, 2: 2}
+
+    # Load clean real images
     clean_images = []
     labels = []
-    for i in range(n_samples):
-        arr = np.zeros((384, 384, 3), dtype=np.uint8)
-        grade = i % 3
-        arr[:, :, 0] = 200 if grade == 0 else 130 if grade == 1 else 60
-        arr[:, :, 1] = 90 if grade == 0 else 60 if grade == 1 else 20
-        arr[:, :, 2] = 30 if grade == 0 else 20 if grade == 1 else 10
-        clean_images.append(Image.fromarray(arr))
-        labels.append(grade)
-    labels = np.array(labels)
+    sample_df = test_df.head(args.max_samples)
 
+    for _, row in sample_df.iterrows():
+        img_path = Path(row["path"])
+        if not img_path.is_file():
+            raise FileNotFoundError(f"Test image not found at {img_path}. Corruption benchmark requires real readable images.")
+        with Image.open(img_path) as img:
+            clean_images.append(img.convert("RGB"))
+        labels.append(q_map[row["quality_canonical"]])
+
+    labels = np.array(labels)
     corruptions = SyntheticCorruptionSuite.get_all_names()
     results = {}
 
@@ -67,7 +84,7 @@ def main():
     with open(out_p / "corruptions.json", "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
 
-    print(f"Evaluated {len(corruptions)} corruption types. Saved results to: {out_p / 'corruptions.json'}")
+    print(f"Evaluated {len(corruptions)} corruption types across 5 severities. Saved to: {out_p / 'corruptions.json'}")
 
 
 if __name__ == "__main__":
