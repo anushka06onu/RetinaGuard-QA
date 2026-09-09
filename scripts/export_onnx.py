@@ -20,7 +20,7 @@ class OnnxMultiTaskWrapper(torch.nn.Module):
     def forward(self, x: torch.Tensor):
         out = self.model(x)
         return (
-            out["calibrated_quality_logits"],
+            out["quality_logits"],
             out["overall_quality_logits"],
             out["artifact_logits"],
             out["clarity_logits"],
