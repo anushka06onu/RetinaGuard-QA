@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use RetinaGuard-QA in your research, please cite it as below."
+authors:
+  - family-names: "RetinaGuard-QA Team"
+title: "RetinaGuard-QA: An Uncertainty-Aware, Device-Robust Quality Assurance and Capture-Feedback System for Retinal Fundus Imaging"
+version: 0.1.0
+date-released: 2026-09-09
+url: "https://github.com/anushka06onu/RetinaGuard-QA"
+keywords:
+  - "retinal fundus imaging"
+  - "image quality assessment"
+  - "uncertainty estimation"
+  - "out of distribution detection"
+  - "selective prediction"
+  - "cross dataset robustness"

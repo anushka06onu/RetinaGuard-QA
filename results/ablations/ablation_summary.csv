@@ -1,0 +1,6 @@
+Configuration,MultiTask_Loss,FOV_Cropping,Calibration,Macro_F1,Balanced_Acc,Cohen_Kappa,ECE,AURC
+RetinaGuardNet (Full Proposed),True,True,True,0.894,0.887,0.862,0.038,0.082
+w/o Multi-Task Defect Head,False,True,True,0.841,0.832,0.805,0.052,0.118
+w/o Canonical FOV Cropping,True,False,True,0.812,0.801,0.774,0.065,0.142
+w/o Temperature Calibration,True,True,False,0.894,0.887,0.862,0.147,0.165
+Classical Feature Baseline (RF),False,True,False,0.718,0.704,0.651,0.182,0.245

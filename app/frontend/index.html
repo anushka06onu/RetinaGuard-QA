@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RetinaGuard-QA | Retinal Image Quality Assurance & Capture Feedback</title>
+  <meta name="description" content="An uncertainty-aware, device-robust quality assurance and capture-feedback system for retinal fundus imaging." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app-container">
+    <!-- Navigation Bar -->
+    <header class="app-header">
+      <div class="brand-group">
+        <div class="brand-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <circle cx="12" cy="12" r="4" />
+            <line x1="12" y1="2" x2="12" y2="4" />
+            <line x1="12" y1="20" x2="12" y2="22" />
+            <line x1="2" y1="12" x2="4" y2="12" />
+            <line x1="20" y1="12" x2="22" y2="12" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">RetinaGuard<span class="highlight">-QA</span></h1>
+          <p class="brand-subtitle">Pre-Diagnostic Retinal Fundus Quality Gate & Feedback</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span class="badge badge-pulse" id="engine-status">
+          <span class="pulse-dot"></span> ONNX Runtime CPU
+        </span>
+        <span class="badge badge-subtle" id="latency-badge">Latency: -- ms</span>
+      </div>
+    </header>
+
+    <!-- Ethical Boundary Notice -->
+    <div class="disclaimer-banner">
+      <svg class="disclaimer-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <span><strong>Clinical Boundary Notice:</strong> RetinaGuard-QA assesses technical image quality and optical defects. It does not diagnose ocular disease or replace evaluation by a qualified eye-care professional.</span>
+    </div>
+
+    <!-- Main Workspace Grid -->
+    <main class="main-layout">
+      <!-- Left Column: Image Ingestion & Presets -->
+      <section class="card upload-card">
+        <h2 class="card-title">1. Retinal Image Ingestion</h2>
+        <p class="card-desc">Upload a high-resolution fundus photograph or test with preset clinical scenarios.</p>
+
+        <!-- Drop Zone -->
+        <div class="drop-zone" id="drop-zone">
+          <input type="file" id="file-input" accept="image/*" class="file-input-hidden" />
+          <div class="drop-zone-content" id="drop-zone-prompt">
+            <div class="upload-icon-wrapper">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <p class="drop-text">Drag & drop fundus photo here</p>
+            <p class="drop-subtext">or <span class="browse-link">browse from computer</span> (JPEG, PNG, TIFF)</p>
+          </div>
+
+          <div class="preview-container hidden" id="preview-container">
+            <img id="image-preview" src="" alt="Retinal Preview" />
+            <button class="btn-clear" id="btn-clear" title="Remove Image">✕</button>
+          </div>
+        </div>
+
+        <!-- Preset Simulation Buttons -->
+        <div class="presets-section">
+          <span class="presets-label">Benchmark Presets:</span>
+          <div class="presets-grid">
+            <button class="btn-preset" data-preset="good">
+              <span class="preset-dot dot-good"></span> Good Fundus
+            </button>
+            <button class="btn-preset" data-preset="blur">
+              <span class="preset-dot dot-reject"></span> Defocus Blur
+            </button>
+            <button class="btn-preset" data-preset="underexposed">
+              <span class="preset-dot dot-usable"></span> Underexposed
+            </button>
+            <button class="btn-preset" data-preset="overexposed">
+              <span class="preset-dot dot-reject"></span> Overexposed
+            </button>
+            <button class="btn-preset" data-preset="ood">
+              <span class="preset-dot dot-ood"></span> Non-Fundus (OOD)
+            </button>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="btn-analyze" disabled>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          Run Quality Assurance Gate
+        </button>
+      </section>
+
+      <!-- Right Column: Live Quality Audit Dashboard -->
+      <section class="card results-card" id="results-card">
+        <!-- Idle State -->
+        <div class="idle-state" id="idle-state">
+          <div class="radar-animation">
+            <div class="radar-circle circle-1"></div>
+            <div class="radar-circle circle-2"></div>
+            <div class="radar-circle circle-3"></div>
+          </div>
+          <h3>Awaiting Retinal Image Input</h3>
+          <p>Upload a fundus image or click a benchmark preset to inspect acquisition quality, uncertainty, and actionable recapture recommendations.</p>
+        </div>
+
+        <!-- Processing Loader -->
+        <div class="loader-state hidden" id="loader-state">
+          <div class="spinner"></div>
+          <p>Executing canonical FOV normalization, multi-task inference, and uncertainty calibration...</p>
+        </div>
+
+        <!-- Active Results Content -->
+        <div class="results-content hidden" id="results-content">
+          <!-- Action Banner -->
+          <div class="action-banner banner-accept" id="action-banner">
+            <div class="action-header">
+              <span class="action-pill" id="action-pill">ACCEPT</span>
+              <span class="action-timestamp" id="action-timestamp">Just now</span>
+            </div>
+            <h3 class="action-title" id="action-title">Accept (High Quality)</h3>
+            <p class="action-summary" id="action-summary">Image demonstrates excellent focus and macular illumination.</p>
+          </div>
+
+          <!-- Metrics Row -->
+          <div class="metrics-grid">
+            <div class="metric-box">
+              <span class="metric-label">Quality Grade</span>
+              <span class="metric-value" id="res-grade">Good</span>
+              <span class="metric-sub" id="res-grade-conf">Confidence: 96.4%</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">Quality Score</span>
+              <span class="metric-value text-emerald" id="res-score">92.4 <small>/100</small></span>
+              <span class="metric-sub">Visual Fidelity Index</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">Predictive Entropy</span>
+              <span class="metric-value" id="res-entropy">0.14 <small>bits</small></span>
+              <span class="metric-sub" id="res-entropy-status">Low Uncertainty</span>
+            </div>
+          </div>
+
+          <!-- Probabilities Distribution -->
+          <div class="section-block">
+            <h4 class="section-title">Grade Probabilities Distribution</h4>
+            <div class="prob-bars">
+              <div class="prob-row">
+                <span class="prob-name">Good</span>
+                <div class="prob-track">
+                  <div class="prob-fill fill-good" id="bar-good" style="width: 85%;"></div>
+                </div>
+                <span class="prob-pct" id="pct-good">85.0%</span>
+              </div>
+              <div class="prob-row">
+                <span class="prob-name">Usable</span>
+                <div class="prob-track">
+                  <div class="prob-fill fill-usable" id="bar-usable" style="width: 12%;"></div>
+                </div>
+                <span class="prob-pct" id="pct-usable">12.0%</span>
+              </div>
+              <div class="prob-row">
+                <span class="prob-name">Reject</span>
+                <div class="prob-track">
+                  <div class="prob-fill fill-reject" id="bar-reject" style="width: 3%;"></div>
+                </div>
+                <span class="prob-pct" id="pct-reject">3.0%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actionable Defect Checklist -->
+          <div class="section-block">
+            <h4 class="section-title">Acquisition Defects Analysis</h4>
+            <div class="defects-list" id="defects-list">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Operator Guidance -->
+          <div class="section-block guidance-box">
+            <div class="guidance-header">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+              <h4 class="guidance-title">Actionable Operator Guidance</h4>
+            </div>
+            <ul class="instructions-list" id="instructions-list">
+              <!-- Dynamically populated -->
+            </ul>
+          </div>
+
+          <!-- Audit Export Action Buttons -->
+          <div class="export-actions">
+            <button class="btn-secondary" id="btn-export-pdf">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              Download PDF Audit Report
+            </button>
+            <button class="btn-secondary" id="btn-export-json">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="16 18 22 12 16 6"/>
+                <polyline points="8 6 2 12 8 18"/>
+              </svg>
+              Export JSON Log
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

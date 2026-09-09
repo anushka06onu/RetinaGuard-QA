@@ -1,0 +1,24 @@
+{
+  "optimal_temperature": 1.4434,
+  "uncalibrated_ece": {
+    "ece": 0.2012,
+    "mce": 0.4555,
+    "avg_confidence": 0.8782,
+    "accuracy": 0.6933
+  },
+  "calibrated_ece": {
+    "ece": 0.1492,
+    "mce": 0.4497,
+    "avg_confidence": 0.8236,
+    "accuracy": 0.6933
+  },
+  "uncalibrated_brier": 0.4862,
+  "calibrated_brier": 0.4467,
+  "aurc": 0.1432,
+  "selective_abstention_at_0_75": {
+    "coverage": 0.6933,
+    "abstention_rate": 0.3067,
+    "selective_accuracy": 0.7885,
+    "selective_error": 0.2115
+  }
+}
