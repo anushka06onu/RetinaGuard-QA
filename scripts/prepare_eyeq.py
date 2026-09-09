@@ -7,18 +7,26 @@ from src.retinaguard.data.adapters import build_canonical_manifest, parse_eyeq_m
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Prepare EyeQ canonical manifest from official dataset.")
-    parser.add_argument(
-        "--labels-csv", type=str, default="data/raw/eyeq/labels/Label_EyeQ_Train.csv",
-        help="Path to official EyeQ label CSV file"
+    parser = argparse.ArgumentParser(
+        description="Prepare EyeQ canonical manifest from official dataset."
     )
     parser.add_argument(
-        "--images-dir", type=str, default="data/raw/eyeq/images",
-        help="Path to official EyePACS/EyeQ images directory"
+        "--labels-csv",
+        type=str,
+        default="data/raw/eyeq/labels/Label_EyeQ_Train.csv",
+        help="Path to official EyeQ label CSV file",
     )
     parser.add_argument(
-        "--output-csv", type=str, default="data/manifests/eyeq_manifest.csv",
-        help="Destination path for canonical manifest CSV"
+        "--images-dir",
+        type=str,
+        default="data/raw/eyeq/images",
+        help="Path to official EyePACS/EyeQ images directory",
+    )
+    parser.add_argument(
+        "--output-csv",
+        type=str,
+        default="data/manifests/eyeq_manifest.csv",
+        help="Destination path for canonical manifest CSV",
     )
     args = parser.parse_args()
 
@@ -42,7 +50,9 @@ def main():
     print(f"Parsing official EyeQ metadata from {labels_p} and images in {images_p}...")
     df = parse_eyeq_metadata(labels_p, str(images_p))
     manifest_df = build_canonical_manifest([df], out_p)
-    print(f"Successfully constructed canonical EyeQ manifest ({len(manifest_df)} records) at: {out_p}")
+    print(
+        f"Successfully constructed canonical EyeQ manifest ({len(manifest_df)} records) at: {out_p}"
+    )
 
 
 if __name__ == "__main__":

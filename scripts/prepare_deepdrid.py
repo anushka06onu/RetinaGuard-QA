@@ -10,18 +10,26 @@ from src.retinaguard.data.adapters import (
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Prepare DeepDRiD canonical manifest from official dataset.")
-    parser.add_argument(
-        "--labels-csv", type=str, default="data/raw/deepdrid/regular_fundus_quality.csv",
-        help="Path to official DeepDRiD quality label CSV file"
+    parser = argparse.ArgumentParser(
+        description="Prepare DeepDRiD canonical manifest from official dataset."
     )
     parser.add_argument(
-        "--images-dir", type=str, default="data/raw/deepdrid/images",
-        help="Path to official DeepDRiD images directory"
+        "--labels-csv",
+        type=str,
+        default="data/raw/deepdrid/regular_fundus_quality.csv",
+        help="Path to official DeepDRiD quality label CSV file",
     )
     parser.add_argument(
-        "--output-csv", type=str, default="data/manifests/deepdrid_manifest.csv",
-        help="Destination path for canonical manifest CSV"
+        "--images-dir",
+        type=str,
+        default="data/raw/deepdrid/images",
+        help="Path to official DeepDRiD images directory",
+    )
+    parser.add_argument(
+        "--output-csv",
+        type=str,
+        default="data/manifests/deepdrid_manifest.csv",
+        help="Destination path for canonical manifest CSV",
     )
     args = parser.parse_args()
 
@@ -45,7 +53,9 @@ def main():
     print(f"Parsing official DeepDRiD metadata from {labels_p} and images in {images_p}...")
     df = parse_deepdrid_metadata(labels_p, str(images_p))
     manifest_df = build_canonical_manifest([df], out_p)
-    print(f"Successfully constructed canonical DeepDRiD manifest ({len(manifest_df)} records) at: {out_p}")
+    print(
+        f"Successfully constructed canonical DeepDRiD manifest ({len(manifest_df)} records) at: {out_p}"
+    )
 
 
 if __name__ == "__main__":

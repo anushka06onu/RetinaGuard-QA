@@ -30,6 +30,19 @@ def test_production_data_directory_isolation():
             assert not df["is_fixture"].any(), f"Fixture records found in production split: {p}"
 
 
+def test_production_artifacts_contain_no_unsupported_metrics():
+    """Verify that artifacts/metrics/ and artifacts/reports/ do not contain unsupported JSON metrics."""
+    metrics_files = list(Path("artifacts/metrics").glob("*.json"))
+    assert (
+        len(metrics_files) == 0
+    ), f"Unsupported metrics JSON files found in artifacts/metrics/: {metrics_files}"
+
+    report_files = list(Path("artifacts/reports").glob("*.json"))
+    assert (
+        len(report_files) == 0
+    ), f"Unsupported report JSON files found in artifacts/reports/: {report_files}"
+
+
 def test_fixture_directory_metadata():
     """Verify that all fixture files in tests/fixtures/ are explicitly tagged as non-scientific."""
     fixture_files = list(Path("tests/fixtures").rglob("*.csv"))

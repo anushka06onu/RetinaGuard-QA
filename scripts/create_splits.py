@@ -2,6 +2,7 @@
 
 import argparse
 from pathlib import Path
+
 import pandas as pd
 
 from src.retinaguard.data.splits import (
@@ -19,16 +20,14 @@ def split_eyeq_preserving_official_partitions(eyeq_df: pd.DataFrame, seed: int =
         train_val_splits = create_patient_grouped_splits(
             df_train_pool, val_ratio=0.15, test_ratio=0.0, seed=seed
         )
-        return {
-            "train": train_val_splits["train"],
-            "val": train_val_splits["val"],
-            "test": df_test
-        }
+        return {"train": train_val_splits["train"], "val": train_val_splits["val"], "test": df_test}
     else:
         return create_patient_grouped_splits(eyeq_df, val_ratio=0.15, test_ratio=0.15, seed=seed)
 
 
-def split_deepdrid_preserving_official_partitions(deepdrid_df: pd.DataFrame, seed: int = 2026) -> dict:
+def split_deepdrid_preserving_official_partitions(
+    deepdrid_df: pd.DataFrame, seed: int = 2026
+) -> dict:
     """Preserve official DeepDRiD published folds/partitions if present."""
     if "source_split" in deepdrid_df.columns:
         splits = {}
@@ -43,9 +42,13 @@ def split_deepdrid_preserving_official_partitions(deepdrid_df: pd.DataFrame, see
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Create immutable patient-isolated dataset splits.")
+    parser = argparse.ArgumentParser(
+        description="Create immutable patient-isolated dataset splits."
+    )
     parser.add_argument("--eyeq-manifest", type=str, default="data/manifests/eyeq_manifest.csv")
-    parser.add_argument("--deepdrid-manifest", type=str, default="data/manifests/deepdrid_manifest.csv")
+    parser.add_argument(
+        "--deepdrid-manifest", type=str, default="data/manifests/deepdrid_manifest.csv"
+    )
     parser.add_argument("--output-dir", type=str, default="data/splits")
     parser.add_argument("--seed", type=int, default=2026)
     args = parser.parse_args()
@@ -55,8 +58,8 @@ def main():
 
     if not eyeq_p.is_file() and not deepdrid_p.is_file():
         raise FileNotFoundError(
-            f"No canonical dataset manifests found in data/manifests/.\n"
-            f"Please run scripts/prepare_eyeq.py or scripts/prepare_deepdrid.py after obtaining datasets."
+            "No canonical dataset manifests found in data/manifests/.\n"
+            "Please run scripts/prepare_eyeq.py or scripts/prepare_deepdrid.py after obtaining datasets."
         )
 
     out_dir = Path(args.output_dir)
@@ -75,7 +78,9 @@ def main():
         print(f"Loading DeepDRiD manifest from {deepdrid_p}...")
         deepdrid_df = pd.read_csv(deepdrid_p)
         deepdrid_splits = split_deepdrid_preserving_official_partitions(deepdrid_df, seed=args.seed)
-        saved_deepdrid = save_split_manifests(deepdrid_splits, output_dir=out_dir, prefix="deepdrid")
+        saved_deepdrid = save_split_manifests(
+            deepdrid_splits, output_dir=out_dir, prefix="deepdrid"
+        )
         print("Saved DeepDRiD splits:")
         for k, p in saved_deepdrid.items():
             print(f"  - {k}: {p} ({len(deepdrid_splits[k])} samples)")

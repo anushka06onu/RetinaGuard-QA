@@ -1,7 +1,5 @@
 """Unit tests for inference runtime, decision policy engine, and ONNX parity."""
 
-from pathlib import Path
-
 import torch
 from PIL import Image
 
@@ -58,26 +56,25 @@ def test_decision_engine_rules():
 
 
 def test_predictor_onnx_inference(tmp_path):
-    # Verify inference with existing ONNX model or synthetic test
-    onnx_path = Path("artifacts/models/model.onnx")
-    if not onnx_path.exists():
-        model = RetinaGuardMultiTaskModel(backbone_name="mobilenetv3_large_100", pretrained=False)
-        model.eval()
-        dummy = torch.randn(1, 3, 384, 384)
-        torch.onnx.export(
-            model,
-            dummy,
-            str(onnx_path),
-            input_names=["input_image"],
-            output_names=[
-                "quality_logits",
-                "artifact_logits",
-                "clarity_logits",
-                "field_logits",
-                "features",
-            ],
-            opset_version=18,
-        )
+    # Verify inference with a temporary test model in tmp_path
+    onnx_path = tmp_path / "temp_test_model.onnx"
+    model = RetinaGuardMultiTaskModel(backbone_name="mobilenetv3_large_100", pretrained=False)
+    model.eval()
+    dummy = torch.randn(1, 3, 384, 384)
+    torch.onnx.export(
+        model,
+        dummy,
+        str(onnx_path),
+        input_names=["input_image"],
+        output_names=[
+            "quality_logits",
+            "artifact_logits",
+            "clarity_logits",
+            "field_logits",
+            "features",
+        ],
+        opset_version=18,
+    )
 
     predictor = RetinaGuardPredictor(model_path=str(onnx_path))
     test_img = Image.new("RGB", (200, 200), color=(180, 80, 30))

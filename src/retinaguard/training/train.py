@@ -2,10 +2,11 @@
 
 from pathlib import Path
 from typing import Any, Dict, Union
+
 import pandas as pd
 import torch
 import yaml
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import ConcatDataset, DataLoader
 
 from src.retinaguard.data.datasets import RetinalQualityDataset
 from src.retinaguard.models.losses import MaskedMultiTaskLoss
@@ -22,7 +23,7 @@ from src.retinaguard.utils.reproducibility import get_device, seed_everything
 def run_training_experiment(
     config_path: Union[str, Path] = "configs/train_multitask.yaml",
     smoke_test: bool = False,
-    fixture_mode: bool = False
+    fixture_mode: bool = False,
 ) -> Dict[str, Any]:
     """Execute training experiment defined by YAML config with strict data checks."""
     with open(config_path, "r", encoding="utf-8") as f:
@@ -65,27 +66,22 @@ def run_training_experiment(
 
     # Multi-task training dataset loading
     train_ds = RetinalQualityDataset(
-        train_df,
-        is_training=True,
-        image_size=img_size,
-        allow_synthetic_fallback=fixture_mode
+        train_df, is_training=True, image_size=img_size, allow_synthetic_fallback=fixture_mode
     )
     val_ds = RetinalQualityDataset(
-        val_df,
-        is_training=False,
-        image_size=img_size,
-        allow_synthetic_fallback=fixture_mode
+        val_df, is_training=False, image_size=img_size, allow_synthetic_fallback=fixture_mode
     )
 
     # If deepdrid development splits exist, concatenate for multi-task supervision
-    deepdrid_train_p = Path(cfg.get("data", {}).get("train_deepdrid_split", "data/splits/deepdrid_train.csv")) if not fixture_mode else Path("tests/fixtures/splits/deepdrid_train.csv")
+    deepdrid_train_p = (
+        Path(cfg.get("data", {}).get("train_deepdrid_split", "data/splits/deepdrid_train.csv"))
+        if not fixture_mode
+        else Path("tests/fixtures/splits/deepdrid_train.csv")
+    )
     if deepdrid_train_p.is_file():
         df_dd = pd.read_csv(deepdrid_train_p)
         train_ds_dd = RetinalQualityDataset(
-            df_dd,
-            is_training=True,
-            image_size=img_size,
-            allow_synthetic_fallback=fixture_mode
+            df_dd, is_training=True, image_size=img_size, allow_synthetic_fallback=fixture_mode
         )
         train_ds = ConcatDataset([train_ds, train_ds_dd])
 

@@ -20,7 +20,7 @@ def test_patient_and_eye_extraction():
     assert p2 == "042" and eye2 == "right"
 
 
-def test_patient_grouped_splitting():
+def test_patient_grouped_splitting(tmp_path):
     rows = []
     for i in range(100):
         rows.append(
@@ -35,7 +35,7 @@ def test_patient_grouped_splitting():
     df = pd.DataFrame(rows)
 
     splits = create_patient_grouped_splits(df, val_ratio=0.15, test_ratio=0.15, seed=2026)
-    audit = run_leakage_and_duplicate_audit(splits)
+    audit = run_leakage_and_duplicate_audit(splits, reports_dir=tmp_path / "reports")
 
     assert audit["isolation_passed"] is True
     assert len(audit["patient_leakages"]) == 0
