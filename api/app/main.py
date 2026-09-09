@@ -1,16 +1,21 @@
 """FastAPI application matching Phase 18 & Phase 24 of blueprint."""
 
 import io
+import os
+import uuid
+import logging
 from pathlib import Path
 from typing import Dict, Any
-from PIL import Image, ImageOps
+from PIL import Image
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 
 from src.retinaguard.inference.schemas import PredictionResponse
 from .service import QualityAssessmentService, get_service
+
+logger = logging.getLogger("retinaguard.api")
+logging.basicConfig(level=logging.INFO)
 
 MAX_UPLOAD_SIZE = 15 * 1024 * 1024  # 15 MB
 MAX_DIMENSION = 8192
@@ -22,11 +27,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS Configuration
+# CORS Configuration from environment or defaults
+cors_origins_raw = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000")
+allowed_origins = [o.strip() for o in cors_origins_raw.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
@@ -37,9 +45,9 @@ def health_check(service: QualityAssessmentService = Depends(get_service)) -> Di
     """Liveness check and model loaded state."""
     model_loaded = bool(service.predictor.ort_session is not None or service.predictor.pt_model is not None)
     return {
-        "status": "healthy",
+        "status": "healthy" if model_loaded else "degraded",
         "model_loaded": model_loaded,
-        "runtime_engine": "onnxruntime_cpu" if service.predictor.ort_session else "pytorch_cpu",
+        "runtime_engine": "onnxruntime_cpu" if service.predictor.ort_session else ("pytorch_cpu" if service.predictor.pt_model else "none"),
         "version": "1.0.0"
     }
 
@@ -51,7 +59,7 @@ def model_info() -> Dict[str, Any]:
         "system_name": "RetinaGuard-QA",
         "version": "1.0.0",
         "intended_input": "Color Retinal Fundus Photograph (Standard 45/50 degree FOV)",
-        "supported_formats": ["JPEG", "PNG", "TIFF"],
+        "supported_formats": ["JPEG", "PNG"],
         "quality_classes": ["good", "usable", "reject"],
         "quality_attributes": ["artifact", "clarity", "field_definition"],
         "triage_decisions": ["accept", "recapture", "manual_review", "unsupported_input"],
@@ -66,6 +74,8 @@ async def predict_quality(
     service: QualityAssessmentService = Depends(get_service)
 ) -> PredictionResponse:
     """Analyze single uploaded fundus photograph."""
+    req_id = str(uuid.uuid4())[:8]
+
     # 1. Read buffer with size safeguard
     contents = await file.read()
     if len(contents) > MAX_UPLOAD_SIZE:
@@ -75,9 +85,11 @@ async def predict_quality(
     try:
         Image.MAX_IMAGE_PIXELS = MAX_DIMENSION * MAX_DIMENSION
         raw_img = Image.open(io.BytesIO(contents))
-        raw_img.verify() # Verify file header integrity
+        fmt = raw_img.format
+        if fmt not in ["JPEG", "PNG", "MPO"]:
+            raise HTTPException(status_code=400, detail=f"Unsupported format: {fmt}. Please provide JPEG or PNG.")
+        raw_img.verify()
 
-        # Re-open after verify to strip metadata and convert to RGB
         pil_img = Image.open(io.BytesIO(contents)).convert("RGB")
         w, h = pil_img.size
         if w < MIN_DIMENSION or h < MIN_DIMENSION:
@@ -88,11 +100,16 @@ async def predict_quality(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid or corrupted image format: {str(e)}")
+        logger.warning(f"[{req_id}] Image verification failure: {e}")
+        raise HTTPException(status_code=400, detail="Invalid or unreadable image file.")
 
     # 3. Execute transient analysis without persisting uploaded bytes
     try:
         result = service.analyze_image(pil_img)
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Quality assurance analysis failed: {str(e)}")
+        logger.error(f"[{req_id}] Quality prediction runtime error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Image quality assurance processing error [Request ID: {req_id}]"
+        )
