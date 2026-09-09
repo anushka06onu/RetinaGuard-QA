@@ -1,0 +1,45 @@
+# Multi-Task Quality & Attribute Training Configuration
+experiment:
+  name: "retinaguard_multitask"
+  seed: 2026
+  seeds: [2026, 2027, 2028]
+
+model:
+  backbone: "mobilenetv3_large_100" # options: "mobilenetv3_large_100", "efficientnet_b0"
+  pretrained: true
+  dropout: 0.2
+  latent_dim: 128
+  
+  heads:
+    quality:
+      num_classes: 3 # Good / Usable / Reject
+      weight: 1.0
+    overall_quality:
+      num_classes: 3
+      weight: 0.8
+    artifact:
+      num_classes: 3 # Ordinal levels
+      weight: 0.5
+    clarity:
+      num_classes: 3 # Ordinal levels
+      weight: 0.5
+    field_definition:
+      num_classes: 3 # Ordinal levels
+      weight: 0.5
+
+training:
+  image_size: 384
+  epochs: 40
+  batch_size: 32
+  optimizer: "adamw"
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  scheduler: "cosine"
+  mixed_precision: true
+  early_stopping_patience: 7
+  selection_metric: "val_macro_f1"
+
+loss:
+  quality_loss: "cross_entropy"
+  attribute_loss: "ordinal_or_ce"
+  label_smoothing: 0.05

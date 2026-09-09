@@ -1,0 +1,33 @@
+# Dataset configurations & paths
+data:
+  image_size: 384
+  canonical_fov_crop: true
+  num_workers: 4
+  
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+  
+  quality_classes:
+    - good
+    - usable
+    - reject
+
+  deepdrid_attributes:
+    - artifact
+    - clarity
+    - field_definition
+
+  paths:
+    eyeq_raw_images: "data/raw/eyeq/images"
+    eyeq_raw_labels: "data/raw/eyeq/labels"
+    deepdrid_raw: "data/raw/deepdrid"
+    manifests:
+      eyeq: "data/manifests/eyeq_manifest.csv"
+      deepdrid: "data/manifests/deepdrid_manifest.csv"
+    splits:
+      eyeq_train: "data/splits/eyeq_train.csv"
+      eyeq_val: "data/splits/eyeq_val.csv"
+      eyeq_test: "data/splits/eyeq_test.csv"
+      deepdrid_train: "data/splits/deepdrid_train.csv"
+      deepdrid_val: "data/splits/deepdrid_val.csv"
+      deepdrid_external_test: "data/splits/deepdrid_external_test.csv"

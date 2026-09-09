@@ -1,0 +1,37 @@
+robustness:
+  seed: 42
+  severity_levels: [1, 2, 3, 4, 5]
+  
+  corruptions:
+    gaussian_blur:
+      name: "Defocus Blur (Gaussian)"
+      param_name: "sigma"
+      severities: [1.0, 2.5, 4.0, 6.0, 9.0]
+    motion_blur:
+      name: "Patient / Camera Motion Blur"
+      param_name: "kernel_size"
+      severities: [5, 9, 15, 21, 31]
+    underexposure:
+      name: "Underexposure (Dim Illumination)"
+      param_name: "factor"
+      severities: [0.8, 0.6, 0.45, 0.3, 0.15]
+    overexposure:
+      name: "Overexposure (Flash Saturation)"
+      param_name: "factor"
+      severities: [1.2, 1.4, 1.7, 2.0, 2.5]
+    illumination_gradient:
+      name: "Uneven Illumination / Vignetting"
+      param_name: "gradient_intensity"
+      severities: [0.2, 0.35, 0.5, 0.65, 0.8]
+    jpeg_compression:
+      name: "JPEG Compression Artifacts"
+      param_name: "quality"
+      severities: [80, 50, 30, 15, 5]
+    gaussian_noise:
+      name: "Sensor Noise (Gaussian)"
+      param_name: "var"
+      severities: [0.005, 0.015, 0.03, 0.06, 0.12]
+    color_shift:
+      name: "Color Temperature Shift (Warm/Cool)"
+      param_name: "temp_shift"
+      severities: [15, 30, 50, 75, 100]

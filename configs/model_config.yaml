@@ -1,0 +1,31 @@
+model:
+  name: "RetinaGuardNet"
+  version: "1.0.0"
+  backbone: "mobilenetv3_large_100" # options: "mobilenetv3_large_100", "efficientnet_b0", "convnext_tiny"
+  pretrained: true
+  dropout_rate: 0.2
+  latent_dim: 128
+  
+  heads:
+    quality_grade:
+      num_classes: 3
+      activation: "softmax"
+      loss_weight: 1.0
+    defects:
+      num_classes: 6
+      activation: "sigmoid"
+      loss_weight: 0.5
+    quality_score:
+      output_dim: 1
+      activation: "sigmoid" # Scaled to [0, 100]
+      loss_weight: 0.3
+    ood_projection:
+      dim: 128
+      enabled: true
+
+  baselines:
+    classical_iq:
+      features: ["brisque_approx", "laplacian_variance", "shannon_entropy", "contrast_rms", "exposure_ratio"]
+      classifier: "random_forest"
+    single_task:
+      backbones: ["mobilenetv3_large_100", "efficientnet_b0", "convnext_tiny"]

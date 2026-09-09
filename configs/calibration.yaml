@@ -1,0 +1,42 @@
+# Post-Hoc Probability Calibration & Selective Decision Policy
+calibration:
+  method: "temperature_scaling" # options: "temperature_scaling", "vector_scaling"
+  num_bins: 15
+  metric: "nll"
+
+selective_prediction:
+  target_coverage_min: 0.80
+  target_accuracy: 0.95
+  max_entropy_threshold: 0.85 # Shannon entropy in bits
+
+ood_detection:
+  method: "energy_score" # options: "energy_score", "mahalanobis", "msp"
+  energy_threshold: 1.0
+  mahalanobis_percentile: 95.0
+
+decision_policy:
+  actions:
+    accept: "ACCEPT"
+    manual_review: "MANUAL_REVIEW"
+    recapture: "RECAPTURE"
+    unsupported_ood: "UNSUPPORTED_OOD"
+  
+  rules:
+    - condition: "invalid_file or non_fundus"
+      action: "UNSUPPORTED_OOD"
+      feedback: "Image format or optical domain invalid. Please submit a valid color fundus image."
+    - condition: "ood_score < ood_threshold"
+      action: "MANUAL_REVIEW"
+      feedback: "Input is outside typical training distribution. Request manual clinical review."
+    - condition: "uncertainty > uncertainty_threshold"
+      action: "MANUAL_REVIEW"
+      feedback: "High predictive uncertainty near decision boundary. Request manual clinician review."
+    - condition: "predicted_class == 'reject'"
+      action: "RECAPTURE"
+      feedback: "Image quality is insufficient for diagnostic evaluation. Recapture required."
+    - condition: "predicted_class == 'usable'"
+      action: "MANUAL_REVIEW"
+      feedback: "Image contains moderate imperfections; clinician review recommended."
+    - condition: "predicted_class == 'good'"
+      action: "ACCEPT"
+      feedback: "Image satisfies diagnostic quality standards."

@@ -1,0 +1,27 @@
+# EyeQ Single-Task Baseline Training Configuration
+experiment:
+  name: "eyeq_baseline"
+  seed: 2026
+  seeds: [2026, 2027, 2028]
+
+model:
+  backbone: "mobilenetv3_small_100" # options: "mobilenetv3_small_100", "efficientnet_b0"
+  pretrained: true
+  num_classes: 3
+  dropout: 0.2
+
+training:
+  image_size: 384
+  epochs: 40
+  batch_size: 32
+  optimizer: "adamw"
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  scheduler: "cosine"
+  mixed_precision: true
+  early_stopping_patience: 7
+  selection_metric: "val_macro_f1"
+
+loss:
+  type: "cross_entropy"
+  label_smoothing: 0.05

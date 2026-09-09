@@ -1,0 +1,41 @@
+inference:
+  onnx_model_path: "results/models/retinaguard_net.onnx"
+  pytorch_model_path: "results/models/retinaguard_net.pt"
+  device: "cpu" # Default target for rapid edge / clinic deployment
+  num_threads: 4
+  providers: ["CPUExecutionProvider"]
+
+  decision_thresholds:
+    # Probability confidence for Quality Grade
+    accept_min_confidence: 0.75
+    usable_min_confidence: 0.60
+    
+    # Selective prediction uncertainty threshold (Shannon entropy in bits [0, 1.58])
+    max_entropy_for_autonomous_decision: 0.85
+    
+    # OOD detection threshold (Energy score or Mahalanobis distance)
+    ood_energy_threshold: -3.5
+    
+    # Defect detection threshold
+    defect_presence_threshold: 0.50
+    defect_severe_threshold: 0.75
+
+  feedback_actions:
+    blur:
+      defect: "Severe Blur / Focus Loss"
+      instruction: "Refocus camera targeting the optic disc boundary before recapture."
+    underexposure:
+      defect: "Underexposure"
+      instruction: "Increase xenon flash output or increase sensor gain; verify pupil dilation."
+    overexposure:
+      defect: "Overexposure"
+      instruction: "Reduce flash intensity setting to avoid macula/fovea saturation."
+    illumination_gradient:
+      defect: "Uneven Illumination / Shadowing"
+      instruction: "Re-align camera optical axis with patient pupil center; adjust working distance."
+    field_truncation:
+      defect: "Field Truncation / Off-Center"
+      instruction: "Instruct patient to look at the central green fixation star to center macula."
+    optical_artifacts:
+      defect: "Optical Artifacts / Lens Smear"
+      instruction: "Clean the front objective lens with a lint-free lens wipe; check for eyelash obstruction."
