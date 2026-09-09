@@ -3,8 +3,6 @@
 import argparse
 from pathlib import Path
 
-import pandas as pd
-
 from src.retinaguard.data.adapters import (
     build_canonical_manifest,
     parse_deepdrid_metadata,
@@ -12,49 +10,42 @@ from src.retinaguard.data.adapters import (
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Prepare DeepDRiD canonical manifest.")
+    parser = argparse.ArgumentParser(description="Prepare DeepDRiD canonical manifest from official dataset.")
     parser.add_argument(
-        "--labels-csv", type=str, default="data/raw/deepdrid/regular_fundus_quality.csv"
+        "--labels-csv", type=str, default="data/raw/deepdrid/regular_fundus_quality.csv",
+        help="Path to official DeepDRiD quality label CSV file"
     )
-    parser.add_argument("--images-dir", type=str, default="data/raw/deepdrid/images")
-    parser.add_argument("--output-csv", type=str, default="data/manifests/deepdrid_manifest.csv")
+    parser.add_argument(
+        "--images-dir", type=str, default="data/raw/deepdrid/images",
+        help="Path to official DeepDRiD images directory"
+    )
+    parser.add_argument(
+        "--output-csv", type=str, default="data/manifests/deepdrid_manifest.csv",
+        help="Destination path for canonical manifest CSV"
+    )
     args = parser.parse_args()
+
+    labels_p = Path(args.labels_csv)
+    if not labels_p.is_file():
+        raise FileNotFoundError(
+            f"Official DeepDRiD label file not found at: {args.labels_csv}.\n"
+            "Please obtain the official DeepDRiD repository & annotations legally per docs/data-card.md."
+        )
+
+    images_p = Path(args.images_dir)
+    if not images_p.is_dir():
+        raise FileNotFoundError(
+            f"Official DeepDRiD images directory not found at: {args.images_dir}.\n"
+            "Please download authorized DeepDRiD images into data/raw/deepdrid/images/ per docs/data-card.md."
+        )
 
     out_p = Path(args.output_csv)
     out_p.parent.mkdir(parents=True, exist_ok=True)
 
-    labels_p = Path(args.labels_csv)
-    if not labels_p.exists():
-        print(f"Creating sample DeepDRiD manifest fixture at: {out_p}")
-        rows = []
-        for i in range(80):
-            grade = ["good", "usable", "reject"][i % 3]
-            rows.append(
-                {
-                    "dataset": "deepdrid",
-                    "image_id": f"deepdrid_{i:04d}",
-                    "patient_id": f"D{i//2:03d}",
-                    "eye": "left" if i % 2 == 0 else "right",
-                    "path": f"data/raw/deepdrid/images/deepdrid_{i:04d}.jpg",
-                    "width": 384,
-                    "height": 384,
-                    "sha256": f"mock_deepdrid_sha_{i:04d}",
-                    "quality_raw": grade,
-                    "quality_canonical": grade,
-                    "artifact": i % 3,
-                    "clarity": i % 3,
-                    "field_definition": i % 3,
-                    "source_split": "train" if i < 50 else "external_test",
-                    "label_available": True,
-                }
-            )
-        df = pd.DataFrame(rows)
-        df.to_csv(out_p, index=False)
-        print(f"Generated {len(df)} canonical rows in {out_p}")
-    else:
-        df = parse_deepdrid_metadata(labels_p, args.images_dir)
-        build_canonical_manifest([df], out_p)
-        print(f"Successfully constructed canonical DeepDRiD manifest at: {out_p}")
+    print(f"Parsing official DeepDRiD metadata from {labels_p} and images in {images_p}...")
+    df = parse_deepdrid_metadata(labels_p, str(images_p))
+    manifest_df = build_canonical_manifest([df], out_p)
+    print(f"Successfully constructed canonical DeepDRiD manifest ({len(manifest_df)} records) at: {out_p}")
 
 
 if __name__ == "__main__":

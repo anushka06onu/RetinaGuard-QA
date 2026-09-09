@@ -3,55 +3,46 @@
 import argparse
 from pathlib import Path
 
-import pandas as pd
-
 from src.retinaguard.data.adapters import build_canonical_manifest, parse_eyeq_metadata
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Prepare EyeQ canonical manifest.")
+    parser = argparse.ArgumentParser(description="Prepare EyeQ canonical manifest from official dataset.")
     parser.add_argument(
-        "--labels-csv", type=str, default="data/raw/eyeq/labels/Label_EyeQ_Train.csv"
+        "--labels-csv", type=str, default="data/raw/eyeq/labels/Label_EyeQ_Train.csv",
+        help="Path to official EyeQ label CSV file"
     )
-    parser.add_argument("--images-dir", type=str, default="data/raw/eyeq/images")
-    parser.add_argument("--output-csv", type=str, default="data/manifests/eyeq_manifest.csv")
+    parser.add_argument(
+        "--images-dir", type=str, default="data/raw/eyeq/images",
+        help="Path to official EyePACS/EyeQ images directory"
+    )
+    parser.add_argument(
+        "--output-csv", type=str, default="data/manifests/eyeq_manifest.csv",
+        help="Destination path for canonical manifest CSV"
+    )
     args = parser.parse_args()
+
+    labels_p = Path(args.labels_csv)
+    if not labels_p.is_file():
+        raise FileNotFoundError(
+            f"Official EyeQ label file not found at: {args.labels_csv}.\n"
+            "Please obtain the official EyeQ labels and EyePACS images legally per docs/data-card.md."
+        )
+
+    images_p = Path(args.images_dir)
+    if not images_p.is_dir():
+        raise FileNotFoundError(
+            f"Official EyeQ images directory not found at: {args.images_dir}.\n"
+            "Please download authorized images into data/raw/eyeq/images/ per docs/data-card.md."
+        )
 
     out_p = Path(args.output_csv)
     out_p.parent.mkdir(parents=True, exist_ok=True)
 
-    labels_p = Path(args.labels_csv)
-    if not labels_p.exists():
-        print(f"Creating sample manifest fixture at: {out_p}")
-        rows = []
-        for i in range(120):
-            grade = ["good", "usable", "reject"][i % 3]
-            rows.append(
-                {
-                    "dataset": "eyeq",
-                    "image_id": f"eyeq_{i:04d}",
-                    "patient_id": f"P{i//2:03d}",
-                    "eye": "left" if i % 2 == 0 else "right",
-                    "path": f"data/raw/eyeq/images/eyeq_{i:04d}.jpeg",
-                    "width": 384,
-                    "height": 384,
-                    "sha256": f"mock_sha_{i:04d}",
-                    "quality_raw": i % 3,
-                    "quality_canonical": grade,
-                    "artifact": None,
-                    "clarity": None,
-                    "field_definition": None,
-                    "source_split": "train" if i < 90 else "test",
-                    "label_available": True,
-                }
-            )
-        df = pd.DataFrame(rows)
-        df.to_csv(out_p, index=False)
-        print(f"Generated {len(df)} canonical rows in {out_p}")
-    else:
-        df = parse_eyeq_metadata(labels_p, args.images_dir)
-        build_canonical_manifest([df], out_p)
-        print(f"Successfully constructed canonical EyeQ manifest at: {out_p}")
+    print(f"Parsing official EyeQ metadata from {labels_p} and images in {images_p}...")
+    df = parse_eyeq_metadata(labels_p, str(images_p))
+    manifest_df = build_canonical_manifest([df], out_p)
+    print(f"Successfully constructed canonical EyeQ manifest ({len(manifest_df)} records) at: {out_p}")
 
 
 if __name__ == "__main__":
