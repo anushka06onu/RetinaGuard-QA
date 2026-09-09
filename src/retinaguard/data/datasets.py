@@ -2,7 +2,6 @@
 
 from pathlib import Path
 from typing import Dict, Optional, Union, Callable, Any
-import numpy as np
 import pandas as pd
 from PIL import Image
 import torch
@@ -28,12 +27,15 @@ class RetinalQualityDataset(Dataset):
         manifest_or_csv: Union[pd.DataFrame, str, Path],
         transform: Optional[Callable] = None,
         is_training: bool = False,
-        image_size: int = 384
+        image_size: int = 384,
+        allow_synthetic_fallback: bool = False
     ):
         if isinstance(manifest_or_csv, pd.DataFrame):
             self.df = manifest_or_csv.reset_index(drop=True)
         else:
             self.df = pd.read_csv(manifest_or_csv)
+
+        self.allow_synthetic_fallback = allow_synthetic_fallback
 
         if transform is not None:
             self.transform = transform
@@ -45,17 +47,23 @@ class RetinalQualityDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Dict[str, Any]:
         row = self.df.iloc[idx]
-        img_path = Path(row["path"])
+        raw_path = row.get("path", "")
+        img_path = Path(raw_path) if raw_path else None
 
-        # Load image or create mock if path does not exist (for offline testing/synthetic runs)
-        if img_path.exists():
+        if img_path is not None and img_path.is_file():
             try:
-                img = Image.open(img_path).convert("RGB")
-            except Exception:
-                img = Image.new("RGB", (384, 384), color=(180, 80, 30))
+                with Image.open(img_path) as image:
+                    img = image.convert("RGB")
+            except Exception as exc:
+                if self.allow_synthetic_fallback:
+                    img = Image.new("RGB", (384, 384), color=(180, 80, 30))
+                else:
+                    raise RuntimeError(f"Unreadable image file: {img_path}") from exc
         else:
-            # Fallback synthetic fundus image
-            img = Image.new("RGB", (384, 384), color=(180, 80, 30))
+            if self.allow_synthetic_fallback:
+                img = Image.new("RGB", (384, 384), color=(180, 80, 30))
+            else:
+                raise FileNotFoundError(f"Missing image file: {img_path}")
 
         tensor = self.transform(img)
 

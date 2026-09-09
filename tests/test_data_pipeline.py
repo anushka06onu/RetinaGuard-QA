@@ -48,14 +48,18 @@ def test_canonical_fov_crop():
     img = Image.fromarray(arr)
     cropped = crop_retinal_fov(img)
     w, h = cropped.size
-    assert w == h # Check square padding output
+    assert w == h
 
 
-def test_dataset_loader():
+def test_dataset_loader(tmp_path):
+    # 1. Create real temporary test image
+    img_file = tmp_path / "valid_fundus.png"
+    Image.new("RGB", (100, 100), color=(180, 80, 30)).save(img_file)
+
     df = pd.DataFrame([{
         "image_id": "test_1",
         "patient_id": "P001",
-        "path": "nonexistent.jpg",
+        "path": str(img_file),
         "quality_canonical": "good",
         "artifact": 0,
         "clarity": 1,
@@ -66,3 +70,19 @@ def test_dataset_loader():
     assert item["image"].shape == (3, 384, 384)
     assert item["quality_target"].item() == 0
     assert item["quality_mask"].item() == 1.0
+
+    # 2. Verify FileNotFoundError when missing image is encountered without fallback
+    df_missing = pd.DataFrame([{
+        "image_id": "missing_1",
+        "patient_id": "P002",
+        "path": str(tmp_path / "nonexistent.jpg"),
+        "quality_canonical": "usable"
+    }])
+    ds_strict = RetinalQualityDataset(df_missing, allow_synthetic_fallback=False)
+    with pytest.raises(FileNotFoundError):
+        _ = ds_strict[0]
+
+    # 3. Verify fallback works when explicitly requested for synthetic test fixtures
+    ds_fixture = RetinalQualityDataset(df_missing, allow_synthetic_fallback=True)
+    item_fix = ds_fixture[0]
+    assert item_fix["image"].shape == (3, 384, 384)
