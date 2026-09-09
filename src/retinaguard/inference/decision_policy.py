@@ -1,9 +1,6 @@
 """Actionable decision policy and feedback formulation matching Phase 12 and 15."""
 
-from typing import Dict, List, Tuple, Optional, Any
-import numpy as np
-from PIL import Image
-
+from typing import Dict, List, Optional
 from .schemas import DecisionAction, QualityProbabilities, QualityAttributes, PredictionResponse
 
 
@@ -12,7 +9,7 @@ class DecisionPolicyEngine:
 
     def __init__(
         self,
-        uncertainty_threshold: float = 0.85, # bits
+        uncertainty_threshold: float = 0.85,  # bits
         ood_energy_threshold: float = 1.0,
         model_version: str = "1.0.0"
     ):
@@ -33,22 +30,22 @@ class DecisionPolicyEngine:
             return ["Invalid image format or non-fundus modality. Please submit a valid color retinal fundus image."]
 
         if decision == DecisionAction.MANUAL_REVIEW:
-            feedback.append("High model uncertainty near decision boundary. Request manual clinician review.")
+            feedback.append("High model uncertainty or borderline acquisition quality. Request qualified clinician review.")
 
-        if clarity_val is not None and clarity_val >= 2: # High blur/poor clarity
-            feedback.append("Possible blur; stabilize the camera and refocus before recapture.")
+        if clarity_val is not None and clarity_val >= 2:
+            feedback.append("Possible blur or focus defect detected. Stabilize and refocus camera before recapture.")
 
         if artifact_val is not None and artifact_val >= 2:
-            feedback.append("Possible lens artifact or dust smear; clean objective lens and verify eyelash clearance.")
+            feedback.append("Possible acquisition artifact detected. Inspect the lens, alignment, and field before recapture.")
 
         if field_def_val is not None and field_def_val >= 2:
-            feedback.append("Retinal field may be incompletely captured; center fixation target.")
+            feedback.append("Possible field centering/definition defect. Adjust patient fixation before recapture.")
 
         if quality == "reject" and not feedback:
-            feedback.append("Overall technical quality is inadequate. Recapture with proper optical alignment.")
+            feedback.append("Overall technical acquisition quality is inadequate. Recapture with proper optical alignment.")
 
         if not feedback:
-            feedback.append("Image satisfies diagnostic quality standards. Ready for clinical review.")
+            feedback.append("The model classified this image as technically acceptable under its experimental quality-assessment protocol. Clinical suitability still requires qualified review.")
 
         return feedback
 
@@ -61,12 +58,9 @@ class DecisionPolicyEngine:
         attributes_raw: Optional[Dict[str, int]] = None,
         latency_ms: Optional[float] = None
     ) -> PredictionResponse:
-        # Determine highest probability class
-        class_order = ["good", "usable", "reject"]
         pred_class = max(probs, key=probs.get)
         cal_conf = probs[pred_class]
 
-        # Attribute label decoding
         attr_decodings = {
             "artifact": {0: "none", 1: "mild", 2: "severe"}.get(attributes_raw.get("artifact", 0) if attributes_raw else 0, None),
             "clarity": {0: "high", 1: "moderate", 2: "low"}.get(attributes_raw.get("clarity", 0) if attributes_raw else 0, None),

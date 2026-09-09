@@ -1,5 +1,6 @@
 """Production ONNX Runtime & PyTorch Predictor matching Phase 17 and Phase 24."""
 
+import json
 import time
 from pathlib import Path
 from typing import Dict, Any, Union, Optional
@@ -26,19 +27,43 @@ class RetinaGuardPredictor:
     def __init__(
         self,
         model_path: Optional[Union[str, Path]] = "artifacts/models/model.onnx",
+        preprocessing_config_path: Optional[Union[str, Path]] = "artifacts/models/preprocessing.json",
+        calibration_config_path: Optional[Union[str, Path]] = "artifacts/models/calibration_metadata.json",
         policy_engine: Optional[DecisionPolicyEngine] = None,
         image_size: int = 384
     ):
         self.image_size = image_size
+        self.temperature = 1.0
         self.policy_engine = policy_engine or DecisionPolicyEngine()
         self.ort_session = None
         self.pt_model = None
 
-        if model_path is not None and Path(model_path).exists():
+        # Load authoritative preprocessing config if present
+        if preprocessing_config_path and Path(preprocessing_config_path).is_file():
+            try:
+                with open(preprocessing_config_path, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                    self.image_size = cfg.get("image_size", self.image_size)
+            except Exception:
+                pass
+
+        # Load authoritative calibration temperature if present
+        if calibration_config_path and Path(calibration_config_path).is_file():
+            try:
+                with open(calibration_config_path, "r", encoding="utf-8") as f:
+                    cal_cfg = json.load(f)
+                    self.temperature = float(cal_cfg.get("temperature", 1.0))
+            except Exception:
+                pass
+
+        if model_path is not None and Path(model_path).is_file():
             self.load_model(model_path)
 
     def load_model(self, model_path: Union[str, Path]):
         path = Path(model_path)
+        if not path.is_file():
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+
         if path.suffix == ".onnx":
             import onnxruntime as ort
             opts = ort.SessionOptions()
@@ -59,6 +84,9 @@ class RetinaGuardPredictor:
 
     def predict(self, image: Union[Image.Image, np.ndarray, str, Path]) -> PredictionResponse:
         t0 = time.perf_counter()
+
+        if self.ort_session is None and self.pt_model is None:
+            raise RuntimeError("No model loaded in RetinaGuardPredictor. Inference requires a valid ONNX or PyTorch model.")
 
         if isinstance(image, (str, Path)):
             pil_img = Image.open(image).convert("RGB")
@@ -87,19 +115,17 @@ class RetinaGuardPredictor:
                 attributes_raw["clarity"] = int(np.argmax(ort_outs[3][0]))
             if len(ort_outs) > 4:
                 attributes_raw["field_definition"] = int(np.argmax(ort_outs[4][0]))
-        elif self.pt_model is not None:
+        else:
             with torch.no_grad():
                 out = self.pt_model(tensor)
                 q_logits = out["calibrated_quality_logits"][0].cpu().numpy()
                 attributes_raw["artifact"] = int(torch.argmax(out["artifact_logits"][0]).item())
                 attributes_raw["clarity"] = int(torch.argmax(out["clarity_logits"][0]).item())
                 attributes_raw["field_definition"] = int(torch.argmax(out["field_definition_logits"][0]).item())
-        else:
-            # Fallback heuristic if no checkpoint loaded yet
-            q_logits = np.array([2.0, 0.2, -1.0], dtype=np.float32)
 
-        # 4. Probabilities & Uncertainty
-        probs_arr = softmax(q_logits, axis=-1)
+        # 4. Probabilities & Temperature Scaling
+        scaled_logits = q_logits / max(self.temperature, 1e-4)
+        probs_arr = softmax(scaled_logits, axis=-1)
         probs_dict = {
             "good": float(probs_arr[0]),
             "usable": float(probs_arr[1]),
