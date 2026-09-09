@@ -5,16 +5,25 @@ import numpy as np
 from PIL import Image
 import pytest
 
-from src.audit.hash_audit import compute_file_hash, find_duplicate_images, compute_phash_distance, compute_perceptual_hash
-from src.audit.patient_leakage_check import extract_patient_id_from_filename, verify_patient_split_isolation
-from src.audit.data_integrity import inspect_image_file
+from src.retinaguard.data.audit import (
+    compute_file_hash,
+    find_duplicate_images,
+    compute_perceptual_hash,
+    inspect_image_file,
+    verify_patient_split_isolation
+)
+from src.retinaguard.data.adapters import extract_patient_and_eye
 
 
 def test_extract_patient_id():
-    assert extract_patient_id_from_filename("10_left.jpeg") == "10"
-    assert extract_patient_id_from_filename("10_right.jpeg") == "10"
-    assert extract_patient_id_from_filename("P042_OD.png") == "P042"
-    assert extract_patient_id_from_filename("001_1_left.jpg") == "001"
+    p1, _ = extract_patient_and_eye("10_left.jpeg")
+    assert p1 == "10"
+    p2, _ = extract_patient_and_eye("10_right.jpeg")
+    assert p2 == "10"
+    p3, _ = extract_patient_and_eye("P042_OD.png")
+    assert p3 == "P042"
+    p4, _ = extract_patient_and_eye("001_1_left.jpg")
+    assert p4 == "001"
 
 
 def test_verify_patient_split_isolation():
