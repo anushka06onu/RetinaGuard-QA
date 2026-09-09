@@ -1,10 +1,10 @@
-"""Deterministic group-aware patient splitting per Phase 4 of blueprint."""
+"""Deterministic stratified group-aware patient splitting per Phase 4 of blueprint."""
 
 from pathlib import Path
-from typing import Dict, Tuple, Union, Optional
+from typing import Dict, Union
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import GroupShuffleSplit, StratifiedGroupKFold
+from sklearn.model_selection import StratifiedGroupKFold
 
 
 def create_patient_grouped_splits(
@@ -15,23 +15,29 @@ def create_patient_grouped_splits(
     patient_col: str = "patient_id",
     stratify_col: str = "quality_canonical"
 ) -> Dict[str, pd.DataFrame]:
-    """Partition dataset into Train, Val, and Test ensuring zero patient leakage."""
-    df = manifest_df.copy()
-    
-    # Fill missing patient IDs with individual image IDs if unprovable
-    df[patient_col] = df[patient_col].fillna(df["image_id"])
+    """Partition dataset into Train, Val, and Test ensuring zero patient leakage and stratified quality balance."""
+    df = manifest_df.copy().reset_index(drop=True)
 
-    # First split off Test set
-    gss_test = GroupShuffleSplit(n_splits=1, test_size=test_ratio, random_state=seed)
-    train_val_idx, test_idx = next(gss_test.split(df, groups=df[patient_col]))
+    # Fill missing patient IDs with individual image IDs if unprovable
+    df[patient_col] = df[patient_col].fillna(df["image_id"]).astype(str)
+    
+    # Stratification target (fill missing with 'unlabeled')
+    strat_target = df[stratify_col].fillna("unlabeled").astype(str)
+
+    # Use StratifiedGroupKFold with k=5 folds (~20% test, 20% val, 60% train) or k=10
+    n_splits = max(3, int(round(1.0 / max(val_ratio, test_ratio, 0.1))))
+    sgkf = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+
+    splits_generator = sgkf.split(df, y=strat_target, groups=df[patient_col])
+    train_val_idx, test_idx = next(splits_generator)
 
     df_train_val = df.iloc[train_val_idx].reset_index(drop=True)
     df_test = df.iloc[test_idx].reset_index(drop=True)
 
-    # Second split Train vs Val from remaining
-    adjusted_val_ratio = val_ratio / (1.0 - test_ratio)
-    gss_val = GroupShuffleSplit(n_splits=1, test_size=adjusted_val_ratio, random_state=seed)
-    train_idx, val_idx = next(gss_val.split(df_train_val, groups=df_train_val[patient_col]))
+    # Sub-split train_val into train and val
+    strat_tv = df_train_val[stratify_col].fillna("unlabeled").astype(str)
+    sgkf_val = StratifiedGroupKFold(n_splits=n_splits - 1, shuffle=True, random_state=seed)
+    train_idx, val_idx = next(sgkf_val.split(df_train_val, y=strat_tv, groups=df_train_val[patient_col]))
 
     df_train = df_train_val.iloc[train_idx].reset_index(drop=True)
     df_val = df_train_val.iloc[val_idx].reset_index(drop=True)
