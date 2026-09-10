@@ -3,8 +3,8 @@
 import numpy as np
 from PIL import Image
 
-from src.retinaguard.data.adapters import extract_patient_and_eye
-from src.retinaguard.data.audit import (
+from retinaguard.data.adapters import extract_patient_and_eye
+from retinaguard.data.audit import (
     find_duplicate_images,
     inspect_image_file,
     verify_patient_split_isolation,

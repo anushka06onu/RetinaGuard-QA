@@ -5,15 +5,15 @@ import pandas as pd
 import pytest
 from PIL import Image
 
-from src.retinaguard.data.adapters import (
+from retinaguard.data.adapters import (
     extract_patient_and_eye,
     parse_deepdrid_metadata,
     parse_eyeq_metadata,
 )
-from src.retinaguard.data.audit import run_leakage_and_duplicate_audit
-from src.retinaguard.data.datasets import RetinalQualityDataset
-from src.retinaguard.data.preprocessing import crop_retinal_fov
-from src.retinaguard.data.splits import create_patient_grouped_splits
+from retinaguard.data.audit import run_leakage_and_duplicate_audit
+from retinaguard.data.datasets import RetinalQualityDataset
+from retinaguard.data.preprocessing import crop_retinal_fov
+from retinaguard.data.splits import create_patient_grouped_splits
 
 
 def test_patient_and_eye_extraction():
@@ -130,7 +130,7 @@ def test_eyeq_adapter_and_exclusions(tmp_path):
 
 
 def test_deepdrid_adapter_label_validations_and_exclusions(tmp_path):
-    from src.retinaguard.data.adapters import parse_deepdrid_metadata
+    from retinaguard.data.adapters import parse_deepdrid_metadata
 
     img_dir = tmp_path / "deepdrid_images"
     img_dir.mkdir()
@@ -238,72 +238,92 @@ def test_deepdrid_adapter_excel_xlsx_ingestion(tmp_path):
 
 
 def test_prepare_deepdrid_provenance_metadata_json(tmp_path):
-    """Verify that deepdrid_manifest.metadata.json is produced with correct provenance fields."""
+    """Verify that deepdrid_manifest.metadata.json is produced with correct provenance fields and exact SHA-256 hashes."""
     import json
-    import subprocess
-    import sys
 
-    # Create dummy multi-fold directory structure
+    from retinaguard.utils.hashing import compute_sha256
+    from scripts.prepare_deepdrid import prepare_deepdrid
+
+    # Create dummy multi-fold directory structure with Images subdirectories
     ext_dir = tmp_path / "external" / "DeepDRiD" / "regular_fundus_images"
     train_dir = ext_dir / "regular-fundus-training"
     val_dir = ext_dir / "regular-fundus-validation"
     eval_dir = ext_dir / "Online-Challenge1&2-Evaluation"
     for d in [train_dir, val_dir, eval_dir]:
-        d.mkdir(parents=True)
+        (d / "Images").mkdir(parents=True)
 
     # Images and labels
-    for prefix, d, count in [
-        ("train", train_dir, 3),
-        ("val", val_dir, 2),
-        ("eval", eval_dir, 2),
+    train_csv = train_dir / "regular-fundus-training.csv"
+    val_csv = val_dir / "regular-fundus-validation.csv"
+    eval_xlsx = eval_dir / "Challenge2_labels.xlsx"
+
+    for prefix, d, count, label_file, base_id in [
+        ("train", train_dir, 3, train_csv, 100),
+        ("val", val_dir, 2, val_csv, 200),
+        ("eval", eval_dir, 2, eval_xlsx, 300),
     ]:
         rows = []
         for i in range(count):
-            img_name = f"{prefix}_{i+1}.jpg"
-            Image.new("RGB", (50, 50), color=(100, 50, 20)).save(d / img_name)
+            img_name = f"{base_id + i + 1}_1.jpg"
+            Image.new("RGB", (50, 50), color=(100, 50, 20)).save(d / "Images" / img_name)
             rows.append(
                 {
                     "image_id": img_name,
                     "overall_quality": 1,
                     "artifact": 0,
-                    "clarity": 0,
-                    "field_definition": 0,
+                    "clarity": 10,
+                    "field_definition": 10,
                 }
             )
         if prefix == "eval":
-            pd.DataFrame(rows).to_excel(d / "Challenge2_labels.xlsx", index=False)
+            pd.DataFrame(rows).to_excel(label_file, index=False)
         else:
-            pd.DataFrame(rows).to_csv(d / f"{d.name}.csv", index=False)
+            pd.DataFrame(rows).to_csv(label_file, index=False)
 
     out_csv = tmp_path / "manifests" / "deepdrid_manifest.csv"
+    ex_csv = tmp_path / "manifests" / "deepdrid_exclusions.csv"
     meta_json = tmp_path / "manifests" / "deepdrid_manifest.metadata.json"
 
-    # Run prepare_deepdrid script with custom output paths
-    # Note: we test through subprocess or python call
-    res = subprocess.run(
-        [
-            sys.executable,
-            "scripts/prepare_deepdrid.py",
-            "--output-csv",
-            str(out_csv),
-            "--exclusions-csv",
-            str(tmp_path / "manifests" / "deepdrid_exclusions.csv"),
-        ],
-        capture_output=True,
-        text=True,
+    expected_counts = {
+        "train": {"images": 3, "patients": 3},
+        "val": {"images": 2, "patients": 2},
+        "external_test": {"images": 2, "patients": 2},
+    }
+
+    manifest_df, metadata = prepare_deepdrid(
+        external_root=ext_dir,
+        output_csv=out_csv,
+        exclusions_csv=ex_csv,
+        expected_fold_counts=expected_counts,
     )
-    assert res.returncode == 0
+
     assert out_csv.is_file()
     assert meta_json.is_file()
+    assert len(manifest_df) == 7
 
     with open(meta_json, "r", encoding="utf-8") as f:
         meta = json.load(f)
 
+    # Validate structure and exact hash parity
     assert meta["dataset"] == "DeepDRiD"
-    assert "manifest_sha256" in meta and len(meta["manifest_sha256"]) == 64
+    assert meta["manifest_sha256"] == compute_sha256(out_csv)
     assert meta["mapping_path"] == "configs/deepdrid_label_mapping.yaml"
-    assert "mapping_sha256" in meta and len(meta["mapping_sha256"]) == 64
-    assert "source_folds" in meta
+    assert meta["mapping_sha256"] == compute_sha256("configs/deepdrid_label_mapping.yaml")
+
+    folds = meta["source_folds"]
+    assert folds["train"]["images"] == 3
+    assert folds["train"]["patients"] == 3
+    assert folds["train"]["raw_labels_sha256"] == compute_sha256(train_csv)
+
+    assert folds["val"]["images"] == 2
+    assert folds["val"]["patients"] == 2
+    assert folds["val"]["raw_labels_sha256"] == compute_sha256(val_csv)
+
+    assert folds["external_test"]["images"] == 2
+    assert folds["external_test"]["patients"] == 2
+    assert folds["external_test"]["raw_labels_sha256"] == compute_sha256(eval_xlsx)
+
+    assert meta["total_records"] == 7
+    assert meta["total_patients"] == 7
     assert "generated_at_utc" in meta
     assert "git_commit" in meta
-    assert "total_records" in meta

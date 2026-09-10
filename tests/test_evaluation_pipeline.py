@@ -3,19 +3,19 @@
 import numpy as np
 from PIL import Image
 
-from src.retinaguard.evaluation.calibration import (
+from retinaguard.evaluation.calibration import (
     compute_brier_score,
     compute_ece,
 )
-from src.retinaguard.evaluation.corruptions import SyntheticCorruptionSuite
-from src.retinaguard.evaluation.metrics import (
+from retinaguard.evaluation.corruptions import SyntheticCorruptionSuite
+from retinaguard.evaluation.metrics import (
     compute_quality_metrics,
 )
-from src.retinaguard.evaluation.ood import (
+from retinaguard.evaluation.ood import (
     RetinalModalityValidator,
     compute_energy_score,
 )
-from src.retinaguard.evaluation.selective import (
+from retinaguard.evaluation.selective import (
     compute_risk_coverage_curve,
 )
 

@@ -6,8 +6,8 @@ from typing import Optional
 
 from PIL import Image
 
-from src.retinaguard.inference.predictor import RetinaGuardPredictor
-from src.retinaguard.inference.schemas import PredictionResponse
+from retinaguard.inference.predictor import RetinaGuardPredictor
+from retinaguard.inference.schemas import PredictionResponse
 
 
 class QualityAssessmentService:
@@ -20,7 +20,7 @@ class QualityAssessmentService:
         if not p.is_file():
             if is_test_mode:
                 # In test mode without exported ONNX, instantiate predictor with PyTorch model in eval mode
-                from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
+                from retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
                 model = RetinaGuardMultiTaskModel(pretrained=False)
                 model.eval()

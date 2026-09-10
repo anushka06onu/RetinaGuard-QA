@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-from src.retinaguard.data.adapters import build_canonical_manifest, parse_eyeq_metadata
+from retinaguard.data.adapters import build_canonical_manifest, parse_eyeq_metadata
 
 
 def main():

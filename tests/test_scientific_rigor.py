@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.retinaguard.data.datasets import RetinalQualityDataset
-from src.retinaguard.evaluation.ood import compute_energy_score
-from src.retinaguard.inference.predictor import RetinaGuardPredictor
+from retinaguard.data.datasets import RetinalQualityDataset
+from retinaguard.evaluation.ood import compute_energy_score
+from retinaguard.inference.predictor import RetinaGuardPredictor
 
 
 def test_production_data_directory_isolation():

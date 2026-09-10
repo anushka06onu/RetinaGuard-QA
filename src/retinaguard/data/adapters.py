@@ -8,7 +8,7 @@ import pandas as pd
 import yaml
 from PIL import Image
 
-from src.retinaguard.utils.hashing import compute_sha256
+from retinaguard.utils.hashing import compute_sha256
 
 MANIFEST_COLUMNS = [
     "dataset",

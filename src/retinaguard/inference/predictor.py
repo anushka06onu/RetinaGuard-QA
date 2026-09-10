@@ -10,8 +10,8 @@ import torch
 from PIL import Image
 from scipy.special import softmax
 
-from src.retinaguard.data.preprocessing import preprocess_image_canonical
-from src.retinaguard.evaluation.ood import (
+from retinaguard.data.preprocessing import preprocess_image_canonical
+from retinaguard.evaluation.ood import (
     RetinalModalityValidator,
     compute_energy_score,
 )
@@ -172,7 +172,7 @@ class RetinaGuardPredictor:
 
                 # Verify model hash parity if model file is specified
                 if is_prod and model_path and Path(model_path).is_file():
-                    from src.retinaguard.utils.hashing import compute_sha256
+                    from retinaguard.utils.hashing import compute_sha256
 
                     expected_sha = cal_cfg.get("model_checkpoint_sha256")
                     actual_sha = compute_sha256(model_path)
@@ -198,7 +198,7 @@ class RetinaGuardPredictor:
                 str(path), sess_options=opts, providers=["CPUExecutionProvider"]
             )
         else:
-            from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
+            from retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
             model = RetinaGuardMultiTaskModel(pretrained=False)
             state = torch.load(str(path), map_location="cpu")

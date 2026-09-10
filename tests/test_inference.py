@@ -3,10 +3,10 @@
 import torch
 from PIL import Image
 
-from src.retinaguard.inference.decision_policy import DecisionPolicyEngine
-from src.retinaguard.inference.predictor import RetinaGuardPredictor
-from src.retinaguard.inference.schemas import DecisionAction
-from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
+from retinaguard.inference.decision_policy import DecisionPolicyEngine
+from retinaguard.inference.predictor import RetinaGuardPredictor
+from retinaguard.inference.schemas import DecisionAction
+from retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
 
 def test_decision_engine_rules():

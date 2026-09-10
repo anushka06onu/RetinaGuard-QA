@@ -9,18 +9,18 @@ import pandas as pd
 import torch
 from scipy.special import softmax
 
-from src.retinaguard.data.datasets import RetinalQualityDataset
-from src.retinaguard.evaluation.calibration import (
+from retinaguard.data.datasets import RetinalQualityDataset
+from retinaguard.evaluation.calibration import (
     compute_brier_score,
     compute_ece,
     fit_temperature_scaling,
 )
-from src.retinaguard.evaluation.ood import compute_energy_score
-from src.retinaguard.evaluation.selective import (
+from retinaguard.evaluation.ood import compute_energy_score
+from retinaguard.evaluation.selective import (
     compute_risk_coverage_curve,
     evaluate_selective_abstention,
 )
-from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
+from retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
 
 def main():
@@ -107,7 +107,7 @@ def main():
 
     import datetime
 
-    from src.retinaguard.utils.hashing import compute_sha256
+    from retinaguard.utils.hashing import compute_sha256
 
     ckpt_sha = compute_sha256(ckpt_p) if ckpt_p.is_file() else None
     split_sha = compute_sha256(val_p) if val_p.is_file() else None

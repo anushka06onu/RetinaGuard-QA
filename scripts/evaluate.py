@@ -8,10 +8,10 @@ import numpy as np
 import pandas as pd
 import torch
 
-from src.retinaguard.data.datasets import RetinalQualityDataset
-from src.retinaguard.evaluation.bootstrap import compute_patient_bootstrap_ci
-from src.retinaguard.evaluation.metrics import compute_quality_metrics
-from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
+from retinaguard.data.datasets import RetinalQualityDataset
+from retinaguard.evaluation.bootstrap import compute_patient_bootstrap_ci
+from retinaguard.evaluation.metrics import compute_quality_metrics
+from retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
 
 def evaluate_dataset_partition(

@@ -4,12 +4,12 @@ import numpy as np
 import torch
 from PIL import Image
 
-from src.retinaguard.models.baselines import (
+from retinaguard.models.baselines import (
     ClassicalFeatureExtractor,
     SingleTaskQualityModel,
 )
-from src.retinaguard.models.losses import MaskedMultiTaskLoss
-from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
+from retinaguard.models.losses import MaskedMultiTaskLoss
+from retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
 
 def test_classical_feature_extractor():
@@ -63,8 +63,8 @@ def test_multitask_model_forward_and_loss():
 def test_evaluate_epoch_multi_head_metrics_and_logger(tmp_path):
     from torch.utils.data import DataLoader
 
-    from src.retinaguard.training.callbacks import MetricHistoryLogger
-    from src.retinaguard.training.engine import evaluate_epoch
+    from retinaguard.training.callbacks import MetricHistoryLogger
+    from retinaguard.training.engine import evaluate_epoch
 
     model = RetinaGuardMultiTaskModel(backbone_name="mobilenetv3_small_100", pretrained=False)
     model.eval()

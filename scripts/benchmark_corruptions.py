@@ -9,10 +9,10 @@ import pandas as pd
 import torch
 from PIL import Image
 
-from src.retinaguard.data.preprocessing import preprocess_image_canonical
-from src.retinaguard.evaluation.corruptions import SyntheticCorruptionSuite
-from src.retinaguard.evaluation.metrics import compute_quality_metrics
-from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
+from retinaguard.data.preprocessing import preprocess_image_canonical
+from retinaguard.evaluation.corruptions import SyntheticCorruptionSuite
+from retinaguard.evaluation.metrics import compute_quality_metrics
+from retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
 
 def main():

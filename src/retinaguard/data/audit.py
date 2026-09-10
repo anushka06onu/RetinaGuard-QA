@@ -8,7 +8,7 @@ import imagehash
 import pandas as pd
 from PIL import Image
 
-from src.retinaguard.utils.hashing import compute_sha256
+from retinaguard.utils.hashing import compute_sha256
 
 
 def compute_file_hash(file_path: Union[str, Path]) -> str:
@@ -89,7 +89,7 @@ def find_duplicate_images(
 
 def verify_patient_split_isolation(splits: Dict[str, List[str]]) -> Dict[str, Any]:
     """Verify that filenames / patient IDs do not leak across train/val/test splits."""
-    from src.retinaguard.data.adapters import extract_patient_and_eye
+    from retinaguard.data.adapters import extract_patient_and_eye
 
     split_patients: Dict[str, Set[str]] = {}
     for s_name, file_list in splits.items():

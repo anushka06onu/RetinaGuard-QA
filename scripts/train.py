@@ -2,7 +2,7 @@
 
 import argparse
 
-from src.retinaguard.training.train import run_training_experiment
+from retinaguard.training.train import run_training_experiment
 
 
 def main():

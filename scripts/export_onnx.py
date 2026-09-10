@@ -8,8 +8,8 @@ import onnx
 import onnxruntime as ort
 import torch
 
-from src.retinaguard.data.preprocessing import export_preprocessing_metadata
-from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
+from retinaguard.data.preprocessing import export_preprocessing_metadata
+from retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
 
 class OnnxMultiTaskWrapper(torch.nn.Module):

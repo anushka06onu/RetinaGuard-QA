@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.retinaguard.data.audit import (
+from retinaguard.data.audit import (
     run_leakage_and_duplicate_audit,
 )
 

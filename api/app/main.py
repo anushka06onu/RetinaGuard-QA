@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 
-from src.retinaguard.inference.schemas import PredictionResponse
+from retinaguard.inference.schemas import PredictionResponse
 
 from .service import QualityAssessmentService, get_service
 

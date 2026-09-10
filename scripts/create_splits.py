@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.retinaguard.data.splits import (
+from retinaguard.data.splits import (
     create_grouped_train_val_split,
     create_patient_grouped_splits,
     save_split_manifests,

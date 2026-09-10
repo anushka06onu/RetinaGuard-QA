@@ -8,16 +8,16 @@ import torch
 import yaml
 from torch.utils.data import ConcatDataset, DataLoader
 
-from src.retinaguard.data.datasets import RetinalQualityDataset
-from src.retinaguard.models.losses import MaskedMultiTaskLoss
-from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
-from src.retinaguard.training.callbacks import (
+from retinaguard.data.datasets import RetinalQualityDataset
+from retinaguard.models.losses import MaskedMultiTaskLoss
+from retinaguard.models.multitask import RetinaGuardMultiTaskModel
+from retinaguard.training.callbacks import (
     EarlyStopping,
     MetricHistoryLogger,
     ModelCheckpointSaver,
 )
-from src.retinaguard.training.engine import evaluate_epoch, train_one_epoch
-from src.retinaguard.utils.reproducibility import get_device, seed_everything
+from retinaguard.training.engine import evaluate_epoch, train_one_epoch
+from retinaguard.utils.reproducibility import get_device, seed_everything
 
 
 def run_training_experiment(
