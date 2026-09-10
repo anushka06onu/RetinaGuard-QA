@@ -1,0 +1,15 @@
+{
+  "isolation_passed": true,
+  "split_counts": {
+    "deepdrid_train": 1200,
+    "deepdrid_external_test": 400,
+    "deepdrid_val": 400
+  },
+  "patient_counts": {
+    "deepdrid_train": 300,
+    "deepdrid_external_test": 100,
+    "deepdrid_val": 100
+  },
+  "patient_leakages": {},
+  "sha256_leakages": {}
+}
