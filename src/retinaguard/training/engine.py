@@ -1,6 +1,6 @@
 """Training and validation epoch execution loops."""
 
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import torch
@@ -47,8 +47,8 @@ def train_one_epoch(
 
 def evaluate_epoch(
     model: nn.Module, dataloader: DataLoader, criterion: nn.Module, device: torch.device
-) -> Tuple[float, float, np.ndarray, np.ndarray]:
-    """Run validation evaluation returning average loss, Macro-F1, all logits, and labels."""
+) -> Tuple[float, Dict[str, float], np.ndarray, np.ndarray]:
+    """Run validation evaluation returning average loss, metrics dictionary, all logits, and labels."""
     model.eval()
     total_loss = 0.0
     n_batches = max(1, len(dataloader))

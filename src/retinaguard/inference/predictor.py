@@ -93,6 +93,31 @@ class RetinaGuardPredictor:
                 with open(cal_path, "r", encoding="utf-8") as f:
                     cal_cfg = json.load(f)
 
+                # In production mode outside test suite, enforce complete schema and model hash verification
+                import os
+
+                is_prod = (
+                    os.environ.get("APP_MODE", "development").lower() == "production"
+                    and os.environ.get("TEST_MODE", "0") != "1"
+                )
+                if is_prod:
+                    required_fields = [
+                        "temperature",
+                        "uncertainty_threshold",
+                        "ood_energy_threshold",
+                        "ood_direction",
+                        "ood_score_type",
+                        "validation_split_sha256",
+                        "model_checkpoint_sha256",
+                        "fitting_method",
+                        "created_at_utc",
+                    ]
+                    missing = [k for k in required_fields if k not in cal_cfg]
+                    if missing:
+                        raise ValueError(
+                            f"Production calibration metadata missing required fields: {missing}"
+                        )
+
                 temp_val = cal_cfg.get("temperature", cal_cfg.get("optimal_temperature", 1.0))
                 try:
                     temp = float(temp_val)
@@ -143,6 +168,17 @@ class RetinaGuardPredictor:
                     if cal_cfg["ood_direction"] not in ["lower_is_ood", "higher_is_ood"]:
                         raise ValueError(
                             f"Invalid ood_direction in {calibration_config_path}: {cal_cfg['ood_direction']}"
+                        )
+
+                # Verify model hash parity if model file is specified
+                if is_prod and model_path and Path(model_path).is_file():
+                    from src.retinaguard.utils.hashing import compute_sha256
+
+                    expected_sha = cal_cfg.get("model_checkpoint_sha256")
+                    actual_sha = compute_sha256(model_path)
+                    if expected_sha and actual_sha != expected_sha:
+                        raise ValueError(
+                            f"Model artifact SHA256 ({actual_sha}) does not match calibration metadata model hash ({expected_sha})."
                         )
 
         if model_path is not None and Path(model_path).is_file():
@@ -229,7 +265,7 @@ class RetinaGuardPredictor:
             "reject": float(probs_arr[2]),
         }
         uncertainty = compute_entropy(probs_arr)
-        ood_score = float(compute_energy_score(q_logits[None, :])[0])
+        ood_score = float(compute_energy_score(q_logits[None, :], temperature=self.temperature)[0])
 
         latency_ms = (time.perf_counter() - t0) * 1000.0
 

@@ -147,3 +147,43 @@ def test_predictor_strict_config_validation(tmp_path):
     assert pred.image_size == 224
     assert pred.policy_engine.uncertainty_threshold == 0.85
     assert pred.policy_engine.ood_energy_threshold == 1.0
+
+
+def test_predictor_production_mode_requirements(tmp_path, monkeypatch):
+    import json
+
+    import pytest
+
+    monkeypatch.setenv("APP_MODE", "production")
+    monkeypatch.setenv("TEST_MODE", "0")
+
+    # Incomplete calibration file missing required fields in production mode
+    cal_incomplete = tmp_path / "incomplete_cal.json"
+    cal_incomplete.write_text(json.dumps({"temperature": 1.2}))
+
+    with pytest.raises(ValueError, match="Production calibration metadata missing required fields"):
+        RetinaGuardPredictor(calibration_config_path=cal_incomplete, model_path=None)
+
+    # Model hash mismatch in production mode
+    dummy_model = tmp_path / "model.onnx"
+    dummy_model.write_text("fake_model_bytes")
+
+    cal_mismatch = tmp_path / "mismatch_cal.json"
+    cal_mismatch.write_text(
+        json.dumps(
+            {
+                "temperature": 1.0,
+                "uncertainty_threshold": 0.85,
+                "ood_energy_threshold": 1.0,
+                "ood_direction": "lower_is_ood",
+                "ood_score_type": "energy",
+                "validation_split_sha256": "abcdef",
+                "model_checkpoint_sha256": "DIFFERENT_HASH_12345",
+                "fitting_method": "temperature_scaling",
+                "created_at_utc": "2026-09-10T12:00:00Z",
+            }
+        )
+    )
+
+    with pytest.raises(ValueError, match="does not match calibration metadata model hash"):
+        RetinaGuardPredictor(calibration_config_path=cal_mismatch, model_path=dummy_model)

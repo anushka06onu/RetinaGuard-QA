@@ -86,3 +86,18 @@ def test_corruptions():
     for c in corruptions:
         out = SyntheticCorruptionSuite.apply(img, c, severity=3)
         assert out.size == (100, 100)
+
+
+def test_calibration_inference_energy_parity():
+    test_logits = np.array([[3.5, 1.2, -0.8], [0.1, 0.2, 0.0]], dtype=np.float32)
+    temp = 1.35
+
+    # Calibration-time energy calculation
+    cal_energy = compute_energy_score(test_logits, temperature=temp)
+
+    # Inference-time energy calculation (per sample in loop)
+    inf_energy_0 = float(compute_energy_score(test_logits[0:1], temperature=temp)[0])
+    inf_energy_1 = float(compute_energy_score(test_logits[1:2], temperature=temp)[0])
+
+    np.testing.assert_allclose(cal_energy[0], inf_energy_0, rtol=1e-6)
+    np.testing.assert_allclose(cal_energy[1], inf_energy_1, rtol=1e-6)

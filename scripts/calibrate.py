@@ -15,6 +15,7 @@ from src.retinaguard.evaluation.calibration import (
     compute_ece,
     fit_temperature_scaling,
 )
+from src.retinaguard.evaluation.ood import compute_energy_score
 from src.retinaguard.evaluation.selective import (
     compute_risk_coverage_curve,
     evaluate_selective_abstention,
@@ -98,7 +99,7 @@ def main():
     eps = 1e-12
     p_clipped = np.clip(cal_probs, eps, 1.0)
     entropies = -np.sum(p_clipped * (np.log(p_clipped) / np.log(2.0)), axis=-1)
-    energy_scores = np.log(np.sum(np.exp(cal_logits), axis=-1))
+    energy_scores = compute_energy_score(raw_logits, temperature=best_temp)
 
     # Uncertainty threshold (e.g. 95th percentile on validation set)
     fitted_uncertainty_threshold = round(float(np.percentile(entropies, 95)), 4)
