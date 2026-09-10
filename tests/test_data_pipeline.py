@@ -235,3 +235,75 @@ def test_deepdrid_adapter_excel_xlsx_ingestion(tmp_path):
     assert parsed.iloc[0]["clarity"] == 0
     assert parsed.iloc[0]["field_definition"] == 0
     assert parsed.iloc[0]["source_split"] == "external_test"
+
+
+def test_prepare_deepdrid_provenance_metadata_json(tmp_path):
+    """Verify that deepdrid_manifest.metadata.json is produced with correct provenance fields."""
+    import json
+    import subprocess
+    import sys
+
+    # Create dummy multi-fold directory structure
+    ext_dir = tmp_path / "external" / "DeepDRiD" / "regular_fundus_images"
+    train_dir = ext_dir / "regular-fundus-training"
+    val_dir = ext_dir / "regular-fundus-validation"
+    eval_dir = ext_dir / "Online-Challenge1&2-Evaluation"
+    for d in [train_dir, val_dir, eval_dir]:
+        d.mkdir(parents=True)
+
+    # Images and labels
+    for prefix, d, count in [
+        ("train", train_dir, 3),
+        ("val", val_dir, 2),
+        ("eval", eval_dir, 2),
+    ]:
+        rows = []
+        for i in range(count):
+            img_name = f"{prefix}_{i+1}.jpg"
+            Image.new("RGB", (50, 50), color=(100, 50, 20)).save(d / img_name)
+            rows.append(
+                {
+                    "image_id": img_name,
+                    "overall_quality": 1,
+                    "artifact": 0,
+                    "clarity": 0,
+                    "field_definition": 0,
+                }
+            )
+        if prefix == "eval":
+            pd.DataFrame(rows).to_excel(d / "Challenge2_labels.xlsx", index=False)
+        else:
+            pd.DataFrame(rows).to_csv(d / f"{d.name}.csv", index=False)
+
+    out_csv = tmp_path / "manifests" / "deepdrid_manifest.csv"
+    meta_json = tmp_path / "manifests" / "deepdrid_manifest.metadata.json"
+
+    # Run prepare_deepdrid script with custom output paths
+    # Note: we test through subprocess or python call
+    res = subprocess.run(
+        [
+            sys.executable,
+            "scripts/prepare_deepdrid.py",
+            "--output-csv",
+            str(out_csv),
+            "--exclusions-csv",
+            str(tmp_path / "manifests" / "deepdrid_exclusions.csv"),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert res.returncode == 0
+    assert out_csv.is_file()
+    assert meta_json.is_file()
+
+    with open(meta_json, "r", encoding="utf-8") as f:
+        meta = json.load(f)
+
+    assert meta["dataset"] == "DeepDRiD"
+    assert "manifest_sha256" in meta and len(meta["manifest_sha256"]) == 64
+    assert meta["mapping_path"] == "configs/deepdrid_label_mapping.yaml"
+    assert "mapping_sha256" in meta and len(meta["mapping_sha256"]) == 64
+    assert "source_folds" in meta
+    assert "generated_at_utc" in meta
+    assert "git_commit" in meta
+    assert "total_records" in meta
