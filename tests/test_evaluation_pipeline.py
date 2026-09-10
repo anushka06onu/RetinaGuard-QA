@@ -101,3 +101,78 @@ def test_calibration_inference_energy_parity():
 
     np.testing.assert_allclose(cal_energy[0], inf_energy_0, rtol=1e-6)
     np.testing.assert_allclose(cal_energy[1], inf_energy_1, rtol=1e-6)
+
+
+def test_evaluation_ignores_masked_placeholder_records(tmp_path):
+    import pandas as pd
+    import torch
+
+    from scripts.evaluate import evaluate_dataset_partition
+
+    # 1. Create real temporary test images
+    img1 = tmp_path / "img1.png"
+    img2 = tmp_path / "img2.png"
+    Image.new("RGB", (100, 100), color=(180, 80, 30)).save(img1)
+    Image.new("RGB", (100, 100), color=(180, 80, 30)).save(img2)
+
+    # 2. Manifest with 1 valid attribute/quality sample, and 1 missing sample (mask=0)
+    df = pd.DataFrame(
+        [
+            {
+                "image_id": "img_valid",
+                "patient_id": "p1",
+                "path": str(img1),
+                "dataset": "deepdrid",
+                "overall_quality_canonical": "usable",  # class 1
+                "artifact": 1,  # class 1
+                "clarity": 0,  # class 0
+                "field_definition": 0,  # class 0
+            },
+            {
+                "image_id": "img_missing",
+                "patient_id": "p2",
+                "path": str(img2),
+                "dataset": "deepdrid",
+                # missing labels => target 0, mask 0.0
+                "overall_quality_canonical": None,
+                "artifact": None,
+                "clarity": None,
+                "field_definition": None,
+            },
+        ]
+    )
+    csv_file = tmp_path / "test_split.csv"
+    df.to_csv(csv_file, index=False)
+
+    # 3. Model outputs:
+    # Sample 0 (valid): predicts correct class (overall: 1, artifact: 1, clarity: 0, field_def: 0)
+    # Sample 1 (masked): intentionally predicts class 2 (mismatches placeholder target 0)
+    class DummyMultiTaskModel(torch.nn.Module):
+        def forward(self, x):
+            overall_logits = torch.tensor([[0.0, 5.0, 0.0], [0.0, 0.0, 5.0]])
+            artifact_logits = torch.tensor([[0.0, 5.0, 0.0], [0.0, 0.0, 5.0]])
+            clarity_logits = torch.tensor([[5.0, 0.0, 0.0], [0.0, 0.0, 5.0]])
+            field_def_logits = torch.tensor([[5.0, 0.0, 0.0], [0.0, 0.0, 5.0]])
+            return {
+                "overall_quality_logits": overall_logits,
+                "artifact_logits": artifact_logits,
+                "clarity_logits": clarity_logits,
+                "field_definition_logits": field_def_logits,
+            }
+
+    model = DummyMultiTaskModel()
+    metrics = evaluate_dataset_partition(
+        model, str(csv_file), dataset_name="DeepDRiD (Test)", is_deepdrid=True
+    )
+
+    # Masked placeholder record (sample 1) must be ignored:
+    assert metrics["num_samples"] == 1
+    assert metrics["total_records_in_split"] == 2
+    assert metrics["accuracy"] == 1.0
+    assert metrics["macro_f1"] == 1.0
+    assert metrics["artifact_num_samples"] == 1
+    assert metrics["artifact_macro_f1"] == 1.0
+    assert metrics["clarity_num_samples"] == 1
+    assert metrics["clarity_macro_f1"] == 1.0
+    assert metrics["field_definition_num_samples"] == 1
+    assert metrics["field_definition_macro_f1"] == 1.0

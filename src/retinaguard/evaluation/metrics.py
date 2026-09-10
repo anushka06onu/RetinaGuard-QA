@@ -36,14 +36,20 @@ def compute_quality_metrics(
     acc = float(accuracy_score(labels, preds))
 
     # Quadratic weighted kappa (QWK)
-    qwk = float(cohen_kappa_score(labels, preds, weights="quadratic"))
+    try:
+        qwk = float(cohen_kappa_score(labels, preds, weights="quadratic"))
+        if np.isnan(qwk):
+            qwk = 0.0
+    except Exception:
+        qwk = 0.0
 
-    cm = confusion_matrix(labels, preds, labels=list(range(len(class_names)))).tolist()
+    class_indices = list(range(len(class_names)))
+    cm = confusion_matrix(labels, preds, labels=class_indices).tolist()
 
     # Per-class metrics
-    p_per = precision_score(labels, preds, average=None, zero_division=0)
-    r_per = recall_score(labels, preds, average=None, zero_division=0)
-    f1_per = f1_score(labels, preds, average=None, zero_division=0)
+    p_per = precision_score(labels, preds, labels=class_indices, average=None, zero_division=0)
+    r_per = recall_score(labels, preds, labels=class_indices, average=None, zero_division=0)
+    f1_per = f1_score(labels, preds, labels=class_indices, average=None, zero_division=0)
 
     per_class_f1 = {name: float(f1_per[i]) for i, name in enumerate(class_names)}
     per_class_p = {name: float(p_per[i]) for i, name in enumerate(class_names)}

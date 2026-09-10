@@ -42,6 +42,15 @@ def compute_patient_bootstrap_ci(
         score = metric_fn(y_true[sampled_idx], y_pred[sampled_idx])
         scores.append(score)
 
+    if len(scores) == 0:
+        base_score = float(metric_fn(y_true, y_pred)) if n > 0 else 0.0
+        return {
+            "point_estimate": round(base_score, 4),
+            "ci_lower": round(base_score, 4),
+            "ci_upper": round(base_score, 4),
+            "ci_level": ci,
+        }
+
     scores = np.array(scores)
     point_est = float(np.mean(scores))
     lower = float(np.percentile(scores, (1.0 - ci) / 2.0 * 100))
