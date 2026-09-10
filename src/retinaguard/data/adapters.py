@@ -2,9 +2,10 @@
 
 import re
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
+import yaml
 from PIL import Image
 
 from src.retinaguard.utils.hashing import compute_sha256
@@ -67,14 +68,15 @@ def parse_eyeq_metadata(
     images_dir: Union[str, Path],
     source_split: str = "train",
     exclusions_csv: Optional[Union[str, Path]] = None,
+    exclusions_list: Optional[List[Dict[str, Any]]] = None,
 ) -> pd.DataFrame:
-    """Parse EyeQ raw labels CSV into canonical schema with explicit exclusion auditing."""
+    """Parse EyeQ raw label CSV into canonical schema with strict label validation."""
     df_raw = pd.read_csv(csv_path)
     img_dir = Path(images_dir)
     rows = []
     exclusions = []
 
-    # EyeQ label map: 0 -> good, 1 -> usable, 2 -> reject
+    # EyeQ quality mapping: 0 -> good, 1 -> usable, 2 -> reject
     label_map = {
         0: "good",
         1: "usable",
@@ -100,16 +102,17 @@ def parse_eyeq_metadata(
         p_id, eye = extract_patient_and_eye(img_name)
 
         if not img_path.is_file():
-            exclusions.append(
-                {
-                    "dataset": "eyeq",
-                    "image_id": Path(img_name).stem,
-                    "path": rel_path,
-                    "reason": "missing_image",
-                    "detail": f"File does not exist at {img_path}",
-                    "source_split": source_split,
-                }
-            )
+            ex_entry = {
+                "dataset": "eyeq",
+                "image_id": Path(img_name).stem,
+                "path": rel_path,
+                "reason": "missing_image",
+                "detail": f"File does not exist at {img_path}",
+                "source_split": source_split,
+            }
+            exclusions.append(ex_entry)
+            if exclusions_list is not None:
+                exclusions_list.append(ex_entry)
             continue
 
         try:
@@ -117,16 +120,17 @@ def parse_eyeq_metadata(
             with Image.open(img_path) as im:
                 w, h = im.size
         except Exception as exc:
-            exclusions.append(
-                {
-                    "dataset": "eyeq",
-                    "image_id": Path(img_name).stem,
-                    "path": rel_path,
-                    "reason": "unreadable_image",
-                    "detail": f"{type(exc).__name__}: {str(exc)}",
-                    "source_split": source_split,
-                }
-            )
+            ex_entry = {
+                "dataset": "eyeq",
+                "image_id": Path(img_name).stem,
+                "path": rel_path,
+                "reason": "unreadable_image",
+                "detail": f"{type(exc).__name__}: {str(exc)}",
+                "source_split": source_split,
+            }
+            exclusions.append(ex_entry)
+            if exclusions_list is not None:
+                exclusions_list.append(ex_entry)
             continue
 
         raw_label = r.get("quality", r.get("label", None))
@@ -162,12 +166,105 @@ def parse_eyeq_metadata(
             }
         )
 
-    if exclusions_csv is not None or len(exclusions) > 0:
-        ex_path = Path(exclusions_csv or "data/manifests/eyeq_exclusions.csv")
+    if exclusions_csv is not None and len(exclusions) > 0:
+        ex_path = Path(exclusions_csv)
         ex_path.parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(exclusions, columns=EXCLUSION_COLUMNS).to_csv(ex_path, index=False)
 
     return pd.DataFrame(rows, columns=MANIFEST_COLUMNS)
+
+
+def load_deepdrid_label_mapping(
+    config_path: Optional[Union[str, Path]] = None,
+) -> Dict[str, Dict[Any, Any]]:
+    """Load authoritative DeepDRiD label mappings from YAML configuration."""
+    if config_path is None:
+        p = Path("configs/deepdrid_label_mapping.yaml")
+    else:
+        p = Path(config_path)
+
+    if not p.is_file():
+        # Fallback to standard ISBI 2020 definitions if config file is absent
+        return {
+            "overall_quality": {
+                0: "reject",
+                1: "good",
+                2: "reject",
+                "0": "reject",
+                "1": "good",
+                "2": "reject",
+                "Good": "good",
+                "Usable": "usable",
+                "Reject": "reject",
+                "good": "good",
+                "usable": "usable",
+                "reject": "reject",
+            },
+            "artifact": {
+                0: 0,
+                1: 1,
+                2: 1,
+                4: 1,
+                3: 2,
+                6: 2,
+                8: 2,
+                10: 2,
+                "0": 0,
+                "1": 1,
+                "2": 1,
+                "4": 1,
+                "3": 2,
+                "6": 2,
+                "8": 2,
+                "10": 2,
+            },
+            "clarity": {
+                10: 0,
+                8: 0,
+                0: 0,
+                6: 1,
+                4: 1,
+                2: 1,
+                1: 2,
+                3: 2,
+                "10": 0,
+                "8": 0,
+                "0": 0,
+                "6": 1,
+                "4": 1,
+                "2": 1,
+                "1": 2,
+                "3": 2,
+            },
+            "field_definition": {
+                10: 0,
+                8: 0,
+                0: 0,
+                6: 1,
+                2: 1,
+                4: 2,
+                1: 2,
+                3: 2,
+                "10": 0,
+                "8": 0,
+                "0": 0,
+                "6": 1,
+                "2": 1,
+                "4": 2,
+                "1": 2,
+                "3": 2,
+            },
+        }
+
+    with open(p, "r", encoding="utf-8") as f:
+        cfg = yaml.safe_load(f)
+
+    return {
+        "overall_quality": cfg["overall_quality"]["canonical_mapping"],
+        "artifact": cfg["artifact"]["canonical_mapping"],
+        "clarity": cfg["clarity"]["canonical_mapping"],
+        "field_definition": cfg["field_definition"]["canonical_mapping"],
+    }
 
 
 def parse_deepdrid_metadata(
@@ -175,6 +272,8 @@ def parse_deepdrid_metadata(
     images_dir: Union[str, Path],
     source_split: str = "train",
     exclusions_csv: Optional[Union[str, Path]] = None,
+    exclusions_list: Optional[List[Dict[str, Any]]] = None,
+    mapping_config_path: Optional[Union[str, Path]] = None,
 ) -> pd.DataFrame:
     """Parse DeepDRiD raw fold labels CSV into canonical schema with strict label validation."""
     csv_p_obj = Path(csv_path)
@@ -186,60 +285,11 @@ def parse_deepdrid_metadata(
     rows = []
     exclusions = []
 
-    # Overall Quality canonical mapping: 0 -> good, 1 -> usable, 2 -> reject
-    oq_map = {
-        0: "good",
-        1: "usable",
-        2: "reject",
-        "0": "good",
-        "1": "usable",
-        "2": "reject",
-        "Good": "good",
-        "Usable": "usable",
-        "Reject": "reject",
-        "good": "good",
-        "usable": "usable",
-        "reject": "reject",
-    }
-
-    # Ordinal Attribute mappings (0=none/clear/adequate, 1=mild/moderate, 2=severe/poor)
-    # Supports 3-level (0, 1, 2), 5-level (0-4), and 10-point challenge scales (0, 1, 4, 6, 8, 10)
-    attr_map = {
-        0: 0,
-        1: 1,
-        2: 1,
-        3: 2,
-        4: 1,
-        6: 2,
-        8: 2,
-        10: 2,
-        "0": 0,
-        "1": 1,
-        "2": 1,
-        "3": 2,
-        "4": 1,
-        "6": 2,
-        "8": 2,
-        "10": 2,
-    }
-    clarity_fld_map = {
-        0: 2,
-        1: 2,
-        2: 1,
-        3: 1,
-        4: 1,
-        6: 1,
-        8: 0,
-        10: 0,
-        "0": 2,
-        "1": 2,
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "6": 1,
-        "8": 0,
-        "10": 0,
-    }
+    mappings = load_deepdrid_label_mapping(mapping_config_path)
+    oq_map = mappings["overall_quality"]
+    attr_map = mappings["artifact"]
+    clarity_map = mappings["clarity"]
+    fld_map = mappings["field_definition"]
 
     for _, r in df_raw.iterrows():
         # Match flexible column header variations
@@ -268,16 +318,17 @@ def parse_deepdrid_metadata(
         rel_path = str(img_path)
 
         if not img_path.is_file():
-            exclusions.append(
-                {
-                    "dataset": "deepdrid",
-                    "image_id": Path(img_name).stem,
-                    "path": rel_path,
-                    "reason": "missing_image",
-                    "detail": f"File does not exist at {img_path}",
-                    "source_split": source_split,
-                }
-            )
+            ex_entry = {
+                "dataset": "deepdrid",
+                "image_id": Path(img_name).stem,
+                "path": rel_path,
+                "reason": "missing_image",
+                "detail": f"File does not exist at {img_path}",
+                "source_split": source_split,
+            }
+            exclusions.append(ex_entry)
+            if exclusions_list is not None:
+                exclusions_list.append(ex_entry)
             continue
 
         try:
@@ -285,16 +336,17 @@ def parse_deepdrid_metadata(
             with Image.open(img_path) as im:
                 w, h = im.size
         except Exception as exc:
-            exclusions.append(
-                {
-                    "dataset": "deepdrid",
-                    "image_id": Path(img_name).stem,
-                    "path": rel_path,
-                    "reason": "unreadable_image",
-                    "detail": f"{type(exc).__name__}: {str(exc)}",
-                    "source_split": source_split,
-                }
-            )
+            ex_entry = {
+                "dataset": "deepdrid",
+                "image_id": Path(img_name).stem,
+                "path": rel_path,
+                "reason": "unreadable_image",
+                "detail": f"{type(exc).__name__}: {str(exc)}",
+                "source_split": source_split,
+            }
+            exclusions.append(ex_entry)
+            if exclusions_list is not None:
+                exclusions_list.append(ex_entry)
             continue
 
         raw_oq = r.get(
@@ -324,12 +376,12 @@ def parse_deepdrid_metadata(
             r.get("artifact", r.get("Artifact", r.get("artifacts", None))), "artifact", attr_map
         )
         clarity = parse_deepdrid_attr(
-            r.get("clarity", r.get("Clarity", None)), "clarity", clarity_fld_map
+            r.get("clarity", r.get("Clarity", None)), "clarity", clarity_map
         )
         field_def = parse_deepdrid_attr(
             r.get("field_definition", r.get("Field definition", r.get("Field_definition", None))),
             "field_definition",
-            clarity_fld_map,
+            fld_map,
         )
 
         rows.append(
@@ -354,8 +406,8 @@ def parse_deepdrid_metadata(
             }
         )
 
-    if exclusions_csv is not None or len(exclusions) > 0:
-        ex_path = Path(exclusions_csv or "data/manifests/deepdrid_exclusions.csv")
+    if exclusions_csv is not None and len(exclusions) > 0:
+        ex_path = Path(exclusions_csv)
         ex_path.parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(exclusions, columns=EXCLUSION_COLUMNS).to_csv(ex_path, index=False)
 

@@ -5,7 +5,11 @@ import pandas as pd
 import pytest
 from PIL import Image
 
-from src.retinaguard.data.adapters import extract_patient_and_eye
+from src.retinaguard.data.adapters import (
+    extract_patient_and_eye,
+    parse_deepdrid_metadata,
+    parse_eyeq_metadata,
+)
 from src.retinaguard.data.audit import run_leakage_and_duplicate_audit
 from src.retinaguard.data.datasets import RetinalQualityDataset
 from src.retinaguard.data.preprocessing import crop_retinal_fov
@@ -97,7 +101,6 @@ def test_dataset_loader(tmp_path):
 
 
 def test_eyeq_adapter_and_exclusions(tmp_path):
-    from src.retinaguard.data.adapters import parse_eyeq_metadata
 
     img_dir = tmp_path / "eyeq_images"
     img_dir.mkdir()
@@ -142,23 +145,23 @@ def test_deepdrid_adapter_label_validations_and_exclusions(tmp_path):
         [
             {
                 "image_id": "img1.jpg",
-                "overall_quality": 0,
+                "overall_quality": 1,
                 "artifact": 0,
-                "clarity": 0,
-                "field_definition": 0,
+                "clarity": 10,
+                "field_definition": 10,
             },
             {
                 "image_id": "img2.jpg",
                 "overall_quality": "Usable",
-                "artifact": 2,
-                "clarity": 2,
-                "field_definition": 1,
+                "artifact": 4,
+                "clarity": 6,
+                "field_definition": 6,
             },
             {
                 "image_id": "img3.jpg",
-                "overall_quality": "Reject",
-                "artifact": 4,
-                "clarity": 3,
+                "overall_quality": 0,
+                "artifact": 8,
+                "clarity": 1,
                 "field_definition": 4,
             },
             {
@@ -201,3 +204,34 @@ def test_deepdrid_adapter_label_validations_and_exclusions(tmp_path):
 
     with pytest.raises(ValueError, match="Unrecognized DeepDRiD overall quality"):
         parse_deepdrid_metadata(csv_invalid, img_dir)
+
+
+def test_deepdrid_adapter_excel_xlsx_ingestion(tmp_path):
+    """Verify parsing Excel .xlsx annotation files using openpyxl."""
+    img_dir = tmp_path / "images"
+    img_dir.mkdir(parents=True, exist_ok=True)
+    img_file = img_dir / "test_eval_1.jpg"
+    Image.new("RGB", (100, 100), color=(180, 80, 30)).save(img_file)
+
+    xlsx_file = tmp_path / "Challenge2_labels.xlsx"
+    df = pd.DataFrame(
+        [
+            {
+                "image_id": "test_eval_1",
+                "Overall quality": 1,
+                "Artifact": 0,
+                "Clarity": 10,
+                "Field definition": 10,
+            }
+        ]
+    )
+    df.to_excel(xlsx_file, index=False)
+
+    parsed = parse_deepdrid_metadata(xlsx_file, img_dir, source_split="external_test")
+    assert len(parsed) == 1
+    assert parsed.iloc[0]["image_id"] == "test_eval_1"
+    assert parsed.iloc[0]["overall_quality_canonical"] == "good"
+    assert parsed.iloc[0]["artifact"] == 0
+    assert parsed.iloc[0]["clarity"] == 0
+    assert parsed.iloc[0]["field_definition"] == 0
+    assert parsed.iloc[0]["source_split"] == "external_test"

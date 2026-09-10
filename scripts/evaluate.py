@@ -123,7 +123,9 @@ def main():
         "--checkpoint", type=str, required=True, help="Path to trained PyTorch checkpoint (.ckpt)"
     )
     parser.add_argument("--eyeq-split", type=str, default="data/splits/eyeq_test.csv")
-    parser.add_argument("--deepdrid-split", type=str, default="data/splits/deepdrid_test.csv")
+    parser.add_argument(
+        "--deepdrid-split", type=str, default="data/splits/deepdrid_external_test.csv"
+    )
     parser.add_argument("--output-dir", type=str, default="artifacts/metrics")
     args = parser.parse_args()
 
