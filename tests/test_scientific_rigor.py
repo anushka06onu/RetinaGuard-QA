@@ -1,5 +1,6 @@
 """Scientific rigor, fail-fast boundary, and fixture isolation test suite."""
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -9,6 +10,21 @@ import pytest
 from retinaguard.data.datasets import RetinalQualityDataset
 from retinaguard.evaluation.ood import compute_energy_score
 from retinaguard.inference.predictor import RetinaGuardPredictor
+from retinaguard.utils.hashing import compute_sha256
+
+
+def test_committed_audit_report_provenance():
+    """Verify that committed audit reports match currently committed scripts and configs."""
+    report_p = Path("artifacts/reports/cross_split_isolation_audit.json")
+    if report_p.is_file():
+        with open(report_p, "r", encoding="utf-8") as f:
+            report = json.load(f)
+        assert report["audit_script_sha256"] == compute_sha256("scripts/audit_dataset.py")
+        assert report["mapping_sha256"] == compute_sha256("configs/deepdrid_label_mapping.yaml")
+        assert report.get("cross_split_isolation_passed") is True
+        assert report.get("intra_split_uniqueness_passed") is True
+        assert report.get("image_integrity_passed") is True
+        assert report.get("overall_audit_passed") is True
 
 
 def test_production_data_directory_isolation():
