@@ -14,6 +14,9 @@ from retinaguard.data.splits import (
 
 def split_eyeq_preserving_official_partitions(eyeq_df: pd.DataFrame, seed: int = 2026) -> dict:
     """Preserve official EyeQ test split and partition official training into patient-grouped train/val."""
+    if len(eyeq_df) == 0:
+        raise ValueError("Cannot partition an empty EyeQ manifest.")
+
     if "source_split" in eyeq_df.columns and "test" in eyeq_df["source_split"].values:
         df_test = eyeq_df[eyeq_df["source_split"] == "test"].reset_index(drop=True)
         df_train_pool = eyeq_df[eyeq_df["source_split"] != "test"].reset_index(drop=True)
@@ -35,6 +38,9 @@ def split_deepdrid_preserving_official_partitions(
     deepdrid_df: pd.DataFrame, seed: int = 2026
 ) -> dict:
     """Preserve official DeepDRiD published folds without overwriting test vs external_test."""
+    if len(deepdrid_df) == 0:
+        raise ValueError("Cannot partition an empty DeepDRiD manifest.")
+
     if "source_split" in deepdrid_df.columns:
         splits = {}
         for s_name in ["train", "val", "test", "external_test"]:
@@ -51,12 +57,18 @@ def main():
     parser = argparse.ArgumentParser(
         description="Create immutable patient-isolated dataset splits."
     )
+    parser.add_argument("--dataset", type=str, choices=["all", "deepdrid", "eyeq"], default="all")
     parser.add_argument("--eyeq-manifest", type=str, default="data/manifests/eyeq_manifest.csv")
     parser.add_argument(
         "--deepdrid-manifest", type=str, default="data/manifests/deepdrid_manifest.csv"
     )
     parser.add_argument("--output-dir", type=str, default="data/splits")
     parser.add_argument("--seed", type=int, default=2026)
+    parser.add_argument(
+        "--allow-empty",
+        action="store_true",
+        help="Allow empty manifest in test fixture mode without raising error",
+    )
     args = parser.parse_args()
 
     eyeq_p = Path(args.eyeq_manifest)
@@ -65,13 +77,14 @@ def main():
     if not eyeq_p.is_file() and not deepdrid_p.is_file():
         raise FileNotFoundError(
             "No canonical dataset manifests found in data/manifests/.\n"
-            "Please run scripts/prepare_eyeq.py or scripts/prepare_deepdrid.py after obtaining datasets."
+            "Please run scripts/prepare_deepdrid.py or scripts/prepare_eyeq.py after obtaining datasets."
         )
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    total_splits_created = 0
 
-    if eyeq_p.is_file():
+    if args.dataset in ["eyeq", "all"] and eyeq_p.is_file():
         eyeq_df = pd.read_csv(eyeq_p)
         if len(eyeq_df) > 0:
             print(f"Loading EyeQ manifest from {eyeq_p} ({len(eyeq_df)} records)...")
@@ -80,12 +93,14 @@ def main():
             print("Saved EyeQ splits:")
             for k, p in saved_eyeq.items():
                 print(f"  - {k}: {p} ({len(eyeq_splits[k])} samples)")
-        else:
-            print(
-                f"EyeQ manifest at {eyeq_p} has 0 valid records (images not present locally). Skipping EyeQ split creation."
-            )
+            total_splits_created += len(saved_eyeq)
+        elif args.dataset == "eyeq":
+            if not args.allow_empty:
+                raise ValueError(
+                    f"EyeQ manifest '{eyeq_p}' contains zero valid records. Please download authorized EyePACS images."
+                )
 
-    if deepdrid_p.is_file():
+    if args.dataset in ["deepdrid", "all"] and deepdrid_p.is_file():
         deepdrid_df = pd.read_csv(deepdrid_p)
         if len(deepdrid_df) > 0:
             print(f"Loading DeepDRiD manifest from {deepdrid_p} ({len(deepdrid_df)} records)...")
@@ -98,10 +113,15 @@ def main():
             print("Saved DeepDRiD splits:")
             for k, p in saved_deepdrid.items():
                 print(f"  - {k}: {p} ({len(deepdrid_splits[k])} samples)")
+            total_splits_created += len(saved_deepdrid)
         else:
-            print(
-                f"DeepDRiD manifest at {deepdrid_p} has 0 valid records. Skipping DeepDRiD split creation."
-            )
+            if not args.allow_empty:
+                raise ValueError(
+                    f"DeepDRiD manifest '{deepdrid_p}' contains zero valid records. Please run scripts/prepare_deepdrid.py."
+                )
+
+    if total_splits_created == 0 and not args.allow_empty:
+        raise ValueError("No splits generated. All processed manifests contain zero valid records.")
 
 
 if __name__ == "__main__":

@@ -1,8 +1,10 @@
-"""Dataset duplicate, leakage, and integrity auditing per Phase 3 of blueprint."""
+"""Dataset duplicate, leakage, provenance, and integrity auditing per Phase 3 of blueprint."""
 
 import json
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Set, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 import imagehash
 import pandas as pd
@@ -168,23 +170,112 @@ def audit_dataset_integrity(manifest_df: pd.DataFrame) -> Dict[str, Any]:
 
 
 def run_leakage_and_duplicate_audit(
-    splits: Dict[str, pd.DataFrame], reports_dir: Union[str, Path] = "artifacts/reports"
+    splits: Dict[str, pd.DataFrame],
+    reports_dir: Union[str, Path] = "artifacts/reports",
+    split_file_paths: Optional[Dict[str, Union[str, Path]]] = None,
+    mapping_config_path: Union[str, Path] = "configs/deepdrid_label_mapping.yaml",
 ) -> Dict[str, Any]:
-    """Verify 0% patient and hash leakage across splits, and generate audit reports."""
+    """Verify 0% patient and hash leakage across splits with complete provenance and integrity checks."""
     reports_p = Path(reports_dir)
     reports_p.mkdir(parents=True, exist_ok=True)
 
+    # Git commit provenance
+    try:
+        git_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    except Exception:
+        git_commit = "unknown"
+
+    # Script and mapping hashes
+    script_p = Path("scripts/audit_dataset.py")
+    script_sha = compute_sha256(script_p) if script_p.is_file() else "N/A"
+    mapping_p = Path(mapping_config_path)
+    mapping_sha = compute_sha256(mapping_p) if mapping_p.is_file() else "N/A"
+
     patient_sets: Dict[str, Set[str]] = {}
     sha_sets: Dict[str, Set[str]] = {}
+    split_details: Dict[str, Any] = {}
 
     for split_name, df in splits.items():
-        patient_sets[split_name] = (
-            set(df["patient_id"].dropna().astype(str)) if "patient_id" in df.columns else set()
+        p_series = (
+            df["patient_id"].dropna().astype(str)
+            if "patient_id" in df.columns
+            else pd.Series([], dtype=str)
         )
-        sha_sets[split_name] = (
-            set(df["sha256"].dropna().astype(str)) if "sha256" in df.columns else set()
+        sha_series = (
+            df["sha256"].dropna().astype(str)
+            if "sha256" in df.columns
+            else pd.Series([], dtype=str)
         )
 
+        patient_sets[split_name] = set(p_series)
+        sha_sets[split_name] = set(sha_series)
+
+        # Intra-split duplicates
+        sha_counts = sha_series.value_counts()
+        intra_dups = sha_counts[sha_counts > 1].to_dict()
+
+        # Split file hash
+        split_path_str = (
+            str(split_file_paths.get(split_name))
+            if split_file_paths and split_name in split_file_paths
+            else f"data/splits/{split_name}.csv"
+        )
+        split_file_p = Path(split_path_str)
+        split_file_sha = compute_sha256(split_file_p) if split_file_p.is_file() else "N/A"
+
+        # Label distributions
+        label_dist = {}
+        for col in [
+            "overall_quality_canonical",
+            "artifact",
+            "clarity",
+            "field_definition",
+            "quality_canonical",
+        ]:
+            if col in df.columns:
+                label_dist[col] = {
+                    str(k): int(v) for k, v in df[col].value_counts(dropna=False).items()
+                }
+
+        # Image existence & recomputed SHA-256 verification (sample up to 50 or all if available)
+        verified_images = 0
+        missing_images = 0
+        mismatched_hashes = 0
+        if "path" in df.columns and "sha256" in df.columns:
+            for _, row in df.iterrows():
+                img_p = Path(row["path"])
+                if img_p.is_file():
+                    try:
+                        actual_img_sha = compute_sha256(img_p)
+                        if actual_img_sha == str(row["sha256"]):
+                            verified_images += 1
+                        else:
+                            mismatched_hashes += 1
+                    except Exception:
+                        mismatched_hashes += 1
+                else:
+                    missing_images += 1
+
+        split_details[split_name] = {
+            "path": split_path_str,
+            "sha256": split_file_sha,
+            "records": len(df),
+            "unique_patients": (
+                int(df["patient_id"].dropna().nunique()) if "patient_id" in df.columns else 0
+            ),
+            "unique_image_hashes": (
+                int(df["sha256"].dropna().nunique()) if "sha256" in df.columns else 0
+            ),
+            "intra_split_duplicates": intra_dups,
+            "label_distributions": label_dist,
+            "image_integrity": {
+                "verified_images": verified_images,
+                "missing_images": missing_images,
+                "mismatched_hashes": mismatched_hashes,
+            },
+        }
+
+    # Cross-split leakage checks
     patient_leaks = {}
     sha_leaks = {}
     split_names = list(splits.keys())
@@ -203,46 +294,71 @@ def run_leakage_and_duplicate_audit(
     isolation_passed = (len(patient_leaks) == 0) and (len(sha_leaks) == 0)
 
     audit_summary = {
+        "schema_version": "1.0",
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "git_commit": git_commit,
+        "audit_script_sha256": script_sha,
+        "mapping_sha256": mapping_sha,
+        "splits": split_details,
+        "comparisons_performed": [
+            "patient_id_cross_split",
+            "sha256_cross_split",
+            "intra_split_duplicates",
+            "image_file_existence_and_hash_verification",
+            "label_distribution_verification",
+        ],
+        "patient_leakages": patient_leaks,
+        "sha256_leakages": sha_leaks,
         "isolation_passed": isolation_passed,
         "split_counts": {s: len(df) for s, df in splits.items()},
         "patient_counts": {s: len(p_ids) for s, p_ids in patient_sets.items()},
-        "patient_leakages": patient_leaks,
-        "sha256_leakages": sha_leaks,
     }
 
-    # Save JSON report
-    with open(reports_p / "data_audit.json", "w", encoding="utf-8") as f:
-        json.dump(audit_summary, f, indent=2)
+    # Save canonical reports (both cross_split_isolation_audit and data_audit for compatibility)
+    for name in ["cross_split_isolation_audit.json", "data_audit.json"]:
+        with open(reports_p / name, "w", encoding="utf-8") as f:
+            json.dump(audit_summary, f, indent=2)
 
     # Save Markdown report
-    md_content = f"""# RetinaGuard-QA Data & Leakage Audit Report
+    md_content = f"""# RetinaGuard-QA Cross-Split Isolation & Data Audit Report
 
 ## Summary
+- **Schema Version:** 1.0
+- **Generated At UTC:** {audit_summary['generated_at_utc']}
+- **Git Commit:** `{git_commit}`
+- **Audit Script SHA-256:** `{script_sha}`
+- **Mapping Schema SHA-256:** `{mapping_sha}`
 - **Isolation Status:** {'✅ PASSED (Zero Leakage)' if isolation_passed else '❌ FAILED (Leakage Detected)'}
 - **Splits Evaluated:** {', '.join(split_names)}
 
-## Partition Counts
-| Split | Total Images | Unique Patients |
-|---|---|---|
+## Partition Summary & Cryptographic Hashes
+| Split | Split File SHA-256 | Images | Unique Patients | Unique Hashes | Intra-Split Dups |
+|---|---|:---:|:---:|:---:|:---:|
 """
-    for s in split_names:
-        md_content += f"| {s} | {len(splits[s])} | {len(patient_sets[s])} |\n"
+    for s, d in split_details.items():
+        sha_short = f"`{d['sha256'][:16]}...`" if len(d["sha256"]) == 64 else d["sha256"]
+        md_content += f"| **{s}** | {sha_short} | {d['records']} | {d['unique_patients']} | {d['unique_image_hashes']} | {len(d['intra_split_duplicates'])} |\n"
 
-    md_content += "\n## Patient Leakage Details\n"
+    md_content += "\n## Patient Isolation Verification\n"
     if patient_leaks:
         for k, v in patient_leaks.items():
-            md_content += f"- **{k}:** {len(v)} leaked patient IDs: {v[:5]}...\n"
+            md_content += f"- ❌ **{k}:** {len(v)} leaked patient IDs: {v[:5]}...\n"
     else:
-        md_content += "No patient identities cross partition boundaries (0% patient leakage).\n"
+        md_content += "- ✅ **Zero Patient Leakage:** No patient identities cross partition boundaries (0% patient leakage across all splits).\n"
 
-    md_content += "\n## Hash (SHA-256) Leakage Details\n"
+    md_content += "\n## Cryptographic Hash (SHA-256) Isolation Verification\n"
     if sha_leaks:
         for k, v in sha_leaks.items():
-            md_content += f"- **{k}:** {len(v)} duplicate file hashes crossing splits.\n"
+            md_content += f"- ❌ **{k}:** {len(v)} duplicate file hashes crossing splits.\n"
     else:
-        md_content += "No duplicate files or identical images cross partition boundaries.\n"
+        md_content += "- ✅ **Zero Image Leakage:** No duplicate files or identical images cross partition boundaries.\n"
 
-    with open(reports_p / "data_audit.md", "w", encoding="utf-8") as f:
-        f.write(md_content)
+    md_content += "\n## Comparisons Performed\n"
+    for c in audit_summary["comparisons_performed"]:
+        md_content += f"- `{c}`\n"
+
+    for name in ["cross_split_isolation_audit.md", "data_audit.md"]:
+        with open(reports_p / name, "w", encoding="utf-8") as f:
+            f.write(md_content)
 
     return audit_summary

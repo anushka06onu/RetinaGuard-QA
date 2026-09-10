@@ -1,4 +1,4 @@
-"""Dataset audit runner creating data_audit.json and data_audit.md from actual split manifests."""
+"""Dataset audit runner creating cross_split_isolation_audit.json and data_audit.json from actual split manifests."""
 
 import argparse
 from pathlib import Path
@@ -23,6 +23,12 @@ def main():
         default="artifacts/reports",
         help="Output directory for audit reports",
     )
+    parser.add_argument(
+        "--mapping-config",
+        type=str,
+        default="configs/deepdrid_label_mapping.yaml",
+        help="Path to DeepDRiD label mapping YAML config",
+    )
     args = parser.parse_args()
 
     splits_p = Path(args.splits_dir)
@@ -34,22 +40,33 @@ def main():
 
     if not split_files:
         print(
-            f"No split files found in {splits_p}. Please run scripts/prepare_eyeq.py and scripts/create_splits.py after obtaining datasets."
+            f"No split files found in {splits_p}. Please run scripts/prepare_deepdrid.py and scripts/create_splits.py after obtaining datasets."
         )
         return
 
     splits = {}
+    split_file_paths = {}
     for f in split_files:
         df = pd.read_csv(f)
         splits[f.stem] = df
+        split_file_paths[f.stem] = f
 
-    report = run_leakage_and_duplicate_audit(splits, reports_dir=reports_p)
+    report = run_leakage_and_duplicate_audit(
+        splits,
+        reports_dir=reports_p,
+        split_file_paths=split_file_paths,
+        mapping_config_path=args.mapping_config,
+    )
+
     print(f"Audited {len(splits)} partitions: {list(splits.keys())}")
+    print(f"Schema Version: {report.get('schema_version', '1.0')}")
+    print(f"Git Commit: {report.get('git_commit', 'N/A')}")
+    print(f"Mapping Schema SHA-256: {report.get('mapping_sha256', 'N/A')}")
     print(
         f"Leakage Audit Status: {'PASSED (Zero Leakage)' if report['isolation_passed'] else 'FAILED (Leakage Detected)'}"
     )
     print(
-        f"Saved audit reports to {reports_p / 'data_audit.json'} and {reports_p / 'data_audit.md'}"
+        f"Saved audit reports to {reports_p / 'cross_split_isolation_audit.json'} and {reports_p / 'cross_split_isolation_audit.md'}"
     )
 
 
