@@ -14,7 +14,9 @@ from src.retinaguard.evaluation.metrics import compute_quality_metrics
 from src.retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
 
-def evaluate_dataset_partition(model, csv_path: str, dataset_name: str, device: str = "cpu"):
+def evaluate_dataset_partition(
+    model, csv_path: str, dataset_name: str, is_deepdrid: bool = False, device: str = "cpu"
+):
     p = Path(csv_path)
     if not p.is_file():
         raise FileNotFoundError(
@@ -25,27 +27,56 @@ def evaluate_dataset_partition(model, csv_path: str, dataset_name: str, device: 
     if len(df) == 0:
         raise ValueError(f"Split manifest {csv_path} is empty.")
 
-    # RetinalQualityDataset will raise FileNotFoundError / RuntimeError on unreadable images
     ds = RetinalQualityDataset(df, allow_synthetic_fallback=False)
     loader = torch.utils.data.DataLoader(ds, batch_size=16, shuffle=False)
 
     all_logits, all_y, all_p = [], [], []
+    attr_data = {
+        "artifact": {"preds": [], "targets": []},
+        "clarity": {"preds": [], "targets": []},
+        "field_definition": {"preds": [], "targets": []},
+    }
+
     with torch.no_grad():
         for b in loader:
             out = model(b["image"].to(device))
-            all_logits.append(out["quality_logits"].cpu().numpy())
-            all_y.append(b["quality_target"].numpy())
+            if is_deepdrid:
+                logits = out["overall_quality_logits"].cpu().numpy()
+                targets = b["overall_quality_target"].numpy()
+                for attr_name in ["artifact", "clarity", "field_definition"]:
+                    attr_logits = out[f"{attr_name}_logits"].cpu().numpy()
+                    attr_target = b[f"{attr_name}_target"].numpy()
+                    attr_data[attr_name]["preds"].append(np.argmax(attr_logits, axis=-1))
+                    attr_data[attr_name]["targets"].append(attr_target)
+            else:
+                logits = out["quality_logits"].cpu().numpy()
+                targets = b["quality_target"].numpy()
+
+            all_logits.append(logits)
+            all_y.append(targets)
             all_p.extend(b["patient_id"])
 
-    logits = np.concatenate(all_logits, axis=0)
+    logits_arr = np.concatenate(all_logits, axis=0)
     y_true = np.concatenate(all_y, axis=0)
     patients = np.array(all_p)
 
-    metrics = compute_quality_metrics(logits, y_true, is_logits=True)
-    ci = compute_patient_bootstrap_ci(y_true, np.argmax(logits, axis=-1), patient_ids=patients)
+    metrics = compute_quality_metrics(logits_arr, y_true, is_logits=True)
+    ci = compute_patient_bootstrap_ci(y_true, np.argmax(logits_arr, axis=-1), patient_ids=patients)
     metrics["macro_f1_95_ci"] = ci
     metrics["dataset"] = dataset_name
     metrics["num_samples"] = len(y_true)
+
+    if is_deepdrid:
+        from sklearn.metrics import f1_score
+
+        for attr_name, data in attr_data.items():
+            if data["preds"] and data["targets"]:
+                p_arr = np.concatenate(data["preds"], axis=0)
+                t_arr = np.concatenate(data["targets"], axis=0)
+                metrics[f"{attr_name}_macro_f1"] = round(
+                    float(f1_score(t_arr, p_arr, average="macro", zero_division=0)), 4
+                )
+
     return metrics
 
 
@@ -87,7 +118,9 @@ def main():
 
     # 2. External DeepDRiD Evaluation
     print(f"Loading DeepDRiD external split from {args.deepdrid_split}...")
-    deepdrid_metrics = evaluate_dataset_partition(model, args.deepdrid_split, "DeepDRiD (External)")
+    deepdrid_metrics = evaluate_dataset_partition(
+        model, args.deepdrid_split, "DeepDRiD (External)", is_deepdrid=True
+    )
     with open(out_p / "external_deepdrid.json", "w", encoding="utf-8") as f:
         json.dump(deepdrid_metrics, f, indent=2)
     print(
