@@ -1,15 +1,29 @@
-# RetinaGuard-QA Operator User Guide
+# RetinaGuard-QA Operator & Research User Guide
 
-## Step-by-Step Operator Workflow
+> **Important Research Disclaimer:** RetinaGuard-QA is a research prototype for technical fundus image-quality assessment. It is not clinically validated for diagnostic decision making.
 
-1. **Initiate Scan Inspection**:
-   - Access the web interface at `http://localhost:8000`.
-   - Drag and drop the captured retinal fundus photograph into the ingestion box.
-2. **Review Triage Action**:
-   - **Green (`ACCEPT`)**: Image satisfies technical quality criteria. Proceed to diagnostic AI or clinical review.
-   - **Yellow (`USABLE_WITH_WARNING`)**: Minor peripheral defect present. The macula and optic disc remain interpretable.
-   - **Red (`RECAPTURE_WITH_GUIDANCE`)**: Serious optical/physical defect detected (e.g. defocus blur, underexposure). Read the numbered corrective steps and adjust camera settings before retaking the image.
-   - **Purple (`MANUAL_REVIEW`)**: High epistemic uncertainty detected near decision boundary. Requires human operator review.
-   - **Rose (`UNSUPPORTED_OOD`)**: Non-fundus image, severely corrupt file, or unfamiliar optical modality detected.
-3. **Export Audit Certification**:
-   - Click **Download PDF Audit Report** to generate a timestamped, signed PDF quality assessment for electronic medical records (EMR) integration.
+## Operator & Research Workflow
+
+### 1. Ingesting an Image
+- Access the web interface at `http://localhost:5173` (or port configured in your environment).
+- Upload a standard color retinal fundus photograph (supported formats: **JPEG** or **PNG**, up to 15MB).
+- Or run one of the synthetic interface fixtures to verify system connectivity and badge rendering.
+
+### 2. Interpreting Triage Decisions
+
+The decision engine outputs one of four deterministic states:
+
+| Decision Badge | Status Meaning | Recommended Action |
+| :--- | :--- | :--- |
+| **`accept`** | Adequate Technical Quality | Image satisfies technical criteria. |
+| **`recapture`** | Significant Quality Degradation | Quality is inadequate due to optical/illumination defects. Review the feedback guidance (e.g. refocus lens, adjust flash intensity, reposition patient). |
+| **`manual_review`** | High Predictive Uncertainty | Model predictive entropy is elevated near decision threshold. Human expert review recommended. |
+| **`unsupported_input`** | Out-of-Distribution / Invalid | Input failed circular FOV detection, modality prechecks, or energy score threshold. |
+
+### 3. Understanding Quantitative Metrics
+
+- **Quality Grade:** Primary classification (`Good`, `Usable`, `Reject`) with calibrated confidence percentage.
+- **Predictive Entropy (bits):** Shannon entropy $H(p) = -\sum p_k \log_2(p_k)$ quantifying model uncertainty.
+- **Energy Metric:** Free energy score used for OOD input gating.
+- **Acquisition Attributes:** Predicted degradation levels for Artifact, Clarity, and Field Definition.
+- **Capture Guidance:** Actionable instructions derived directly from predicted attribute levels.

@@ -8,12 +8,11 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - APP_ENV=production
-      - API_HOST=0.0.0.0
-      - API_PORT=8000
+      - APP_MODE=production
       - MODEL_PATH=artifacts/models/model.onnx
-      - PREPROCESSING_CONFIG=artifacts/models/preprocessing.json
-      - DECISION_POLICY_CONFIG=configs/calibration.yaml
+      - PREPROCESSING_PATH=artifacts/models/preprocessing.json
+      - CALIBRATION_PATH=artifacts/models/calibration_metadata.json
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:80,http://127.0.0.1:3000
     volumes:
       - ./artifacts:/app/artifacts:ro
       - ./configs:/app/configs:ro
@@ -28,3 +27,4 @@ services:
     depends_on:
       - api
     restart: unless-stopped
+

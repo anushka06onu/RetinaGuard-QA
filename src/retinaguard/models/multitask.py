@@ -10,11 +10,11 @@ from torch import nn
 
 class RetinaGuardMultiTaskModel(nn.Module):
     """Shared lightweight encoder with dataset-aware masked heads:
-    - EyeQ Quality Head: Good / Usable / Reject (3 classes)
-    - DeepDRiD Overall Quality Head (3 classes)
-    - Artifact Ordinal Head (3 levels)
-    - Clarity Ordinal Head (3 levels)
-    - Field Definition Ordinal Head (3 levels)
+    - EyeQ Quality Head: Good / Usable / Reject (3 classes: 0=good, 1=usable, 2=reject)
+    - DeepDRiD Overall Quality Head: Binary Diagnosable (2 classes: 0=good, 1=poor/reject)
+    - Artifact Ordinal Head (3 levels: 0=none, 1=mild, 2=severe)
+    - Clarity Ordinal Head (3 levels: 0=high, 1=moderate, 2=low)
+    - Field Definition Ordinal Head (3 levels: 0=adequate, 1=acceptable, 2=poor)
     - Latent Projection Head (128-d) for OOD Mahalanobis distance
     """
 
@@ -47,13 +47,13 @@ class RetinaGuardMultiTaskModel(nn.Module):
             nn.Linear(in_features, 512), nn.BatchNorm1d(512), nn.SiLU(), nn.Dropout(p=dropout)
         )
 
-        # 1. EyeQ Quality Head (Good, Usable, Reject)
+        # 1. EyeQ Quality Head (Good=0, Usable=1, Reject=2) - 3 classes
         self.quality_head = nn.Linear(512, 3)
 
-        # 2. DeepDRiD Overall Quality Head
-        self.overall_quality_head = nn.Linear(512, 3)
+        # 2. DeepDRiD Overall Quality Head (Good=0, Poor/Reject=1) - 2 classes
+        self.overall_quality_head = nn.Linear(512, 2)
 
-        # 3. Attribute Heads
+        # 3. Attribute Heads (Ordinal 3 levels: 0, 1, 2)
         self.artifact_head = nn.Linear(512, 3)
         self.clarity_head = nn.Linear(512, 3)
         self.field_def_head = nn.Linear(512, 3)
@@ -61,16 +61,11 @@ class RetinaGuardMultiTaskModel(nn.Module):
         # 4. Latent Projection for OOD
         self.projection_head = nn.Sequential(nn.Linear(512, latent_dim), nn.BatchNorm1d(latent_dim))
 
-        # Post-hoc temperature calibration parameter
-        self.temperature = nn.Parameter(torch.ones(1) * 1.0, requires_grad=False)
-
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         features = self.backbone(x)
         neck_out = self.neck(features)
 
         q_logits = self.quality_head(neck_out)
-        cal_q_logits = q_logits / torch.clamp(self.temperature, min=0.01)
-
         oq_logits = self.overall_quality_head(neck_out)
         art_logits = self.artifact_head(neck_out)
         cla_logits = self.clarity_head(neck_out)
@@ -80,7 +75,6 @@ class RetinaGuardMultiTaskModel(nn.Module):
 
         return {
             "quality_logits": q_logits,
-            "calibrated_quality_logits": cal_q_logits,
             "overall_quality_logits": oq_logits,
             "artifact_logits": art_logits,
             "clarity_logits": cla_logits,
@@ -88,6 +82,3 @@ class RetinaGuardMultiTaskModel(nn.Module):
             "latent_features": latent,
             "features": neck_out,
         }
-
-    def set_temperature(self, temp: float):
-        self.temperature.data.fill_(max(0.01, float(temp)))

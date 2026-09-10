@@ -123,7 +123,7 @@ def test_evaluation_ignores_masked_placeholder_records(tmp_path):
                 "patient_id": "p1",
                 "path": str(img1),
                 "dataset": "deepdrid",
-                "overall_quality_canonical": "usable",  # class 1
+                "overall_quality_canonical": "reject",  # class 1
                 "artifact": 1,  # class 1
                 "clarity": 0,  # class 0
                 "field_definition": 0,  # class 0
@@ -146,10 +146,10 @@ def test_evaluation_ignores_masked_placeholder_records(tmp_path):
 
     # 3. Model outputs:
     # Sample 0 (valid): predicts correct class (overall: 1, artifact: 1, clarity: 0, field_def: 0)
-    # Sample 1 (masked): intentionally predicts class 2 (mismatches placeholder target 0)
+    # Sample 1 (masked): intentionally predicts class 0 for overall (mismatches placeholder)
     class DummyMultiTaskModel(torch.nn.Module):
         def forward(self, x):
-            overall_logits = torch.tensor([[0.0, 5.0, 0.0], [0.0, 0.0, 5.0]])
+            overall_logits = torch.tensor([[0.0, 5.0], [5.0, 0.0]])
             artifact_logits = torch.tensor([[0.0, 5.0, 0.0], [0.0, 0.0, 5.0]])
             clarity_logits = torch.tensor([[5.0, 0.0, 0.0], [0.0, 0.0, 5.0]])
             field_def_logits = torch.tensor([[5.0, 0.0, 0.0], [0.0, 0.0, 5.0]])
@@ -170,9 +170,6 @@ def test_evaluation_ignores_masked_placeholder_records(tmp_path):
     assert metrics["total_records_in_split"] == 2
     assert metrics["accuracy"] == 1.0
     assert metrics["macro_f1"] == 1.0
-    assert metrics["artifact_num_samples"] == 1
-    assert metrics["artifact_macro_f1"] == 1.0
-    assert metrics["clarity_num_samples"] == 1
-    assert metrics["clarity_macro_f1"] == 1.0
-    assert metrics["field_definition_num_samples"] == 1
-    assert metrics["field_definition_macro_f1"] == 1.0
+    assert metrics["attribute_metrics"]["artifact"]["macro_f1"] == 1.0
+    assert metrics["attribute_metrics"]["clarity"]["macro_f1"] == 1.0
+    assert metrics["attribute_metrics"]["field_definition"]["macro_f1"] == 1.0

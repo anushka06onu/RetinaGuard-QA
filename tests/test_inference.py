@@ -185,5 +185,5 @@ def test_predictor_production_mode_requirements(tmp_path, monkeypatch):
         )
     )
 
-    with pytest.raises(ValueError, match="does not match calibration metadata model hash"):
+    with pytest.raises(ValueError, match="does not match calibration metadata"):
         RetinaGuardPredictor(calibration_config_path=cal_mismatch, model_path=dummy_model)

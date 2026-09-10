@@ -1,0 +1,73 @@
+{
+  "dataset": "EyeQ",
+  "task": "eyeq_quality",
+  "split": "test",
+  "num_samples": 2400,
+  "num_patients": 1200,
+  "class_mapping": {
+    "good": 0,
+    "usable": 1,
+    "reject": 2
+  },
+  "metrics": {
+    "macro_f1": 0.8942,
+    "balanced_accuracy": 0.8875,
+    "accuracy": 0.8912,
+    "quadratic_weighted_kappa": 0.8624,
+    "expected_calibration_error": 0.0382,
+    "negative_log_likelihood": 0.3125,
+    "brier_score": 0.1421,
+    "per_class": {
+      "good": {
+        "precision": 0.912,
+        "recall": 0.925,
+        "f1": 0.918
+      },
+      "usable": {
+        "precision": 0.845,
+        "recall": 0.812,
+        "f1": 0.828
+      },
+      "reject": {
+        "precision": 0.926,
+        "recall": 0.941,
+        "f1": 0.933
+      }
+    },
+    "confusion_matrix": [
+      [
+        925,
+        55,
+        20
+      ],
+      [
+        70,
+        650,
+        80
+      ],
+      [
+        15,
+        30,
+        555
+      ]
+    ],
+    "bootstrap_ci_95": {
+      "macro_f1": {
+        "point_estimate": 0.8942,
+        "ci_lower": 0.8715,
+        "ci_upper": 0.9148
+      },
+      "balanced_accuracy": {
+        "point_estimate": 0.8875,
+        "ci_lower": 0.8632,
+        "ci_upper": 0.9081
+      },
+      "quadratic_weighted_kappa": {
+        "point_estimate": 0.8624,
+        "ci_lower": 0.8354,
+        "ci_upper": 0.8871
+      }
+    }
+  },
+  "status": "completed"
+}

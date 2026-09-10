@@ -10,14 +10,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml .
+COPY src/ src/
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir .
 
-COPY src/ src/
 COPY api/ api/
 COPY configs/ configs/
 COPY artifacts/ artifacts/
 
 EXPOSE 8000
 
+ENV APP_MODE=production \
+    MODEL_PATH=artifacts/models/model.onnx \
+    PREPROCESSING_PATH=artifacts/models/preprocessing.json \
+    CALIBRATION_PATH=artifacts/models/calibration_metadata.json
+
 CMD ["uvicorn", "api.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+

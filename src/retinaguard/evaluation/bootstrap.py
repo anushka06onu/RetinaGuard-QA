@@ -1,6 +1,6 @@
 """Patient-level and sample-level non-parametric bootstrap confidence intervals."""
 
-from typing import Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 import numpy as np
 from sklearn.metrics import f1_score
@@ -14,10 +14,13 @@ def compute_patient_bootstrap_ci(
     n_bootstraps: int = 1000,
     ci: float = 0.95,
     seed: int = 2026,
-) -> Dict[str, float]:
+) -> Dict[str, Any]:
     """Compute 95% bootstrap confidence intervals, grouping by patient ID when provided."""
     rng = np.random.RandomState(seed)
     n = len(y_true)
+
+    # Observed point estimate calculated on the complete test set (Item 22)
+    observed_score = float(metric_fn(y_true, y_pred)) if n > 0 else 0.0
 
     if patient_ids is not None:
         unique_patients = np.unique(patient_ids)
@@ -43,22 +46,31 @@ def compute_patient_bootstrap_ci(
         scores.append(score)
 
     if len(scores) == 0:
-        base_score = float(metric_fn(y_true, y_pred)) if n > 0 else 0.0
         return {
-            "point_estimate": round(base_score, 4),
-            "ci_lower": round(base_score, 4),
-            "ci_upper": round(base_score, 4),
+            "point_estimate": round(observed_score, 4),
+            "observed_metric": round(observed_score, 4),
+            "bootstrap_mean": round(observed_score, 4),
+            "ci_lower": round(observed_score, 4),
+            "ci_upper": round(observed_score, 4),
             "ci_level": ci,
+            "num_bootstraps": 0,
+            "num_patients": num_p if num_p is not None else n,
+            "seed": seed,
         }
 
-    scores = np.array(scores)
-    point_est = float(np.mean(scores))
-    lower = float(np.percentile(scores, (1.0 - ci) / 2.0 * 100))
-    upper = float(np.percentile(scores, (1.0 + ci) / 2.0 * 100))
+    scores_arr = np.array(scores)
+    boot_mean = float(np.mean(scores_arr))
+    lower = float(np.percentile(scores_arr, (1.0 - ci) / 2.0 * 100))
+    upper = float(np.percentile(scores_arr, (1.0 + ci) / 2.0 * 100))
 
     return {
-        "point_estimate": round(point_est, 4),
+        "point_estimate": round(observed_score, 4),
+        "observed_metric": round(observed_score, 4),
+        "bootstrap_mean": round(boot_mean, 4),
         "ci_lower": round(lower, 4),
         "ci_upper": round(upper, 4),
         "ci_level": ci,
+        "num_bootstraps": len(scores),
+        "num_patients": num_p if num_p is not None else n,
+        "seed": seed,
     }

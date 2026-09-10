@@ -170,15 +170,27 @@ class RetinaGuardPredictor:
                             f"Invalid ood_direction in {calibration_config_path}: {cal_cfg['ood_direction']}"
                         )
 
-                # Verify model hash parity if model file is specified
+                # Verify model hash parity if model file is specified (Item 13)
                 if is_prod and model_path and Path(model_path).is_file():
                     from retinaguard.utils.hashing import compute_sha256
 
-                    expected_sha = cal_cfg.get("model_checkpoint_sha256")
+                    model_path_obj = Path(model_path)
+                    if model_path_obj.suffix.lower() == ".onnx":
+                        expected_sha = cal_cfg.get(
+                            "onnx_model_sha256",
+                            cal_cfg.get(
+                                "model_onnx_sha256", cal_cfg.get("model_checkpoint_sha256")
+                            ),
+                        )
+                    else:
+                        expected_sha = cal_cfg.get(
+                            "source_checkpoint_sha256",
+                            cal_cfg.get("model_checkpoint_sha256"),
+                        )
                     actual_sha = compute_sha256(model_path)
                     if expected_sha and actual_sha != expected_sha:
                         raise ValueError(
-                            f"Model artifact SHA256 ({actual_sha}) does not match calibration metadata model hash ({expected_sha})."
+                            f"Model artifact SHA256 ({actual_sha}) does not match calibration metadata expected hash ({expected_sha})."
                         )
 
         if model_path is not None and Path(model_path).is_file():
@@ -233,7 +245,7 @@ class RetinaGuardPredictor:
         # 2. Canonical Preprocessing
         tensor = preprocess_image_canonical(pil_img, image_size=self.image_size)
 
-        # 3. Model Inference
+        # 3. Model Inference (Raw Logits Exported & Inferred - Item 15)
         attributes_raw = {"artifact": 0, "clarity": 0, "field_definition": 0}
         if self.ort_session is not None:
             inp_name = self.ort_session.get_inputs()[0].name
@@ -249,14 +261,14 @@ class RetinaGuardPredictor:
         else:
             with torch.no_grad():
                 out = self.pt_model(tensor)
-                q_logits = out["calibrated_quality_logits"][0].cpu().numpy()
+                q_logits = out["quality_logits"][0].cpu().numpy()
                 attributes_raw["artifact"] = int(torch.argmax(out["artifact_logits"][0]).item())
                 attributes_raw["clarity"] = int(torch.argmax(out["clarity_logits"][0]).item())
                 attributes_raw["field_definition"] = int(
                     torch.argmax(out["field_definition_logits"][0]).item()
                 )
 
-        # 4. Probabilities & Temperature Scaling
+        # 4. Probabilities & Temperature Scaling (Applied Authoritatively ONCE)
         scaled_logits = q_logits / max(self.temperature, 1e-4)
         probs_arr = softmax(scaled_logits, axis=-1)
         probs_dict = {

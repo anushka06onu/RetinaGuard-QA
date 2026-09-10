@@ -55,8 +55,8 @@ export default function App() {
   };
 
   const processFile = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      setError('Please select an image file (JPEG, PNG, TIFF).');
+    if (!file.type.startsWith('image/') || (!file.type.includes('jpeg') && !file.type.includes('png') && !file.type.includes('jpg'))) {
+      setError('Please select a valid image file (JPEG or PNG).');
       return;
     }
     setError(null);
@@ -75,10 +75,17 @@ export default function App() {
     formData.append('file', selectedFile);
 
     try {
-      const resp = await fetch('/predict', {
+      let resp = await fetch('/api/predict', {
         method: 'POST',
         body: formData,
       });
+
+      if (resp.status === 404) {
+        resp = await fetch('/predict', {
+          method: 'POST',
+          body: formData,
+        });
+      }
 
       if (!resp.ok) {
         const errData = await resp.json().catch(() => ({}));
@@ -155,7 +162,7 @@ export default function App() {
 
     canvas.toBlob((blob) => {
       if (blob) {
-        const file = new File([blob], `preset_${type}.jpg`, { type: 'image/jpeg' });
+        const file = new File([blob], `fixture_${type}.jpg`, { type: 'image/jpeg' });
         processFile(file);
       }
     }, 'image/jpeg');
@@ -165,37 +172,37 @@ export default function App() {
     switch (decision) {
       case 'accept':
         return (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg p-4 flex items-start gap-3">
+          <div data-testid="decision-badge" className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg p-4 flex items-start gap-3">
             <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
             <div>
               <div className="font-bold text-base tracking-tight uppercase">Decision: Accept</div>
-              <div className="text-sm text-emerald-700 mt-0.5">Image satisfies technical quality standards. Proceed to diagnostic evaluation.</div>
+              <div className="text-sm text-emerald-700 mt-0.5">Model-assessed technical quality adequate. Research prototype — for technical quality evaluation only.</div>
             </div>
           </div>
         );
       case 'recapture':
         return (
-          <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-lg p-4 flex items-start gap-3">
+          <div data-testid="decision-badge" className="bg-rose-50 border border-rose-200 text-rose-800 rounded-lg p-4 flex items-start gap-3">
             <RefreshCw className="w-6 h-6 text-rose-600 shrink-0 mt-0.5" />
             <div>
-              <div className="font-bold text-base tracking-tight uppercase">Decision: Recapture Required</div>
-              <div className="text-sm text-rose-700 mt-0.5">Physical or optical quality inadequate for trustworthy review. Follow capture guidance.</div>
+              <div className="font-bold text-base tracking-tight uppercase">Decision: Recapture Recommended</div>
+              <div className="text-sm text-rose-700 mt-0.5">Physical or optical quality degraded. Follow capture guidance.</div>
             </div>
           </div>
         );
       case 'manual_review':
         return (
-          <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 flex items-start gap-3">
+          <div data-testid="decision-badge" className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 flex items-start gap-3">
             <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
             <div>
               <div className="font-bold text-base tracking-tight uppercase">Decision: Manual Review Required</div>
-              <div className="text-sm text-amber-700 mt-0.5">High uncertainty near decision boundary. Operator inspection requested.</div>
+              <div className="text-sm text-amber-700 mt-0.5">High uncertainty near decision boundary. Technical inspection requested.</div>
             </div>
           </div>
         );
       default:
         return (
-          <div className="bg-slate-100 border border-slate-300 text-slate-800 rounded-lg p-4 flex items-start gap-3">
+          <div data-testid="decision-badge" className="bg-slate-100 border border-slate-300 text-slate-800 rounded-lg p-4 flex items-start gap-3">
             <HelpCircle className="w-6 h-6 text-slate-600 shrink-0 mt-0.5" />
             <div>
               <div className="font-bold text-base tracking-tight uppercase">Decision: Unsupported / Out-of-Distribution</div>
@@ -217,7 +224,7 @@ export default function App() {
             </div>
             <div>
               <span className="font-bold text-slate-900 tracking-tight text-lg">RetinaGuard<span className="text-teal-700">-QA</span></span>
-              <span className="text-xs text-slate-600 ml-2 hidden sm:inline border-l border-slate-200 pl-2">Reliable Fundus Quality Control</span>
+              <span className="text-xs text-slate-600 ml-2 hidden sm:inline border-l border-slate-200 pl-2">Fundus Image QA (Research Prototype)</span>
             </div>
           </div>
           <nav className="flex items-center gap-6 text-sm font-medium text-slate-600">
@@ -236,13 +243,13 @@ export default function App() {
       <section className="py-16 px-4 bg-white border-b border-slate-200 text-center">
         <div className="max-w-3xl mx-auto space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200">
-            <ShieldCheck className="w-3.5 h-3.5" /> Autonomous Pre-Diagnostic Quality Gate
+            <ShieldCheck className="w-3.5 h-3.5" /> Quality Assurance Pipeline (Research Prototype)
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
             Uncertainty-Aware Quality Control for Retinal Fundus Imaging
           </h1>
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-            A lightweight, device-robust imaging pipeline that generalizes across datasets, explains physical acquisition defects, and abstains when prediction is unreliable.
+            A lightweight imaging pipeline evaluated for cross-dataset generalization, predicting acquisition quality attributes, and abstaining when predictive entropy is elevated.
           </p>
           <div className="pt-2 flex justify-center gap-4">
             <a href="#demo" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-teal-700 text-white font-semibold text-sm hover:bg-teal-800 transition shadow-sm">
@@ -254,7 +261,7 @@ export default function App() {
 
       {/* 3. Why Quality Matters */}
       <section className="py-12 px-4 max-w-6xl mx-auto w-full">
-        <h2 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-6 text-center">Three Pillars of Diagnostic Reliability</h2>
+        <h2 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-6 text-center">Three Pillars of Technical Reliability</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
             <div className="w-10 h-10 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center font-bold mb-4">
@@ -262,7 +269,7 @@ export default function App() {
             </div>
             <h3 className="font-bold text-slate-900 text-base mb-2">1. Defocus & Blur Detection</h3>
             <p className="text-sm text-slate-600 leading-relaxed">
-              Optical defocus obscures microaneurysms and fine vascular arcades, leading to false negatives in downstream DR classification.
+              Optical defocus obscures microaneurysms and fine vascular arcades, causing quality degradation.
             </p>
           </div>
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
@@ -271,7 +278,7 @@ export default function App() {
             </div>
             <h3 className="font-bold text-slate-900 text-base mb-2">2. Illumination & Exposure</h3>
             <p className="text-sm text-slate-600 leading-relaxed">
-              Xenon flash saturation and dark vignetting destroy macular dynamic range. The gate identifies underexposed and overexposed quadrants.
+              Xenon flash saturation and dark vignetting destroy macular dynamic range. The model predicts granular acquisition attributes.
             </p>
           </div>
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
@@ -280,7 +287,7 @@ export default function App() {
             </div>
             <h3 className="font-bold text-slate-900 text-base mb-2">3. Calibrated Abstention</h3>
             <p className="text-sm text-slate-600 leading-relaxed">
-              Instead of producing overconfident errors on borderline images, the system computes Shannon entropy and routes uncertain scans for manual clinician review.
+              Instead of producing overconfident errors on borderline images, the system computes predictive entropy and routes uncertain scans for review.
             </p>
           </div>
         </div>
@@ -291,21 +298,23 @@ export default function App() {
         <div className="max-w-6xl mx-auto space-y-6">
           <div>
             <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Interactive Quality Inspection</h2>
-            <p className="text-sm text-slate-600">Upload a color fundus image or run standard benchmark presets.</p>
+            <p className="text-sm text-slate-600">Upload a color fundus image or run synthetic interface test fixtures.</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Left Upload Panel (5 cols) */}
             <div className="lg:col-span-5 bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-5">
               <div 
+                data-testid="dropzone"
                 onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer hover:border-teal-600 hover:bg-slate-50 transition flex flex-col items-center justify-center min-h-[200px]"
               >
                 <input 
                   type="file" 
+                  data-testid="file-input"
                   ref={fileInputRef}
                   onChange={handleFileChange} 
-                  accept="image/*" 
+                  accept="image/jpeg,image/png" 
                   className="hidden" 
                 />
                 {previewUrl ? (
@@ -314,31 +323,33 @@ export default function App() {
                   <>
                     <Upload className="w-8 h-8 text-slate-400 mb-2" />
                     <p className="text-sm font-semibold text-slate-700">Click to upload fundus photograph</p>
-                    <p className="text-xs text-slate-600 mt-1">JPEG, PNG, TIFF up to 15MB</p>
+                    <p className="text-xs text-slate-600 mt-1">JPEG or PNG up to 15MB</p>
                   </>
                 )}
               </div>
 
-              {/* Benchmark Presets */}
+              {/* Synthetic Interface Fixtures */}
               <div>
-                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-2">Benchmark Presets</span>
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">Synthetic Test Fixtures</span>
+                <span className="text-[11px] text-slate-600 block mb-2">Non-clinical UI/connection fixtures</span>
                 <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => loadPreset('good')} className="px-3 py-2 text-xs font-medium bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md text-slate-700 text-left">
-                    • Good Fundus
+                  <button data-testid="fixture-good" onClick={() => loadPreset('good')} className="px-3 py-2 text-xs font-medium bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md text-slate-700 text-left">
+                    • Good Fixture
                   </button>
-                  <button onClick={() => loadPreset('blur')} className="px-3 py-2 text-xs font-medium bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md text-slate-700 text-left">
-                    • Defocus Blur
+                  <button data-testid="fixture-blur" onClick={() => loadPreset('blur')} className="px-3 py-2 text-xs font-medium bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md text-slate-700 text-left">
+                    • Defocus Fixture
                   </button>
-                  <button onClick={() => loadPreset('underexposed')} className="px-3 py-2 text-xs font-medium bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md text-slate-700 text-left">
-                    • Underexposed
+                  <button data-testid="fixture-underexposed" onClick={() => loadPreset('underexposed')} className="px-3 py-2 text-xs font-medium bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md text-slate-700 text-left">
+                    • Underexposed Fixture
                   </button>
-                  <button onClick={() => loadPreset('ood')} className="px-3 py-2 text-xs font-medium bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md text-slate-700 text-left">
+                  <button data-testid="fixture-ood" onClick={() => loadPreset('ood')} className="px-3 py-2 text-xs font-medium bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md text-slate-700 text-left">
                     • Non-Fundus (OOD)
                   </button>
                 </div>
               </div>
 
               <button
+                data-testid="predict-button"
                 disabled={!selectedFile || loading}
                 onClick={runPrediction}
                 className="w-full py-3 px-4 rounded-lg bg-teal-700 text-white font-bold text-sm hover:bg-teal-800 disabled:opacity-50 transition shadow-sm flex items-center justify-center gap-2"

@@ -1,0 +1,34 @@
+{
+  "task": "out_of_distribution_detection",
+  "score_type": "free_energy",
+  "in_distribution": {
+    "dataset": "EyeQ Test",
+    "num_samples": 500
+  },
+  "near_ood": {
+    "dataset": "UltraWideField / Alternate Camera",
+    "num_samples": 250
+  },
+  "far_ood": {
+    "dataset": "Non-Retinal Natural Images (Textures/Scenes)",
+    "num_samples": 250
+  },
+  "metrics": {
+    "far_ood": {
+      "auroc": 0.9842,
+      "auprc": 0.9891,
+      "fpr_at_95_tpr": 0.024,
+      "decision_threshold_energy": -8.5
+    },
+    "near_ood": {
+      "auroc": 0.9124,
+      "auprc": 0.9245,
+      "fpr_at_95_tpr": 0.128
+    },
+    "modality_gate": {
+      "false_accept_rate": 0.012,
+      "false_reject_rate": 0.008
+    }
+  },
+  "status": "completed"
+}

@@ -22,6 +22,17 @@ class RetinalQualityDataset(Dataset):
     """
 
     QUALITY_MAP = {"good": 0, "usable": 1, "reject": 2, 0: 0, 1: 1, 2: 2}
+    OVERALL_QUALITY_MAP = {
+        "good": 0,
+        "reject": 1,
+        "poor": 1,
+        "poor_reject": 1,
+        "poor/reject": 1,
+        0: 0,
+        1: 1,
+        "0": 0,
+        "1": 1,
+    }
 
     def __init__(
         self,
@@ -72,7 +83,7 @@ class RetinalQualityDataset(Dataset):
 
         dataset_name = str(row.get("dataset", "")).lower()
 
-        # 1. EyeQ Quality Head (Good / Usable / Reject)
+        # 1. EyeQ Quality Head (Good=0 / Usable=1 / Reject=2)
         # EyeQ samples supervise quality_target.
         quality_target = torch.tensor(0, dtype=torch.long)
         quality_mask = torch.tensor(0.0, dtype=torch.float32)
@@ -89,7 +100,7 @@ class RetinalQualityDataset(Dataset):
                 quality_target = torch.tensor(self.QUALITY_MAP[q_label], dtype=torch.long)
                 quality_mask = torch.tensor(1.0, dtype=torch.float32)
 
-        # 2. DeepDRiD Overall Quality Head (Good / Usable / Reject)
+        # 2. DeepDRiD Overall Quality Head (Good=0 / Reject=1)
         # DeepDRiD samples supervise overall_quality_target.
         overall_quality_target = torch.tensor(0, dtype=torch.long)
         overall_quality_mask = torch.tensor(0.0, dtype=torch.float32)
@@ -111,8 +122,10 @@ class RetinalQualityDataset(Dataset):
                     ),
                 ),
             )
-            if pd.notna(oq_label) and oq_label in self.QUALITY_MAP:
-                overall_quality_target = torch.tensor(self.QUALITY_MAP[oq_label], dtype=torch.long)
+            if pd.notna(oq_label) and oq_label in self.OVERALL_QUALITY_MAP:
+                overall_quality_target = torch.tensor(
+                    self.OVERALL_QUALITY_MAP[oq_label], dtype=torch.long
+                )
                 overall_quality_mask = torch.tensor(1.0, dtype=torch.float32)
 
         # 3. DeepDRiD Attribute Labels & Masks

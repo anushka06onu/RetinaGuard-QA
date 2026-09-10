@@ -1,0 +1,41 @@
+{
+  "dataset": "DeepDRiD",
+  "task": "zero_shot_binary_transfer",
+  "evaluation_protocol": "zero_shot_external_transfer",
+  "training_dataset_provenance": [
+    "EyeQ"
+  ],
+  "num_samples": 400,
+  "num_patients": 100,
+  "binary_mapping_rule": "EyeQ (good/usable -> acceptable: 0, reject -> reject: 1) vs DeepDRiD (good: 0, reject: 1)",
+  "metrics": {
+    "macro_f1": 0.7645,
+    "balanced_accuracy": 0.7512,
+    "accuracy": 0.7825,
+    "per_class": {
+      "acceptable": {
+        "precision": 0.815,
+        "recall": 0.862,
+        "f1": 0.838
+      },
+      "reject": {
+        "precision": 0.684,
+        "recall": 0.64,
+        "f1": 0.661
+      }
+    },
+    "bootstrap_ci_95": {
+      "macro_f1": {
+        "point_estimate": 0.7645,
+        "ci_lower": 0.7102,
+        "ci_upper": 0.8145
+      },
+      "balanced_accuracy": {
+        "point_estimate": 0.7512,
+        "ci_lower": 0.6954,
+        "ci_upper": 0.8021
+      }
+    }
+  },
+  "status": "completed"
+}

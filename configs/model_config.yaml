@@ -1,5 +1,6 @@
+# Authoritative Model Architecture Configuration
 model:
-  name: "RetinaGuardNet"
+  name: "RetinaGuardMultiTaskModel"
   version: "1.0.0"
   backbone: "mobilenetv3_large_100" # options: "mobilenetv3_large_100", "efficientnet_b0", "convnext_tiny"
   pretrained: true
@@ -7,19 +8,32 @@ model:
   latent_dim: 128
   
   heads:
-    quality_grade:
+    quality_head:
+      name: "eyeq_quality"
       num_classes: 3
-      activation: "softmax"
+      classes: ["good", "usable", "reject"]
       loss_weight: 1.0
-    defects:
-      num_classes: 6
-      activation: "sigmoid"
+    overall_quality_head:
+      name: "deepdrid_overall"
+      num_classes: 2
+      classes: ["good", "reject"]
       loss_weight: 0.5
-    quality_score:
-      output_dim: 1
-      activation: "sigmoid" # Scaled to [0, 100]
-      loss_weight: 0.3
-    ood_projection:
+    artifact_head:
+      name: "deepdrid_artifact"
+      num_classes: 3
+      classes: ["level_0", "level_1", "level_2"]
+      loss_weight: 0.2
+    clarity_head:
+      name: "deepdrid_clarity"
+      num_classes: 3
+      classes: ["level_0", "level_1", "level_2"]
+      loss_weight: 0.2
+    field_def_head:
+      name: "deepdrid_field_definition"
+      num_classes: 3
+      classes: ["level_0", "level_1", "level_2"]
+      loss_weight: 0.2
+    latent_projection:
       dim: 128
       enabled: true
 
@@ -28,4 +42,4 @@ model:
       features: ["brisque_approx", "laplacian_variance", "shannon_entropy", "contrast_rms", "exposure_ratio"]
       classifier: "random_forest"
     single_task:
-      backbones: ["mobilenetv3_large_100", "efficientnet_b0", "convnext_tiny"]
+      backbones: ["mobilenetv3_large_100", "efficientnet_b0"]

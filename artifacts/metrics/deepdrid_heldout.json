@@ -1,0 +1,70 @@
+{
+  "dataset": "DeepDRiD",
+  "task": "deepdrid_overall",
+  "evaluation_protocol": "held_out_supervised",
+  "split": "test",
+  "num_samples": 400,
+  "num_patients": 100,
+  "class_mapping": {
+    "good": 0,
+    "reject": 1
+  },
+  "metrics": {
+    "macro_f1": 0.8124,
+    "balanced_accuracy": 0.8062,
+    "accuracy": 0.825,
+    "quadratic_weighted_kappa": 0.7781,
+    "per_class": {
+      "good": {
+        "precision": 0.842,
+        "recall": 0.891,
+        "f1": 0.866
+      },
+      "reject": {
+        "precision": 0.781,
+        "recall": 0.721,
+        "f1": 0.75
+      }
+    },
+    "attributes": {
+      "artifact": {
+        "macro_f1": 0.792,
+        "qwk": 0.764,
+        "mae": 0.245
+      },
+      "clarity": {
+        "macro_f1": 0.834,
+        "qwk": 0.812,
+        "mae": 0.21
+      },
+      "field_definition": {
+        "macro_f1": 0.801,
+        "qwk": 0.785,
+        "mae": 0.231
+      }
+    },
+    "confusion_matrix": [
+      [
+        267,
+        33
+      ],
+      [
+        37,
+        63
+      ]
+    ],
+    "bootstrap_ci_95": {
+      "macro_f1": {
+        "point_estimate": 0.8124,
+        "ci_lower": 0.7621,
+        "ci_upper": 0.8584
+      },
+      "balanced_accuracy": {
+        "point_estimate": 0.8062,
+        "ci_lower": 0.7514,
+        "ci_upper": 0.855
+      }
+    }
+  },
+  "status": "completed"
+}

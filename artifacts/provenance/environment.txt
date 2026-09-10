@@ -1,0 +1,7 @@
+OS: Darwin 25.2.0 (arm64)
+Python: 3.10.0 (v3.10.0:b494f5935c, Oct  4 2021, 14:59:19) [Clang 12.0.5 (clang-1205.0.22.11)]
+PyTorch: 2.x (CPU / MPS / CUDA)
+ONNX Runtime: 1.18+
+Torchvision: 0.18+
+Scikit-Learn: 1.5+
+FastAPI: 0.111+

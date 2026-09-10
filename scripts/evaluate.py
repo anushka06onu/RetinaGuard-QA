@@ -1,31 +1,50 @@
-"""Evaluation runner script reporting internal EyeQ and external DeepDRiD metrics with strict data integrity."""
+"""Evaluation runner script reporting internal EyeQ, held-out DeepDRiD, and zero-shot transfer metrics."""
 
 import argparse
 import json
 from pathlib import Path
+from typing import Any, Dict
 
 import numpy as np
 import pandas as pd
 import torch
+from scipy.special import softmax
 
 from retinaguard.data.datasets import RetinalQualityDataset
 from retinaguard.evaluation.bootstrap import compute_patient_bootstrap_ci
-from retinaguard.evaluation.metrics import compute_quality_metrics
+from retinaguard.evaluation.metrics import (
+    compute_attribute_metrics,
+    compute_quality_metrics,
+)
 from retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
 
 def evaluate_dataset_partition(
-    model, csv_path: str, dataset_name: str, is_deepdrid: bool = False, device: str = "cpu"
-):
+    model: torch.nn.Module,
+    csv_path: str,
+    dataset_name: str,
+    is_deepdrid: bool = False,
+    is_zero_shot: bool = False,
+    device: str = "cpu",
+    fail_on_empty: bool = True,
+) -> Dict[str, Any]:
+    """Evaluate model on a dataset partition with strict label masking and structured return."""
     p = Path(csv_path)
     if not p.is_file():
         raise FileNotFoundError(
-            f"Split manifest file not found: {csv_path}. Genuine evaluation requires verified split manifests."
+            f"Split manifest file not found: {csv_path}. Evaluation requires verified split manifests."
         )
 
     df = pd.read_csv(p)
     if len(df) == 0:
-        raise ValueError(f"Split manifest {csv_path} is empty.")
+        if fail_on_empty:
+            raise ValueError(f"Split manifest {csv_path} is empty.")
+        return {
+            "status": "not_evaluable",
+            "reason": "empty_manifest",
+            "num_samples": 0,
+            "metrics": None,
+        }
 
     ds = RetinalQualityDataset(df, allow_synthetic_fallback=False)
     loader = torch.utils.data.DataLoader(ds, batch_size=16, shuffle=False)
@@ -40,7 +59,19 @@ def evaluate_dataset_partition(
     with torch.no_grad():
         for b in loader:
             out = model(b["image"].to(device))
-            if is_deepdrid:
+            if is_zero_shot:
+                # In Zero-Shot transfer from EyeQ to DeepDRiD (Item 6):
+                # Model outputs 3-class EyeQ logits: 0=good, 1=usable, 2=reject.
+                # Pre-declared binary mapping: Acceptable (Good+Usable) -> 0, Reject -> 1.
+                q3_logits = out["quality_logits"].cpu().numpy()
+                q3_probs = softmax(q3_logits, axis=-1)
+                p_good = q3_probs[:, 0] + q3_probs[:, 1]  # Good / Usable
+                p_reject = q3_probs[:, 2]  # Reject
+                binary_probs = np.stack([p_good, p_reject], axis=-1)
+                logits = np.log(np.clip(binary_probs, 1e-12, 1.0))
+                targets = b["overall_quality_target"].numpy()
+                masks = b["overall_quality_mask"].numpy()
+            elif is_deepdrid:
                 logits = out["overall_quality_logits"].cpu().numpy()
                 targets = b["overall_quality_target"].numpy()
                 masks = b["overall_quality_mask"].numpy()
@@ -66,34 +97,48 @@ def evaluate_dataset_partition(
     masks_arr = np.concatenate(all_masks, axis=0)
     patients_arr = np.array(all_p)
 
-    # Filter strictly by valid mask (> 0.5) to ignore missing-label placeholders
+    # Filter strictly by valid mask (> 0.5) (Item 4 & 11)
     valid_idx = masks_arr > 0.5
-    if np.any(valid_idx):
-        valid_logits = logits_arr[valid_idx]
-        valid_y = y_arr[valid_idx]
-        valid_patients = patients_arr[valid_idx]
+    valid_count = int(np.sum(valid_idx))
 
-        metrics = compute_quality_metrics(valid_logits, valid_y, is_logits=True)
-        ci = compute_patient_bootstrap_ci(
-            valid_y, np.argmax(valid_logits, axis=-1), patient_ids=valid_patients
-        )
-        metrics["macro_f1_95_ci"] = ci
-        metrics["num_samples"] = int(np.sum(valid_idx))
-    else:
-        metrics = {
-            "macro_f1": 0.0,
-            "accuracy": 0.0,
-            "quadratic_weighted_kappa": 0.0,
-            "macro_f1_95_ci": {"mean": 0.0, "ci_lower": 0.0, "ci_upper": 0.0},
+    if valid_count == 0:
+        if fail_on_empty:
+            raise ValueError(
+                f"No valid labeled records for partition {dataset_name} in {csv_path}."
+            )
+        return {
+            "status": "not_evaluable",
+            "reason": "no_valid_labels",
             "num_samples": 0,
+            "metrics": None,
         }
 
+    valid_logits = logits_arr[valid_idx]
+    valid_y = y_arr[valid_idx]
+    valid_patients = patients_arr[valid_idx]
+
+    class_names = (
+        ["good", "poor_reject"] if (is_deepdrid or is_zero_shot) else ["good", "usable", "reject"]
+    )
+
+    metrics = compute_quality_metrics(
+        valid_logits, valid_y, class_names=class_names, is_logits=True
+    )
+    ci = compute_patient_bootstrap_ci(
+        valid_y, np.argmax(valid_logits, axis=-1), patient_ids=valid_patients
+    )
+    metrics["macro_f1_95_ci"] = ci
+    metrics["num_samples"] = valid_count
+    metrics["num_patients"] = (
+        len(np.unique(valid_patients)) if len(valid_patients) > 0 else valid_count
+    )
     metrics["dataset"] = dataset_name
     metrics["total_records_in_split"] = len(y_arr)
+    metrics["status"] = "evaluated"
 
-    if is_deepdrid:
-        from sklearn.metrics import f1_score
-
+    if is_deepdrid and not is_zero_shot:
+        filtered_preds = {}
+        filtered_targets = {}
         for attr_name, data in attr_data.items():
             if data["preds"] and data["targets"]:
                 p_arr = np.concatenate(data["preds"], axis=0)
@@ -101,16 +146,11 @@ def evaluate_dataset_partition(
                 m_arr = np.concatenate(data["masks"], axis=0)
                 v_attr = m_arr > 0.5
                 if np.any(v_attr):
-                    metrics[f"{attr_name}_macro_f1"] = round(
-                        float(
-                            f1_score(t_arr[v_attr], p_arr[v_attr], average="macro", zero_division=0)
-                        ),
-                        4,
-                    )
-                    metrics[f"{attr_name}_num_samples"] = int(np.sum(v_attr))
-                else:
-                    metrics[f"{attr_name}_macro_f1"] = 0.0
-                    metrics[f"{attr_name}_num_samples"] = 0
+                    filtered_preds[attr_name] = p_arr[v_attr]
+                    filtered_targets[attr_name] = t_arr[v_attr]
+
+        attr_metrics = compute_attribute_metrics(filtered_preds, filtered_targets)
+        metrics["attribute_metrics"] = attr_metrics
 
     return metrics
 
@@ -127,6 +167,11 @@ def main():
         "--deepdrid-split", type=str, default="data/splits/deepdrid_external_test.csv"
     )
     parser.add_argument("--output-dir", type=str, default="artifacts/metrics")
+    parser.add_argument(
+        "--zero-shot",
+        action="store_true",
+        help="Run genuine zero-shot transfer evaluation on DeepDRiD using EyeQ-trained model",
+    )
     args = parser.parse_args()
 
     ckpt_p = Path(args.checkpoint)
@@ -141,6 +186,8 @@ def main():
     print(f"=== Evaluating RetinaGuard Checkpoint: {ckpt_p} ===")
     model = RetinaGuardMultiTaskModel(pretrained=False)
     state = torch.load(ckpt_p, map_location="cpu")
+    metadata = state.get("metadata", {})
+    training_datasets = metadata.get("training_datasets", [])
     model.load_state_dict(state.get("state_dict", state))
     model.eval()
 
@@ -155,30 +202,52 @@ def main():
     # 1. Internal EyeQ Test Evaluation
     if has_eyeq:
         print(f"Loading EyeQ test split from {args.eyeq_split}...")
-        eyeq_metrics = evaluate_dataset_partition(model, args.eyeq_split, "EyeQ (Internal Test)")
-        with open(out_p / "internal_eyeq.json", "w", encoding="utf-8") as f:
+        eyeq_metrics = evaluate_dataset_partition(
+            model, args.eyeq_split, "EyeQ (Internal Test)", is_deepdrid=False
+        )
+        with open(out_p / "eyeq_test.json", "w", encoding="utf-8") as f:
             json.dump(eyeq_metrics, f, indent=2)
         print(
-            f"EyeQ Internal Macro-F1: {eyeq_metrics['macro_f1']} (95% CI: [{eyeq_metrics['macro_f1_95_ci']['ci_lower']}, {eyeq_metrics['macro_f1_95_ci']['ci_upper']}])"
+            f"EyeQ Test Macro-F1: {eyeq_metrics['macro_f1']} (95% CI: [{eyeq_metrics['macro_f1_95_ci']['ci_lower']}, {eyeq_metrics['macro_f1_95_ci']['ci_upper']}])"
         )
-    else:
-        print(f"EyeQ test split not present at {args.eyeq_split}; skipping EyeQ evaluation.")
 
-    # 2. DeepDRiD Held-Out Evaluation
+    # 2. DeepDRiD Evaluation (Held-Out Supervised or Zero-Shot External Transfer)
     if has_deepdrid:
-        print(f"Loading DeepDRiD evaluation split from {args.deepdrid_split}...")
-        deepdrid_metrics = evaluate_dataset_partition(
-            model, args.deepdrid_split, "DeepDRiD (Held-Out Evaluation)", is_deepdrid=True
+        is_zero_shot_eval = args.zero_shot or (
+            training_datasets == ["EyeQ"] and "DeepDRiD" not in training_datasets
         )
-        with open(out_p / "held_out_deepdrid.json", "w", encoding="utf-8") as f:
-            json.dump(deepdrid_metrics, f, indent=2)
-        print(
-            f"DeepDRiD Held-Out Macro-F1: {deepdrid_metrics['macro_f1']} (95% CI: [{deepdrid_metrics['macro_f1_95_ci']['ci_lower']}, {deepdrid_metrics['macro_f1_95_ci']['ci_upper']}])"
-        )
-    else:
-        print(
-            f"DeepDRiD evaluation split not present at {args.deepdrid_split}; skipping DeepDRiD evaluation."
-        )
+
+        if is_zero_shot_eval:
+            print(
+                f"Running Zero-Shot External Transfer on DeepDRiD ({args.deepdrid_split}) "
+                f"[Model Provenance: {training_datasets}]..."
+            )
+            transfer_metrics = evaluate_dataset_partition(
+                model,
+                args.deepdrid_split,
+                "DeepDRiD (Zero-Shot External Transfer)",
+                is_deepdrid=True,
+                is_zero_shot=True,
+            )
+            with open(out_p / "zero_shot_transfer.json", "w", encoding="utf-8") as f:
+                json.dump(transfer_metrics, f, indent=2)
+            print(
+                f"DeepDRiD Zero-Shot Macro-F1: {transfer_metrics['macro_f1']} (95% CI: [{transfer_metrics['macro_f1_95_ci']['ci_lower']}, {transfer_metrics['macro_f1_95_ci']['ci_upper']}])"
+            )
+        else:
+            print(f"Running DeepDRiD Held-Out Supervised Evaluation ({args.deepdrid_split})...")
+            deepdrid_metrics = evaluate_dataset_partition(
+                model,
+                args.deepdrid_split,
+                "DeepDRiD (Held-Out Supervised Evaluation)",
+                is_deepdrid=True,
+                is_zero_shot=False,
+            )
+            with open(out_p / "deepdrid_heldout.json", "w", encoding="utf-8") as f:
+                json.dump(deepdrid_metrics, f, indent=2)
+            print(
+                f"DeepDRiD Held-Out Macro-F1: {deepdrid_metrics['macro_f1']} (95% CI: [{deepdrid_metrics['macro_f1_95_ci']['ci_lower']}, {deepdrid_metrics['macro_f1_95_ci']['ci_upper']}])"
+            )
 
 
 if __name__ == "__main__":

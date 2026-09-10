@@ -79,19 +79,27 @@ def compute_quality_metrics(
 def compute_attribute_metrics(
     preds_dict: Dict[str, np.ndarray], targets_dict: Dict[str, np.ndarray]
 ) -> Dict[str, Any]:
-    """Compute metrics for DeepDRiD ordinal attributes (artifact, clarity, field_definition)."""
+    """Compute metrics for DeepDRiD ordinal attributes (artifact, clarity, field_definition) per Item 10."""
     results = {}
     for attr_name in ["artifact", "clarity", "field_definition"]:
         if attr_name in preds_dict and attr_name in targets_dict:
-            y_pred = preds_dict[attr_name]
-            y_true = targets_dict[attr_name]
+            y_pred = np.asarray(preds_dict[attr_name])
+            y_true = np.asarray(targets_dict[attr_name])
             if len(y_true) > 0:
                 f1 = float(f1_score(y_true, y_pred, average="macro", zero_division=0))
-                qwk = float(cohen_kappa_score(y_true, y_pred, weights="quadratic"))
+                try:
+                    qwk = float(cohen_kappa_score(y_true, y_pred, weights="quadratic"))
+                    if np.isnan(qwk):
+                        qwk = 0.0
+                except Exception:
+                    qwk = 0.0
                 mae = float(np.mean(np.abs(y_true - y_pred)))
+                cm = confusion_matrix(y_true, y_pred, labels=[0, 1, 2]).tolist()
                 results[attr_name] = {
                     "macro_f1": round(f1, 4),
                     "qwk": round(qwk, 4),
                     "mae": round(mae, 4),
+                    "confusion_matrix": cm,
+                    "num_samples": len(y_true),
                 }
     return results
