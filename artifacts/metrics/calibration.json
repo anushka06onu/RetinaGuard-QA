@@ -1,0 +1,31 @@
+{
+  "checkpoint": "artifacts/models/best.ckpt",
+  "checkpoint_sha256": "563db501aed717055360759b7483b155de1003fc82f55756d6d8ac4c8c24d91d",
+  "validation_split": "data/splits/deepdrid_val.csv",
+  "validation_split_sha256": "c7d600f26a5624d59b00541252be8ca7b679543f5cf2732d7fb26d610c2b3c05",
+  "num_validation_samples": 400,
+  "optimal_temperature": 1.2438,
+  "uncertainty_threshold": 1.3474,
+  "ood_energy_threshold": 1.41,
+  "uncalibrated_ece": {
+    "ece": 0.1244,
+    "mce": 0.5342,
+    "avg_confidence": 0.8335,
+    "accuracy": 0.75
+  },
+  "calibrated_ece": {
+    "ece": 0.0907,
+    "mce": 0.2312,
+    "avg_confidence": 0.7884,
+    "accuracy": 0.75
+  },
+  "uncalibrated_brier": 0.398,
+  "calibrated_brier": 0.3877,
+  "aurc": 0.1825,
+  "selective_abstention_at_0_75": {
+    "coverage": 0.6175,
+    "abstention_rate": 0.3825,
+    "selective_accuracy": 0.8057,
+    "selective_error": 0.1943
+  }
+}

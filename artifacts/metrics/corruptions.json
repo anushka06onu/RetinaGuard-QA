@@ -1,0 +1,272 @@
+{
+  "gaussian_blur": {
+    "1": {
+      "macro_f1": 0.7106,
+      "balanced_accuracy": 0.7182,
+      "quadratic_weighted_kappa": 0.4234
+    },
+    "2": {
+      "macro_f1": 0.7159,
+      "balanced_accuracy": 0.7334,
+      "quadratic_weighted_kappa": 0.44
+    },
+    "3": {
+      "macro_f1": 0.6788,
+      "balanced_accuracy": 0.7063,
+      "quadratic_weighted_kappa": 0.3779
+    },
+    "4": {
+      "macro_f1": 0.6471,
+      "balanced_accuracy": 0.6668,
+      "quadratic_weighted_kappa": 0.3099
+    },
+    "5": {
+      "macro_f1": 0.5636,
+      "balanced_accuracy": 0.5692,
+      "quadratic_weighted_kappa": 0.1498
+    }
+  },
+  "defocus_blur": {
+    "1": {
+      "macro_f1": 0.722,
+      "balanced_accuracy": 0.7313,
+      "quadratic_weighted_kappa": 0.4467
+    },
+    "2": {
+      "macro_f1": 0.7064,
+      "balanced_accuracy": 0.7254,
+      "quadratic_weighted_kappa": 0.4228
+    },
+    "3": {
+      "macro_f1": 0.6595,
+      "balanced_accuracy": 0.6902,
+      "quadratic_weighted_kappa": 0.3451
+    },
+    "4": {
+      "macro_f1": 0.6604,
+      "balanced_accuracy": 0.6604,
+      "quadratic_weighted_kappa": 0.3209
+    },
+    "5": {
+      "macro_f1": 0.5131,
+      "balanced_accuracy": 0.5437,
+      "quadratic_weighted_kappa": 0.1002
+    }
+  },
+  "motion_blur": {
+    "1": {
+      "macro_f1": 0.7033,
+      "balanced_accuracy": 0.7152,
+      "quadratic_weighted_kappa": 0.4115
+    },
+    "2": {
+      "macro_f1": 0.697,
+      "balanced_accuracy": 0.7173,
+      "quadratic_weighted_kappa": 0.4057
+    },
+    "3": {
+      "macro_f1": 0.6328,
+      "balanced_accuracy": 0.6435,
+      "quadratic_weighted_kappa": 0.273
+    },
+    "4": {
+      "macro_f1": 0.6225,
+      "balanced_accuracy": 0.621,
+      "quadratic_weighted_kappa": 0.2457
+    },
+    "5": {
+      "macro_f1": 0.6521,
+      "balanced_accuracy": 0.6481,
+      "quadratic_weighted_kappa": 0.3105
+    }
+  },
+  "brightness_increase": {
+    "1": {
+      "macro_f1": 0.6847,
+      "balanced_accuracy": 0.6991,
+      "quadratic_weighted_kappa": 0.377
+    },
+    "2": {
+      "macro_f1": 0.7362,
+      "balanced_accuracy": 0.7547,
+      "quadratic_weighted_kappa": 0.48
+    },
+    "3": {
+      "macro_f1": 0.7442,
+      "balanced_accuracy": 0.7576,
+      "quadratic_weighted_kappa": 0.4927
+    },
+    "4": {
+      "macro_f1": 0.6966,
+      "balanced_accuracy": 0.6999,
+      "quadratic_weighted_kappa": 0.3938
+    },
+    "5": {
+      "macro_f1": 0.6658,
+      "balanced_accuracy": 0.6613,
+      "quadratic_weighted_kappa": 0.3363
+    }
+  },
+  "brightness_decrease": {
+    "1": {
+      "macro_f1": 0.7211,
+      "balanced_accuracy": 0.719,
+      "quadratic_weighted_kappa": 0.4425
+    },
+    "2": {
+      "macro_f1": 0.6923,
+      "balanced_accuracy": 0.6876,
+      "quadratic_weighted_kappa": 0.387
+    },
+    "3": {
+      "macro_f1": 0.6727,
+      "balanced_accuracy": 0.6672,
+      "quadratic_weighted_kappa": 0.3601
+    },
+    "4": {
+      "macro_f1": 0.6429,
+      "balanced_accuracy": 0.6409,
+      "quadratic_weighted_kappa": 0.3068
+    },
+    "5": {
+      "macro_f1": 0.4918,
+      "balanced_accuracy": 0.5416,
+      "quadratic_weighted_kappa": 0.0982
+    }
+  },
+  "contrast_reduction": {
+    "1": {
+      "macro_f1": 0.75,
+      "balanced_accuracy": 0.7555,
+      "quadratic_weighted_kappa": 0.5008
+    },
+    "2": {
+      "macro_f1": 0.7175,
+      "balanced_accuracy": 0.7211,
+      "quadratic_weighted_kappa": 0.4356
+    },
+    "3": {
+      "macro_f1": 0.6608,
+      "balanced_accuracy": 0.6562,
+      "quadratic_weighted_kappa": 0.3292
+    },
+    "4": {
+      "macro_f1": 0.5941,
+      "balanced_accuracy": 0.6044,
+      "quadratic_weighted_kappa": 0.2352
+    },
+    "5": {
+      "macro_f1": 0.4062,
+      "balanced_accuracy": 0.5051,
+      "quadratic_weighted_kappa": 0.0125
+    }
+  },
+  "gamma_shift": {
+    "1": {
+      "macro_f1": 0.69,
+      "balanced_accuracy": 0.6969,
+      "quadratic_weighted_kappa": 0.3822
+    },
+    "2": {
+      "macro_f1": 0.6637,
+      "balanced_accuracy": 0.6655,
+      "quadratic_weighted_kappa": 0.3277
+    },
+    "3": {
+      "macro_f1": 0.6872,
+      "balanced_accuracy": 0.6846,
+      "quadratic_weighted_kappa": 0.375
+    },
+    "4": {
+      "macro_f1": 0.6239,
+      "balanced_accuracy": 0.6218,
+      "quadratic_weighted_kappa": 0.2581
+    },
+    "5": {
+      "macro_f1": 0.5945,
+      "balanced_accuracy": 0.5955,
+      "quadratic_weighted_kappa": 0.2045
+    }
+  },
+  "jpeg_compression": {
+    "1": {
+      "macro_f1": 0.6693,
+      "balanced_accuracy": 0.6685,
+      "quadratic_weighted_kappa": 0.3387
+    },
+    "2": {
+      "macro_f1": 0.694,
+      "balanced_accuracy": 0.7071,
+      "quadratic_weighted_kappa": 0.3942
+    },
+    "3": {
+      "macro_f1": 0.6885,
+      "balanced_accuracy": 0.7143,
+      "quadratic_weighted_kappa": 0.3945
+    },
+    "4": {
+      "macro_f1": 0.65,
+      "balanced_accuracy": 0.6872,
+      "quadratic_weighted_kappa": 0.3351
+    },
+    "5": {
+      "macro_f1": 0.4729,
+      "balanced_accuracy": 0.5174,
+      "quadratic_weighted_kappa": 0.0404
+    }
+  },
+  "sensor_noise": {
+    "1": {
+      "macro_f1": 0.6938,
+      "balanced_accuracy": 0.6948,
+      "quadratic_weighted_kappa": 0.3877
+    },
+    "2": {
+      "macro_f1": 0.7029,
+      "balanced_accuracy": 0.7029,
+      "quadratic_weighted_kappa": 0.4058
+    },
+    "3": {
+      "macro_f1": 0.6578,
+      "balanced_accuracy": 0.68,
+      "quadratic_weighted_kappa": 0.3328
+    },
+    "4": {
+      "macro_f1": 0.6033,
+      "balanced_accuracy": 0.6142,
+      "quadratic_weighted_kappa": 0.2162
+    },
+    "5": {
+      "macro_f1": 0.3827,
+      "balanced_accuracy": 0.5,
+      "quadratic_weighted_kappa": 0.0
+    }
+  },
+  "uneven_illumination": {
+    "1": {
+      "macro_f1": 0.6757,
+      "balanced_accuracy": 0.6787,
+      "quadratic_weighted_kappa": 0.352
+    },
+    "2": {
+      "macro_f1": 0.6847,
+      "balanced_accuracy": 0.6868,
+      "quadratic_weighted_kappa": 0.3697
+    },
+    "3": {
+      "macro_f1": 0.712,
+      "balanced_accuracy": 0.711,
+      "quadratic_weighted_kappa": 0.4241
+    },
+    "4": {
+      "macro_f1": 0.6745,
+      "balanced_accuracy": 0.6715,
+      "quadratic_weighted_kappa": 0.3501
+    },
+    "5": {
+      "macro_f1": 0.6792,
+      "balanced_accuracy": 0.6744,
+      "quadratic_weighted_kappa": 0.3618
+    }
+  }
+}

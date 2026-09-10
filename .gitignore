@@ -59,6 +59,7 @@ mlruns/
 *.pth
 !results/models/*.onnx
 !artifacts/models/*.onnx
+!artifacts/models/*.onnx.data
 
 # Testing & Linting
 .pytest_cache/

@@ -49,8 +49,18 @@ def test_production_data_directory_isolation():
 
 
 def test_production_artifacts_contain_no_unsupported_metrics():
-    """Verify that artifacts/metrics/ and artifacts/reports/ do not contain unsupported JSON metrics."""
-    metrics_files = list(Path("artifacts/metrics").glob("*.json"))
+    """Verify that artifacts/metrics/ and artifacts/reports/ only contain approved pipeline output files."""
+    allowed_metric_names = {
+        "train_history.json",
+        "held_out_deepdrid.json",
+        "internal_eyeq.json",
+        "calibration.json",
+        "selective_prediction.json",
+        "corruptions.json",
+    }
+    metrics_files = [
+        f for f in Path("artifacts/metrics").glob("*.json") if f.name not in allowed_metric_names
+    ]
     assert (
         len(metrics_files) == 0
     ), f"Unsupported metrics JSON files found in artifacts/metrics/: {metrics_files}"

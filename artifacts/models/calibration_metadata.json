@@ -1,0 +1,15 @@
+{
+  "temperature": 1.2438,
+  "uncertainty_threshold": 1.3474,
+  "uncertainty_unit": "bits",
+  "entropy_max": 1.58496,
+  "ood_energy_threshold": 1.41,
+  "ood_score_type": "energy",
+  "ood_direction": "lower_is_ood",
+  "validation_split": "data/splits/deepdrid_val.csv",
+  "validation_split_sha256": "c7d600f26a5624d59b00541252be8ca7b679543f5cf2732d7fb26d610c2b3c05",
+  "model_checkpoint": "artifacts/models/best.ckpt",
+  "model_checkpoint_sha256": "563db501aed717055360759b7483b155de1003fc82f55756d6d8ac4c8c24d91d",
+  "fitting_method": "temperature_scaling_lbfgs_and_empirical_percentiles",
+  "created_at_utc": "2026-09-10T22:46:52.794772+00:00"
+}
