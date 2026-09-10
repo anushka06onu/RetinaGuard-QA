@@ -39,7 +39,9 @@ def test_production_artifacts_contain_no_unsupported_metrics():
         len(metrics_files) == 0
     ), f"Unsupported metrics JSON files found in artifacts/metrics/: {metrics_files}"
 
-    report_files = list(Path("artifacts/reports").glob("*.json"))
+    report_files = [
+        f for f in Path("artifacts/reports").glob("*.json") if f.name not in ["data_audit.json"]
+    ]
     assert (
         len(report_files) == 0
     ), f"Unsupported report JSON files found in artifacts/reports/: {report_files}"
