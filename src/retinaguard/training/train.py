@@ -35,84 +35,114 @@ def run_training_experiment(
 
     # Determine splits paths
     if fixture_mode:
-        train_split_p = Path("tests/fixtures/splits/eyeq_train.csv")
-        val_split_p = Path("tests/fixtures/splits/eyeq_val.csv")
+        eyeq_train_p = Path("tests/fixtures/splits/eyeq_train.csv")
+        eyeq_val_p = Path("tests/fixtures/splits/eyeq_val.csv")
+        deepdrid_train_p = Path("tests/fixtures/splits/deepdrid_train.csv")
+        deepdrid_val_p = Path("tests/fixtures/splits/deepdrid_val.csv")
         save_dir = Path("tests/fixtures/checkpoints")
         history_path = Path("tests/fixtures/train_history.json")
     else:
-        train_split_p = Path(cfg.get("data", {}).get("train_split", "data/splits/eyeq_train.csv"))
-        val_split_p = Path(cfg.get("data", {}).get("val_split", "data/splits/eyeq_val.csv"))
+        eyeq_train_p = Path(
+            cfg.get("data", {}).get("train_eyeq_split", "data/splits/eyeq_train.csv")
+        )
+        eyeq_val_p = Path(cfg.get("data", {}).get("val_eyeq_split", "data/splits/eyeq_val.csv"))
+        deepdrid_train_p = Path(
+            cfg.get("data", {}).get("train_deepdrid_split", "data/splits/deepdrid_train.csv")
+        )
+        deepdrid_val_p = Path(
+            cfg.get("data", {}).get("val_deepdrid_split", "data/splits/deepdrid_val.csv")
+        )
         save_dir = Path("artifacts/models")
         history_path = Path("artifacts/metrics/train_history.json")
 
-    if not train_split_p.is_file():
+    has_eyeq_train = eyeq_train_p.is_file()
+    has_dd_train = deepdrid_train_p.is_file()
+    has_eyeq_val = eyeq_val_p.is_file()
+    has_dd_val = deepdrid_val_p.is_file()
+
+    if not (has_eyeq_train or has_dd_train):
         raise FileNotFoundError(
-            f"Training split manifest not found at: {train_split_p}.\n"
-            "Please run scripts/prepare_eyeq.py and scripts/create_splits.py after obtaining datasets."
+            f"No training split manifests found at {eyeq_train_p} or {deepdrid_train_p}.\n"
+            "Please run data preparation and split creation scripts."
         )
 
-    if not val_split_p.is_file():
+    if not (has_eyeq_val or has_dd_val):
         raise FileNotFoundError(
-            f"Validation split manifest not found at: {val_split_p}.\n"
+            f"No validation split manifests found at {eyeq_val_p} or {deepdrid_val_p}.\n"
             "Please run scripts/create_splits.py to generate verified validation splits."
         )
-
-    train_df = pd.read_csv(train_split_p)
-    val_df = pd.read_csv(val_split_p)
 
     batch_size = 4 if smoke_test else cfg.get("training", {}).get("batch_size", 32)
     epochs = 2 if smoke_test else cfg.get("training", {}).get("epochs", 40)
     img_size = cfg.get("training", {}).get("image_size", 384)
 
-    # Multi-task training dataset loading
-    eyeq_train_ds = RetinalQualityDataset(
-        train_df, is_training=True, image_size=img_size, allow_synthetic_fallback=fixture_mode
-    )
-    val_ds = RetinalQualityDataset(
-        val_df, is_training=False, image_size=img_size, allow_synthetic_fallback=fixture_mode
-    )
-
-    # If deepdrid development splits exist, include in training and validation
-    deepdrid_train_p = (
-        Path(cfg.get("data", {}).get("train_deepdrid_split", "data/splits/deepdrid_train.csv"))
-        if not fixture_mode
-        else Path("tests/fixtures/splits/deepdrid_train.csv")
-    )
-    deepdrid_val_p = (
-        Path(cfg.get("data", {}).get("val_deepdrid_split", "data/splits/deepdrid_val.csv"))
-        if not fixture_mode
-        else Path("tests/fixtures/splits/deepdrid_val.csv")
-    )
-
-    if deepdrid_train_p.is_file():
-        df_dd_train = pd.read_csv(deepdrid_train_p)
-        dd_train_ds = RetinalQualityDataset(
-            df_dd_train,
-            is_training=True,
-            image_size=img_size,
-            allow_synthetic_fallback=fixture_mode,
+    # Build Training Dataset & Loader
+    train_datasets = []
+    if has_eyeq_train:
+        train_datasets.append(
+            (
+                "eyeq",
+                RetinalQualityDataset(
+                    pd.read_csv(eyeq_train_p),
+                    is_training=True,
+                    image_size=img_size,
+                    allow_synthetic_fallback=fixture_mode,
+                ),
+            )
         )
-        # Balanced sampling between datasets so larger dataset does not dominate
-        n_eyeq = len(eyeq_train_ds)
-        n_dd = len(dd_train_ds)
+    if has_dd_train:
+        train_datasets.append(
+            (
+                "deepdrid",
+                RetinalQualityDataset(
+                    pd.read_csv(deepdrid_train_p),
+                    is_training=True,
+                    image_size=img_size,
+                    allow_synthetic_fallback=fixture_mode,
+                ),
+            )
+        )
+
+    if len(train_datasets) == 1:
+        train_loader = DataLoader(
+            train_datasets[0][1], batch_size=batch_size, shuffle=True, drop_last=False
+        )
+    else:
+        n_eyeq = len(train_datasets[0][1])
+        n_dd = len(train_datasets[1][1])
         weights_eyeq = [0.5 / max(1, n_eyeq)] * n_eyeq
         weights_dd = [0.5 / max(1, n_dd)] * n_dd
         combined_weights = torch.tensor(weights_eyeq + weights_dd, dtype=torch.float32)
-        combined_train_ds = ConcatDataset([eyeq_train_ds, dd_train_ds])
+        combined_train_ds = ConcatDataset([train_datasets[0][1], train_datasets[1][1]])
         sampler = torch.utils.data.WeightedRandomSampler(
             weights=combined_weights, num_samples=len(combined_weights), replacement=True
         )
-        train_loader = DataLoader(combined_train_ds, batch_size=batch_size, sampler=sampler)
-    else:
-        train_loader = DataLoader(eyeq_train_ds, batch_size=batch_size, shuffle=True)
-
-    if deepdrid_val_p.is_file():
-        df_dd_val = pd.read_csv(deepdrid_val_p)
-        dd_val_ds = RetinalQualityDataset(
-            df_dd_val, is_training=False, image_size=img_size, allow_synthetic_fallback=fixture_mode
+        train_loader = DataLoader(
+            combined_train_ds, batch_size=batch_size, sampler=sampler, drop_last=False
         )
-        val_ds = ConcatDataset([val_ds, dd_val_ds])
 
+    # Build Validation Dataset & Loader
+    val_datasets = []
+    if has_eyeq_val:
+        val_datasets.append(
+            RetinalQualityDataset(
+                pd.read_csv(eyeq_val_p),
+                is_training=False,
+                image_size=img_size,
+                allow_synthetic_fallback=fixture_mode,
+            )
+        )
+    if has_dd_val:
+        val_datasets.append(
+            RetinalQualityDataset(
+                pd.read_csv(deepdrid_val_p),
+                is_training=False,
+                image_size=img_size,
+                allow_synthetic_fallback=fixture_mode,
+            )
+        )
+
+    val_ds = ConcatDataset(val_datasets) if len(val_datasets) > 1 else val_datasets[0]
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
 
     # Initialize Multi-Task Model & Loss

@@ -144,25 +144,41 @@ def main():
     model.load_state_dict(state.get("state_dict", state))
     model.eval()
 
+    has_eyeq = Path(args.eyeq_split).is_file()
+    has_deepdrid = Path(args.deepdrid_split).is_file()
+
+    if not (has_eyeq or has_deepdrid):
+        raise FileNotFoundError(
+            f"Neither EyeQ split ({args.eyeq_split}) nor DeepDRiD split ({args.deepdrid_split}) was found."
+        )
+
     # 1. Internal EyeQ Test Evaluation
-    print(f"Loading EyeQ test split from {args.eyeq_split}...")
-    eyeq_metrics = evaluate_dataset_partition(model, args.eyeq_split, "EyeQ (Internal Test)")
-    with open(out_p / "internal_eyeq.json", "w", encoding="utf-8") as f:
-        json.dump(eyeq_metrics, f, indent=2)
-    print(
-        f"EyeQ Internal Macro-F1: {eyeq_metrics['macro_f1']} (95% CI: [{eyeq_metrics['macro_f1_95_ci']['ci_lower']}, {eyeq_metrics['macro_f1_95_ci']['ci_upper']}])"
-    )
+    if has_eyeq:
+        print(f"Loading EyeQ test split from {args.eyeq_split}...")
+        eyeq_metrics = evaluate_dataset_partition(model, args.eyeq_split, "EyeQ (Internal Test)")
+        with open(out_p / "internal_eyeq.json", "w", encoding="utf-8") as f:
+            json.dump(eyeq_metrics, f, indent=2)
+        print(
+            f"EyeQ Internal Macro-F1: {eyeq_metrics['macro_f1']} (95% CI: [{eyeq_metrics['macro_f1_95_ci']['ci_lower']}, {eyeq_metrics['macro_f1_95_ci']['ci_upper']}])"
+        )
+    else:
+        print(f"EyeQ test split not present at {args.eyeq_split}; skipping EyeQ evaluation.")
 
     # 2. DeepDRiD Held-Out Evaluation
-    print(f"Loading DeepDRiD evaluation split from {args.deepdrid_split}...")
-    deepdrid_metrics = evaluate_dataset_partition(
-        model, args.deepdrid_split, "DeepDRiD (Held-Out Evaluation)", is_deepdrid=True
-    )
-    with open(out_p / "held_out_deepdrid.json", "w", encoding="utf-8") as f:
-        json.dump(deepdrid_metrics, f, indent=2)
-    print(
-        f"DeepDRiD Held-Out Macro-F1: {deepdrid_metrics['macro_f1']} (95% CI: [{deepdrid_metrics['macro_f1_95_ci']['ci_lower']}, {deepdrid_metrics['macro_f1_95_ci']['ci_upper']}])"
-    )
+    if has_deepdrid:
+        print(f"Loading DeepDRiD evaluation split from {args.deepdrid_split}...")
+        deepdrid_metrics = evaluate_dataset_partition(
+            model, args.deepdrid_split, "DeepDRiD (Held-Out Evaluation)", is_deepdrid=True
+        )
+        with open(out_p / "held_out_deepdrid.json", "w", encoding="utf-8") as f:
+            json.dump(deepdrid_metrics, f, indent=2)
+        print(
+            f"DeepDRiD Held-Out Macro-F1: {deepdrid_metrics['macro_f1']} (95% CI: [{deepdrid_metrics['macro_f1_95_ci']['ci_lower']}, {deepdrid_metrics['macro_f1_95_ci']['ci_upper']}])"
+        )
+    else:
+        print(
+            f"DeepDRiD evaluation split not present at {args.deepdrid_split}; skipping DeepDRiD evaluation."
+        )
 
 
 if __name__ == "__main__":

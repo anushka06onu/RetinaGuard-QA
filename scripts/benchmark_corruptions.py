@@ -70,6 +70,10 @@ def main():
     labels = []
     sample_df = test_df.head(args.max_samples)
 
+    is_overall = (
+        "overall_quality_canonical" in sample_df.columns
+        and pd.notna(sample_df["overall_quality_canonical"]).any()
+    )
     for _, row in sample_df.iterrows():
         img_path = Path(row["path"])
         if not img_path.is_file():
@@ -78,11 +82,16 @@ def main():
             )
         with Image.open(img_path) as img:
             clean_images.append(img.convert("RGB"))
-        labels.append(q_map[row["quality_canonical"]])
+        label_val = row.get("quality_canonical", None)
+        if pd.isna(label_val) or not label_val:
+            label_val = row.get("overall_quality_canonical", "reject")
+        labels.append(q_map[label_val])
 
     labels = np.array(labels)
     corruptions = SyntheticCorruptionSuite.get_all_names()
     results = {}
+
+    head_key = "overall_quality_logits" if is_overall else "quality_logits"
 
     for c_name in corruptions:
         results[c_name] = {}
@@ -94,7 +103,7 @@ def main():
                 tensors.append(t)
             batch = torch.stack(tensors)
             with torch.no_grad():
-                logits = model(batch)["quality_logits"].cpu().numpy()
+                logits = model(batch)[head_key].cpu().numpy()
             m = compute_quality_metrics(logits, labels, is_logits=True)
             results[c_name][str(sev)] = {
                 "macro_f1": m["macro_f1"],

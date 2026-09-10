@@ -68,8 +68,15 @@ def main():
     with torch.no_grad():
         for b in loader:
             out = model(b["image"])
-            all_logits.append(out["quality_logits"].cpu().numpy())
-            all_targets.append(b["quality_target"].numpy())
+            if b["quality_mask"].sum() > 0 or (
+                "quality_canonical" in val_df.columns
+                and pd.notna(val_df["quality_canonical"]).any()
+            ):
+                all_logits.append(out["quality_logits"].cpu().numpy())
+                all_targets.append(b["quality_target"].numpy())
+            else:
+                all_logits.append(out["overall_quality_logits"].cpu().numpy())
+                all_targets.append(b["overall_quality_target"].numpy())
 
     raw_logits = np.concatenate(all_logits, axis=0)
     labels = np.concatenate(all_targets, axis=0)
