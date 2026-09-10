@@ -94,3 +94,110 @@ def test_dataset_loader(tmp_path):
     ds_fixture = RetinalQualityDataset(df_missing, allow_synthetic_fallback=True)
     item_fix = ds_fixture[0]
     assert item_fix["image"].shape == (3, 384, 384)
+
+
+def test_eyeq_adapter_and_exclusions(tmp_path):
+    from src.retinaguard.data.adapters import parse_eyeq_metadata
+
+    img_dir = tmp_path / "eyeq_images"
+    img_dir.mkdir()
+    valid_img = img_dir / "101_left.jpeg"
+    Image.new("RGB", (100, 100), color=(150, 70, 20)).save(valid_img)
+
+    # Label CSV with: 1 valid, 1 missing image
+    csv_file = tmp_path / "eyeq_labels.csv"
+    pd.DataFrame(
+        [
+            {"image": "101_left.jpeg", "quality": 0},
+            {"image": "102_right.jpeg", "quality": 1},  # missing
+        ]
+    ).to_csv(csv_file, index=False)
+
+    ex_csv = tmp_path / "eyeq_ex.csv"
+    manifest_df = parse_eyeq_metadata(csv_file, img_dir, exclusions_csv=ex_csv)
+
+    assert len(manifest_df) == 1
+    assert manifest_df.iloc[0]["quality_canonical"] == "good"
+    assert manifest_df.iloc[0]["overall_quality_raw"] is None
+
+    ex_df = pd.read_csv(ex_csv)
+    assert len(ex_df) == 1
+    assert ex_df.iloc[0]["reason"] == "missing_image"
+    assert len(manifest_df) + len(ex_df) == 2
+
+
+def test_deepdrid_adapter_label_validations_and_exclusions(tmp_path):
+    from src.retinaguard.data.adapters import parse_deepdrid_metadata
+
+    img_dir = tmp_path / "deepdrid_images"
+    img_dir.mkdir()
+
+    # Create 3 valid test images
+    for name in ["img1.jpg", "img2.jpg", "img3.jpg"]:
+        Image.new("RGB", (100, 100), color=(160, 60, 20)).save(img_dir / name)
+
+    # 1. Test valid accepted raw values (3-level & 5-level)
+    csv_valid = tmp_path / "deepdrid_valid.csv"
+    pd.DataFrame(
+        [
+            {
+                "image_id": "img1.jpg",
+                "overall_quality": 0,
+                "artifact": 0,
+                "clarity": 0,
+                "field_definition": 0,
+            },
+            {
+                "image_id": "img2.jpg",
+                "overall_quality": "Usable",
+                "artifact": 2,
+                "clarity": 2,
+                "field_definition": 1,
+            },
+            {
+                "image_id": "img3.jpg",
+                "overall_quality": "Reject",
+                "artifact": 4,
+                "clarity": 3,
+                "field_definition": 4,
+            },
+            {
+                "image_id": "missing_img.jpg",
+                "overall_quality": 1,
+                "artifact": 1,
+                "clarity": 1,
+                "field_definition": 1,
+            },
+        ]
+    ).to_csv(csv_valid, index=False)
+
+    ex_csv = tmp_path / "deepdrid_ex.csv"
+    df_manifest = parse_deepdrid_metadata(csv_valid, img_dir, exclusions_csv=ex_csv)
+
+    assert len(df_manifest) == 3
+    assert df_manifest.iloc[0]["overall_quality_canonical"] == "good"
+    assert df_manifest.iloc[1]["overall_quality_canonical"] == "usable"
+    assert df_manifest.iloc[2]["overall_quality_canonical"] == "reject"
+    # Ensure quality_raw and quality_canonical are None for DeepDRiD
+    assert df_manifest.iloc[0]["quality_canonical"] is None
+
+    ex_df = pd.read_csv(ex_csv)
+    assert len(ex_df) == 1
+    assert len(df_manifest) + len(ex_df) == 4
+
+    # 2. Test unknown/invalid raw label causes ValueError
+    csv_invalid = tmp_path / "deepdrid_invalid.csv"
+    pd.DataFrame(
+        [
+            {
+                "image_id": "img1.jpg",
+                "overall_quality": "UnknownGrade999",
+                "artifact": 0,
+                "clarity": 0,
+                "field_definition": 0,
+            }
+        ]
+    ).to_csv(csv_invalid, index=False)
+
+    with pytest.raises(ValueError, match="Unrecognized DeepDRiD overall quality"):
+        parse_deepdrid_metadata(csv_invalid, img_dir)

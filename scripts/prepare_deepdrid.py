@@ -31,6 +31,12 @@ def main():
         default="data/manifests/deepdrid_manifest.csv",
         help="Destination path for canonical manifest CSV",
     )
+    parser.add_argument(
+        "--exclusions-csv",
+        type=str,
+        default="data/manifests/deepdrid_exclusions.csv",
+        help="Destination path for excluded records CSV",
+    )
     args = parser.parse_args()
 
     labels_p = Path(args.labels_csv)
@@ -49,13 +55,16 @@ def main():
 
     out_p = Path(args.output_csv)
     out_p.parent.mkdir(parents=True, exist_ok=True)
+    ex_p = Path(args.exclusions_csv)
 
     print(f"Parsing official DeepDRiD metadata from {labels_p} and images in {images_p}...")
-    df = parse_deepdrid_metadata(labels_p, str(images_p))
+    df = parse_deepdrid_metadata(labels_p, str(images_p), exclusions_csv=ex_p)
     manifest_df = build_canonical_manifest([df], out_p)
     print(
         f"Successfully constructed canonical DeepDRiD manifest ({len(manifest_df)} records) at: {out_p}"
     )
+    if ex_p.is_file():
+        print(f"Exclusion audit report written to: {ex_p}")
 
 
 if __name__ == "__main__":
