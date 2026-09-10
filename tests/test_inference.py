@@ -99,7 +99,7 @@ def test_predictor_strict_config_validation(tmp_path):
     cal_file = tmp_path / "bad_calibration.json"
     cal_file.write_text(json.dumps({"temperature": -0.5}))
 
-    with pytest.raises(ValueError, match="Temperature must be > 0"):
+    with pytest.raises(ValueError, match="Temperature must be a finite float > 0"):
         RetinaGuardPredictor(calibration_config_path=cal_file, model_path=None)
 
     # 2. Invalid preprocessing image_size
@@ -109,9 +109,24 @@ def test_predictor_strict_config_validation(tmp_path):
     with pytest.raises(ValueError, match="Invalid image_size"):
         RetinaGuardPredictor(preprocessing_config_path=prep_file, model_path=None)
 
-    # 3. Valid configs pass
+    # 3. Invalid uncertainty threshold (> log2(3) or <= 0)
+    cal_bad_u = tmp_path / "bad_u_cal.json"
+    cal_bad_u.write_text(json.dumps({"temperature": 1.0, "uncertainty_threshold": 2.5}))
+    with pytest.raises(ValueError, match="Invalid uncertainty_threshold"):
+        RetinaGuardPredictor(calibration_config_path=cal_bad_u, model_path=None)
+
+    # 4. Valid configs pass
     cal_good = tmp_path / "good_calibration.json"
-    cal_good.write_text(json.dumps({"temperature": 1.25}))
+    cal_good.write_text(
+        json.dumps(
+            {
+                "temperature": 1.25,
+                "uncertainty_threshold": 0.85,
+                "ood_energy_threshold": 1.0,
+                "ood_direction": "lower_is_ood",
+            }
+        )
+    )
     prep_good = tmp_path / "good_preprocessing.json"
     prep_good.write_text(
         json.dumps(
@@ -130,3 +145,5 @@ def test_predictor_strict_config_validation(tmp_path):
     )
     assert pred.temperature == 1.25
     assert pred.image_size == 224
+    assert pred.policy_engine.uncertainty_threshold == 0.85
+    assert pred.policy_engine.ood_energy_threshold == 1.0

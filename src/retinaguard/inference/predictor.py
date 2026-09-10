@@ -92,20 +92,58 @@ class RetinaGuardPredictor:
             if cal_path.is_file():
                 with open(cal_path, "r", encoding="utf-8") as f:
                     cal_cfg = json.load(f)
-                temp = float(cal_cfg.get("temperature", cal_cfg.get("optimal_temperature", 1.0)))
-                if temp <= 0.0 or not np.isfinite(temp):
+
+                temp_val = cal_cfg.get("temperature", cal_cfg.get("optimal_temperature", 1.0))
+                try:
+                    temp = float(temp_val)
+                except (ValueError, TypeError) as exc:
                     raise ValueError(
-                        f"Invalid temperature in {calibration_config_path}: {temp}. Temperature must be > 0."
+                        f"Invalid temperature format in {calibration_config_path}: {temp_val}"
+                    ) from exc
+
+                if not np.isfinite(temp) or temp <= 0.0:
+                    raise ValueError(
+                        f"Invalid temperature in {calibration_config_path}: {temp}. Temperature must be a finite float > 0."
                     )
                 self.temperature = temp
 
                 if "uncertainty_threshold" in cal_cfg:
-                    u_thresh = float(cal_cfg["uncertainty_threshold"])
-                    if u_thresh > 0:
-                        self.policy_engine.uncertainty_threshold = u_thresh
+                    u_val = cal_cfg["uncertainty_threshold"]
+                    try:
+                        u_thresh = float(u_val)
+                    except (ValueError, TypeError) as exc:
+                        raise ValueError(
+                            f"Invalid uncertainty_threshold format in {calibration_config_path}: {u_val}"
+                        ) from exc
+
+                    # For 3-class classification, base-2 Shannon entropy upper bound is log2(3) ≈ 1.58496 bits
+                    max_entropy = np.log2(3.0) + 1e-3
+                    if not np.isfinite(u_thresh) or u_thresh <= 0.0 or u_thresh > max_entropy:
+                        raise ValueError(
+                            f"Invalid uncertainty_threshold in {calibration_config_path}: {u_thresh}. Must be finite and in range (0.0, {max_entropy:.4f}] bits."
+                        )
+                    self.policy_engine.uncertainty_threshold = u_thresh
 
                 if "ood_energy_threshold" in cal_cfg:
-                    self.policy_engine.ood_energy_threshold = float(cal_cfg["ood_energy_threshold"])
+                    ood_val = cal_cfg["ood_energy_threshold"]
+                    try:
+                        ood_thresh = float(ood_val)
+                    except (ValueError, TypeError) as exc:
+                        raise ValueError(
+                            f"Invalid ood_energy_threshold format in {calibration_config_path}: {ood_val}"
+                        ) from exc
+
+                    if not np.isfinite(ood_thresh):
+                        raise ValueError(
+                            f"Invalid ood_energy_threshold in {calibration_config_path}: {ood_thresh}. Must be a finite float."
+                        )
+                    self.policy_engine.ood_energy_threshold = ood_thresh
+
+                if "ood_direction" in cal_cfg:
+                    if cal_cfg["ood_direction"] not in ["lower_is_ood", "higher_is_ood"]:
+                        raise ValueError(
+                            f"Invalid ood_direction in {calibration_config_path}: {cal_cfg['ood_direction']}"
+                        )
 
         if model_path is not None and Path(model_path).is_file():
             self.load_model(model_path)

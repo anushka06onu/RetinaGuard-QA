@@ -121,10 +121,26 @@ def evaluate_epoch(
             else:
                 metrics[f"{head_name}_macro_f1"] = 0.0
 
-    # Primary metric for early stopping (EyeQ quality or overall_quality if EyeQ unavailable)
-    primary_f1 = metrics.get("quality_macro_f1", 0.0)
-    if primary_f1 == 0.0 and "overall_quality_macro_f1" in metrics:
-        primary_f1 = metrics["overall_quality_macro_f1"]
+    # Determine primary metric based strictly on presence of valid masked samples
+    has_eyeq = (
+        bool(np.any(np.concatenate(collectors["quality"]["masks"], axis=0) > 0.5))
+        if collectors["quality"]["masks"]
+        else False
+    )
+    has_deepdrid = (
+        bool(np.any(np.concatenate(collectors["overall_quality"]["masks"], axis=0) > 0.5))
+        if collectors["overall_quality"]["masks"]
+        else False
+    )
+
+    if has_eyeq:
+        primary_f1 = metrics.get("quality_macro_f1", 0.0)
+    elif has_deepdrid:
+        primary_f1 = metrics.get("overall_quality_macro_f1", 0.0)
+    else:
+        primary_f1 = 0.0
+
+    metrics["primary_macro_f1"] = primary_f1
 
     all_logits_arr = (
         np.concatenate(collectors["quality"]["logits"], axis=0)
@@ -137,4 +153,4 @@ def evaluate_epoch(
         else np.zeros((0,))
     )
 
-    return total_loss / n_batches, primary_f1, all_logits_arr, all_labels_arr
+    return total_loss / n_batches, metrics, all_logits_arr, all_labels_arr

@@ -139,17 +139,41 @@ def run_training_experiment(
 
     for epoch in range(1, epochs + 1):
         train_loss = train_one_epoch(model, train_loader, optimizer, criterion, device)
-        val_loss, val_f1, _, _ = evaluate_epoch(model, val_loader, criterion, device)
+        val_loss, val_metrics, _, _ = evaluate_epoch(model, val_loader, criterion, device)
 
-        history_logger.log(epoch, train_loss, val_loss, val_f1)
-        print(
-            f"Epoch {epoch:02d}/{epochs:02d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Macro-F1: {val_f1:.4f}"
+        val_f1 = (
+            val_metrics.get("primary_macro_f1", val_metrics.get("quality_macro_f1", 0.0))
+            if isinstance(val_metrics, dict)
+            else float(val_metrics)
         )
+
+        history_logger.log(epoch, train_loss, val_loss, val_metrics)
+
+        if isinstance(val_metrics, dict):
+            metric_summary = " | ".join(
+                f"{k}: {v:.4f}" for k, v in val_metrics.items() if k != "primary_macro_f1"
+            )
+            print(
+                f"Epoch {epoch:02d}/{epochs:02d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | {metric_summary}"
+            )
+        else:
+            print(
+                f"Epoch {epoch:02d}/{epochs:02d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Macro-F1: {val_f1:.4f}"
+            )
 
         is_best = early_stopping(val_f1)
         if is_best:
             best_val_f1 = val_f1
-            checkpoint_saver.save(model.state_dict(), {"val_macro_f1": val_f1, "epoch": epoch})
+            checkpoint_saver.save(
+                model.state_dict(),
+                {
+                    "val_macro_f1": val_f1,
+                    "val_metrics": (
+                        val_metrics if isinstance(val_metrics, dict) else {"val_macro_f1": val_f1}
+                    ),
+                    "epoch": epoch,
+                },
+            )
 
         if early_stopping.early_stop:
             print(f"Early stopping triggered at epoch {epoch}")

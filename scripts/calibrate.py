@@ -94,11 +94,32 @@ def main():
         confs, preds, labels, min_confidence_threshold=0.75
     )
 
+    # 4. Fit decision policy thresholds on validation set
+    eps = 1e-12
+    p_clipped = np.clip(cal_probs, eps, 1.0)
+    entropies = -np.sum(p_clipped * (np.log(p_clipped) / np.log(2.0)), axis=-1)
+    energy_scores = np.log(np.sum(np.exp(cal_logits), axis=-1))
+
+    # Uncertainty threshold (e.g. 95th percentile on validation set)
+    fitted_uncertainty_threshold = round(float(np.percentile(entropies, 95)), 4)
+    fitted_ood_threshold = round(float(np.percentile(energy_scores, 5)), 4)
+
+    import datetime
+
+    from src.retinaguard.utils.hashing import compute_sha256
+
+    ckpt_sha = compute_sha256(ckpt_p) if ckpt_p.is_file() else None
+    split_sha = compute_sha256(val_p) if val_p.is_file() else None
+
     cal_results = {
         "checkpoint": str(ckpt_p),
+        "checkpoint_sha256": ckpt_sha,
         "validation_split": str(val_p),
+        "validation_split_sha256": split_sha,
         "num_validation_samples": len(labels),
         "optimal_temperature": round(float(best_temp), 4),
+        "uncertainty_threshold": fitted_uncertainty_threshold,
+        "ood_energy_threshold": fitted_ood_threshold,
         "uncalibrated_ece": uncal_ece,
         "calibrated_ece": cal_ece,
         "uncalibrated_brier": uncal_brier,
@@ -123,16 +144,35 @@ def main():
             indent=2,
         )
 
-    # Save calibration temperature metadata
+    # Save complete production calibration & decision metadata
     cal_meta_p = Path("artifacts/models/calibration_metadata.json")
     cal_meta_p.parent.mkdir(parents=True, exist_ok=True)
+    calibration_metadata = {
+        "temperature": round(float(best_temp), 4),
+        "uncertainty_threshold": fitted_uncertainty_threshold,
+        "uncertainty_unit": "bits",
+        "entropy_max": round(float(np.log2(3.0)), 5),
+        "ood_energy_threshold": fitted_ood_threshold,
+        "ood_score_type": "energy",
+        "ood_direction": "lower_is_ood",
+        "validation_split": str(val_p),
+        "validation_split_sha256": split_sha,
+        "model_checkpoint": str(ckpt_p),
+        "model_checkpoint_sha256": ckpt_sha,
+        "fitting_method": "temperature_scaling_lbfgs_and_empirical_percentiles",
+        "created_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
     with open(cal_meta_p, "w", encoding="utf-8") as f:
-        json.dump({"temperature": round(float(best_temp), 4)}, f, indent=2)
+        json.dump(calibration_metadata, f, indent=2)
 
     print(f"Optimal Temperature T: {best_temp:.4f}")
+    print(f"Uncertainty Threshold (95th percentile): {fitted_uncertainty_threshold:.4f} bits")
+    print(f"OOD Energy Threshold (5th percentile): {fitted_ood_threshold:.4f}")
     print(f"Uncalibrated ECE:      {uncal_ece['ece']:.4f} -> Calibrated ECE: {cal_ece['ece']:.4f}")
     print(f"Area Under Risk-Coverage (AURC): {rc_curve['aurc']:.4f}")
-    print("Exported results to artifacts/metrics/calibration.json and selective_prediction.json")
+    print(
+        "Exported results to artifacts/metrics/calibration.json and artifacts/models/calibration_metadata.json"
+    )
 
 
 if __name__ == "__main__":

@@ -51,7 +51,7 @@ class ModelCheckpointSaver:
 
 
 class MetricHistoryLogger:
-    """Logs training & validation loss and metric histories to CSV / JSON."""
+    """Logs training & validation loss and all multi-head metric histories to JSON."""
 
     def __init__(self, output_path: Union[str, Path] = "artifacts/metrics/train_history.json"):
         self.output_path = Path(output_path)
@@ -63,10 +63,35 @@ class MetricHistoryLogger:
             "val_macro_f1": [],
         }
 
-    def log(self, epoch: int, train_loss: float, val_loss: float, val_macro_f1: float):
+    def log(
+        self,
+        epoch: int,
+        train_loss: float,
+        val_loss: float,
+        val_metrics: Union[float, Dict[str, float]],
+    ):
         self.history["epoch"].append(epoch)
-        self.history["train_loss"].append(round(train_loss, 4))
-        self.history["val_loss"].append(round(val_loss, 4))
-        self.history["val_macro_f1"].append(round(val_macro_f1, 4))
+        self.history["train_loss"].append(round(float(train_loss), 4))
+        self.history["val_loss"].append(round(float(val_loss), 4))
+
+        if isinstance(val_metrics, dict):
+            primary = val_metrics.get("primary_macro_f1", val_metrics.get("quality_macro_f1", 0.0))
+            self.history["val_macro_f1"].append(round(float(primary), 4))
+            for k, v in val_metrics.items():
+                hist_key = f"val_{k}"
+                if hist_key not in self.history:
+                    self.history[hist_key] = [None] * (len(self.history["epoch"]) - 1)
+                self.history[hist_key].append(
+                    round(float(v), 4) if isinstance(v, (int, float)) else v
+                )
+        else:
+            self.history["val_macro_f1"].append(round(float(val_metrics), 4))
+
+        # Pad any missing keys with None so arrays have equal length
+        current_len = len(self.history["epoch"])
+        for k in self.history:
+            while len(self.history[k]) < current_len:
+                self.history[k].append(None)
+
         with open(self.output_path, "w", encoding="utf-8") as f:
             json.dump(self.history, f, indent=2)
