@@ -1,6 +1,7 @@
 """Dataset audit runner creating cross_split_isolation_audit.json and data_audit.json from actual split manifests."""
 
 import argparse
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -61,13 +62,27 @@ def main():
     print(f"Audited {len(splits)} partitions: {list(splits.keys())}")
     print(f"Schema Version: {report.get('schema_version', '1.0')}")
     print(f"Git Commit: {report.get('git_commit', 'N/A')}")
+    print(f"Audit Script SHA-256: {report.get('audit_script_sha256', 'N/A')}")
     print(f"Mapping Schema SHA-256: {report.get('mapping_sha256', 'N/A')}")
     print(
-        f"Leakage Audit Status: {'PASSED (Zero Leakage)' if report['isolation_passed'] else 'FAILED (Leakage Detected)'}"
+        f"  - Cross-Split Isolation: {'PASSED' if report.get('cross_split_isolation_passed') else 'FAILED'}"
+    )
+    print(
+        f"  - Intra-Split Uniqueness: {'PASSED' if report.get('intra_split_uniqueness_passed') else 'FAILED'}"
+    )
+    print(
+        f"  - Image Hash & Existence: {'PASSED' if report.get('image_integrity_passed') else 'FAILED'}"
+    )
+    print(
+        f"  - Overall Audit Status: {'PASSED' if report.get('overall_audit_passed') else 'FAILED'}"
     )
     print(
         f"Saved audit reports to {reports_p / 'cross_split_isolation_audit.json'} and {reports_p / 'cross_split_isolation_audit.md'}"
     )
+
+    if not report.get("overall_audit_passed", False):
+        print("\n❌ OVERALL DATASET AUDIT FAILED! See reports for details.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

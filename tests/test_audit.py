@@ -9,6 +9,7 @@ from retinaguard.data.audit import (
     inspect_image_file,
     verify_patient_split_isolation,
 )
+from retinaguard.utils.hashing import compute_sha256
 
 
 def test_extract_patient_id():
@@ -74,19 +75,27 @@ def test_run_leakage_and_duplicate_audit_rich_provenance(tmp_path):
 
     from retinaguard.data.audit import run_leakage_and_duplicate_audit
 
+    # Create real dummy images with true SHA256 hashes
+    img1_p = tmp_path / "p1.png"
+    img2_p = tmp_path / "p2.png"
+    img3_p = tmp_path / "p3.png"
+    Image.fromarray(np.full((32, 32, 3), 10, dtype=np.uint8)).save(img1_p)
+    Image.fromarray(np.full((32, 32, 3), 20, dtype=np.uint8)).save(img2_p)
+    Image.fromarray(np.full((32, 32, 3), 30, dtype=np.uint8)).save(img3_p)
+
     splits = {
         "train": pd.DataFrame(
             [
                 {
                     "patient_id": "P01",
-                    "sha256": "sha_1",
-                    "path": "p1.jpg",
+                    "sha256": compute_sha256(img1_p),
+                    "path": str(img1_p),
                     "overall_quality_canonical": "good",
                 },
                 {
                     "patient_id": "P02",
-                    "sha256": "sha_2",
-                    "path": "p2.jpg",
+                    "sha256": compute_sha256(img2_p),
+                    "path": str(img2_p),
                     "overall_quality_canonical": "reject",
                 },
             ]
@@ -95,8 +104,8 @@ def test_run_leakage_and_duplicate_audit_rich_provenance(tmp_path):
             [
                 {
                     "patient_id": "P03",
-                    "sha256": "sha_3",
-                    "path": "p3.jpg",
+                    "sha256": compute_sha256(img3_p),
+                    "path": str(img3_p),
                     "overall_quality_canonical": "good",
                 },
             ]
@@ -108,9 +117,13 @@ def test_run_leakage_and_duplicate_audit_rich_provenance(tmp_path):
     assert report["schema_version"] == "1.0"
     assert "generated_at_utc" in report
     assert "git_commit" in report
-    assert "audit_script_sha256" in report
-    assert "mapping_sha256" in report
+    assert report["audit_script_sha256"] == compute_sha256("scripts/audit_dataset.py")
+    assert report["mapping_sha256"] == compute_sha256("configs/deepdrid_label_mapping.yaml")
     assert "comparisons_performed" in report
+    assert report["cross_split_isolation_passed"] is True
+    assert report["intra_split_uniqueness_passed"] is True
+    assert report["image_integrity_passed"] is True
+    assert report["overall_audit_passed"] is True
     assert report["isolation_passed"] is True
     assert "train" in report["splits"]
     assert "val" in report["splits"]
@@ -122,6 +135,41 @@ def test_run_leakage_and_duplicate_audit_rich_provenance(tmp_path):
     assert (tmp_path / "reports" / "cross_split_isolation_audit.md").is_file()
     assert (tmp_path / "reports" / "data_audit.json").is_file()
     assert (tmp_path / "reports" / "data_audit.md").is_file()
+
+    # Verify that a missing image or duplicate triggers failure
+    failing_splits = {
+        "train": pd.DataFrame(
+            [
+                {
+                    "patient_id": "P01",
+                    "sha256": compute_sha256(img1_p),
+                    "path": str(img1_p),
+                    "overall_quality_canonical": "good",
+                },
+                {
+                    "patient_id": "P02",
+                    "sha256": "nonexistent_hash",
+                    "path": str(tmp_path / "nonexistent.png"),
+                    "overall_quality_canonical": "reject",
+                },
+            ]
+        ),
+        "val": pd.DataFrame(
+            [
+                {
+                    "patient_id": "P03",
+                    "sha256": compute_sha256(img3_p),
+                    "path": str(img3_p),
+                    "overall_quality_canonical": "good",
+                },
+            ]
+        ),
+    }
+    failing_report = run_leakage_and_duplicate_audit(
+        failing_splits, reports_dir=tmp_path / "reports_fail"
+    )
+    assert failing_report["image_integrity_passed"] is False
+    assert failing_report["overall_audit_passed"] is False
 
 
 def test_create_splits_fail_fast_on_empty_manifest(tmp_path):

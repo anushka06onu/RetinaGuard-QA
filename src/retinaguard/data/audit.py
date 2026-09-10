@@ -291,7 +291,19 @@ def run_leakage_and_duplicate_audit(
             if sha_inter:
                 sha_leaks[f"{s1}_vs_{s2}"] = sorted(list(sha_inter))
 
-    isolation_passed = (len(patient_leaks) == 0) and (len(sha_leaks) == 0)
+    cross_split_isolation_passed = (len(patient_leaks) == 0) and (len(sha_leaks) == 0)
+    intra_split_uniqueness_passed = all(
+        len(d["intra_split_duplicates"]) == 0 for d in split_details.values()
+    )
+    image_integrity_passed = all(
+        d["image_integrity"]["missing_images"] == 0
+        and d["image_integrity"]["mismatched_hashes"] == 0
+        for d in split_details.values()
+        if (d["image_integrity"]["verified_images"] + d["image_integrity"]["missing_images"]) > 0
+    )
+    overall_audit_passed = (
+        cross_split_isolation_passed and intra_split_uniqueness_passed and image_integrity_passed
+    )
 
     audit_summary = {
         "schema_version": "1.0",
@@ -299,6 +311,11 @@ def run_leakage_and_duplicate_audit(
         "git_commit": git_commit,
         "audit_script_sha256": script_sha,
         "mapping_sha256": mapping_sha,
+        "cross_split_isolation_passed": cross_split_isolation_passed,
+        "intra_split_uniqueness_passed": intra_split_uniqueness_passed,
+        "image_integrity_passed": image_integrity_passed,
+        "overall_audit_passed": overall_audit_passed,
+        "isolation_passed": cross_split_isolation_passed,
         "splits": split_details,
         "comparisons_performed": [
             "patient_id_cross_split",
@@ -309,7 +326,6 @@ def run_leakage_and_duplicate_audit(
         ],
         "patient_leakages": patient_leaks,
         "sha256_leakages": sha_leaks,
-        "isolation_passed": isolation_passed,
         "split_counts": {s: len(df) for s, df in splits.items()},
         "patient_counts": {s: len(p_ids) for s, p_ids in patient_sets.items()},
     }
@@ -328,7 +344,10 @@ def run_leakage_and_duplicate_audit(
 - **Git Commit:** `{git_commit}`
 - **Audit Script SHA-256:** `{script_sha}`
 - **Mapping Schema SHA-256:** `{mapping_sha}`
-- **Isolation Status:** {'✅ PASSED (Zero Leakage)' if isolation_passed else '❌ FAILED (Leakage Detected)'}
+- **Cross-Split Isolation:** {'✅ PASSED (Zero Leakage)' if cross_split_isolation_passed else '❌ FAILED (Leakage Detected)'}
+- **Intra-Split Uniqueness:** {'✅ PASSED (No Duplicates)' if intra_split_uniqueness_passed else '❌ FAILED (Duplicates Detected)'}
+- **Image Integrity:** {'✅ PASSED (All Verified)' if image_integrity_passed else '❌ FAILED (Issues Detected)'}
+- **Overall Audit Status:** {'✅ PASSED' if overall_audit_passed else '❌ FAILED'}
 - **Splits Evaluated:** {', '.join(split_names)}
 
 ## Partition Summary & Cryptographic Hashes
