@@ -1,9 +1,14 @@
 {
   "schema_version": "1.0",
-  "generated_at_utc": "2026-09-10T21:51:03.689040+00:00",
-  "git_commit": "2649d84ab437ce25a970de3c892d6c84b329e098",
-  "audit_script_sha256": "404a4574b9f995223129a449e11479116a472e3b75409e83cf161e5d1e3deba9",
+  "generated_at_utc": "2026-09-10T22:02:17.817611+00:00",
+  "git_commit": "cb3c1c6ffcce8c658d3322032506f7babc7a28d0",
+  "audit_script_sha256": "1e6e65f11d4181a5faf33f65822b7bd8bbf9e5735be1bda5b6544dff91b3dcaf",
   "mapping_sha256": "73798da8cea7949158c54113ef5712f4af95c0e62d640d33f360febe2ec6dc03",
+  "cross_split_isolation_passed": true,
+  "intra_split_uniqueness_passed": true,
+  "image_integrity_passed": true,
+  "overall_audit_passed": true,
+  "isolation_passed": true,
   "splits": {
     "deepdrid_train": {
       "path": "data/splits/deepdrid_train.csv",
@@ -126,7 +131,6 @@
   ],
   "patient_leakages": {},
   "sha256_leakages": {},
-  "isolation_passed": true,
   "split_counts": {
     "deepdrid_train": 1200,
     "deepdrid_external_test": 400,
