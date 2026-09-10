@@ -54,8 +54,8 @@ dev = [
     "httpx>=0.24.0"
 ]
 
-[project.scripts]
-retinaguard = "app.backend.main:start"
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "api/tests"]
