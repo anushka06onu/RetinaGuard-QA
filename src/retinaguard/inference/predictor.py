@@ -86,7 +86,7 @@ class RetinaGuardPredictor:
                             f"Invalid class_order in {preprocessing_config_path}: {cfg['class_order']}. Expected ['good', 'usable', 'reject']."
                         )
 
-        # Load authoritative calibration temperature if present
+        # Load authoritative calibration temperature and decision thresholds if present
         if calibration_config_path:
             cal_path = Path(calibration_config_path)
             if cal_path.is_file():
@@ -98,6 +98,14 @@ class RetinaGuardPredictor:
                         f"Invalid temperature in {calibration_config_path}: {temp}. Temperature must be > 0."
                     )
                 self.temperature = temp
+
+                if "uncertainty_threshold" in cal_cfg:
+                    u_thresh = float(cal_cfg["uncertainty_threshold"])
+                    if u_thresh > 0:
+                        self.policy_engine.uncertainty_threshold = u_thresh
+
+                if "ood_energy_threshold" in cal_cfg:
+                    self.policy_engine.ood_energy_threshold = float(cal_cfg["ood_energy_threshold"])
 
         if model_path is not None and Path(model_path).is_file():
             self.load_model(model_path)

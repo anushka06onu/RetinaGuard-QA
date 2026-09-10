@@ -51,9 +51,16 @@ def evaluate_epoch(
     """Run validation evaluation returning average loss, Macro-F1, all logits, and labels."""
     model.eval()
     total_loss = 0.0
-    all_logits = []
-    all_labels = []
     n_batches = max(1, len(dataloader))
+
+    # Collectors for multi-head metrics
+    collectors = {
+        "quality": {"logits": [], "targets": [], "masks": []},
+        "overall_quality": {"logits": [], "targets": [], "masks": []},
+        "artifact": {"logits": [], "targets": [], "masks": []},
+        "clarity": {"logits": [], "targets": [], "masks": []},
+        "field_definition": {"logits": [], "targets": [], "masks": []},
+    }
 
     with torch.no_grad():
         for batch in dataloader:
@@ -66,20 +73,68 @@ def evaluate_epoch(
             if isinstance(out, dict):
                 loss_dict = criterion(out, batch_dev)
                 loss = loss_dict["loss_total"]
-                logits = out["quality_logits"].cpu().numpy()
+
+                for head_name in [
+                    "quality",
+                    "overall_quality",
+                    "artifact",
+                    "clarity",
+                    "field_definition",
+                ]:
+                    logits_key = f"{head_name}_logits"
+                    target_key = f"{head_name}_target"
+                    mask_key = f"{head_name}_mask"
+                    if logits_key in out and target_key in batch:
+                        collectors[head_name]["logits"].append(out[logits_key].cpu().numpy())
+                        collectors[head_name]["targets"].append(batch[target_key].numpy())
+                        mask_val = (
+                            batch[mask_key].numpy()
+                            if mask_key in batch
+                            else np.ones_like(batch[target_key].numpy())
+                        )
+                        collectors[head_name]["masks"].append(mask_val)
             else:
                 loss = criterion(out, batch_dev["quality_target"])
-                logits = out.cpu().numpy()
+                collectors["quality"]["logits"].append(out.cpu().numpy())
+                collectors["quality"]["targets"].append(batch["quality_target"].numpy())
+                collectors["quality"]["masks"].append(np.ones_like(batch["quality_target"].numpy()))
 
             total_loss += loss.item()
-            targets = batch["quality_target"].numpy()
-            all_logits.append(logits)
-            all_labels.append(targets)
 
-    all_logits_arr = np.concatenate(all_logits, axis=0) if all_logits else np.zeros((0, 3))
-    all_labels_arr = np.concatenate(all_labels, axis=0) if all_labels else np.zeros((0,))
+    # Calculate metrics per head
+    metrics = {}
+    for head_name, data in collectors.items():
+        if data["logits"] and data["targets"]:
+            logits_arr = np.concatenate(data["logits"], axis=0)
+            targets_arr = np.concatenate(data["targets"], axis=0)
+            masks_arr = (
+                np.concatenate(data["masks"], axis=0)
+                if data["masks"]
+                else np.ones_like(targets_arr)
+            )
+            valid_idx = masks_arr > 0.5
+            if np.any(valid_idx):
+                valid_preds = np.argmax(logits_arr[valid_idx], axis=-1)
+                valid_targets = targets_arr[valid_idx]
+                f1 = float(f1_score(valid_targets, valid_preds, average="macro", zero_division=0))
+                metrics[f"{head_name}_macro_f1"] = f1
+            else:
+                metrics[f"{head_name}_macro_f1"] = 0.0
 
-    preds = np.argmax(all_logits_arr, axis=-1) if len(all_logits_arr) > 0 else np.zeros((0,))
-    macro_f1 = float(f1_score(all_labels_arr, preds, average="macro", zero_division=0))
+    # Primary metric for early stopping (EyeQ quality or overall_quality if EyeQ unavailable)
+    primary_f1 = metrics.get("quality_macro_f1", 0.0)
+    if primary_f1 == 0.0 and "overall_quality_macro_f1" in metrics:
+        primary_f1 = metrics["overall_quality_macro_f1"]
 
-    return total_loss / n_batches, macro_f1, all_logits_arr, all_labels_arr
+    all_logits_arr = (
+        np.concatenate(collectors["quality"]["logits"], axis=0)
+        if collectors["quality"]["logits"]
+        else np.zeros((0, 3))
+    )
+    all_labels_arr = (
+        np.concatenate(collectors["quality"]["targets"], axis=0)
+        if collectors["quality"]["targets"]
+        else np.zeros((0,))
+    )
+
+    return total_loss / n_batches, primary_f1, all_logits_arr, all_labels_arr

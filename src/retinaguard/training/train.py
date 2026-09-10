@@ -65,27 +65,54 @@ def run_training_experiment(
     img_size = cfg.get("training", {}).get("image_size", 384)
 
     # Multi-task training dataset loading
-    train_ds = RetinalQualityDataset(
+    eyeq_train_ds = RetinalQualityDataset(
         train_df, is_training=True, image_size=img_size, allow_synthetic_fallback=fixture_mode
     )
     val_ds = RetinalQualityDataset(
         val_df, is_training=False, image_size=img_size, allow_synthetic_fallback=fixture_mode
     )
 
-    # If deepdrid development splits exist, concatenate for multi-task supervision
+    # If deepdrid development splits exist, include in training and validation
     deepdrid_train_p = (
         Path(cfg.get("data", {}).get("train_deepdrid_split", "data/splits/deepdrid_train.csv"))
         if not fixture_mode
         else Path("tests/fixtures/splits/deepdrid_train.csv")
     )
-    if deepdrid_train_p.is_file():
-        df_dd = pd.read_csv(deepdrid_train_p)
-        train_ds_dd = RetinalQualityDataset(
-            df_dd, is_training=True, image_size=img_size, allow_synthetic_fallback=fixture_mode
-        )
-        train_ds = ConcatDataset([train_ds, train_ds_dd])
+    deepdrid_val_p = (
+        Path(cfg.get("data", {}).get("val_deepdrid_split", "data/splits/deepdrid_val.csv"))
+        if not fixture_mode
+        else Path("tests/fixtures/splits/deepdrid_val.csv")
+    )
 
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+    if deepdrid_train_p.is_file():
+        df_dd_train = pd.read_csv(deepdrid_train_p)
+        dd_train_ds = RetinalQualityDataset(
+            df_dd_train,
+            is_training=True,
+            image_size=img_size,
+            allow_synthetic_fallback=fixture_mode,
+        )
+        # Balanced sampling between datasets so larger dataset does not dominate
+        n_eyeq = len(eyeq_train_ds)
+        n_dd = len(dd_train_ds)
+        weights_eyeq = [0.5 / max(1, n_eyeq)] * n_eyeq
+        weights_dd = [0.5 / max(1, n_dd)] * n_dd
+        combined_weights = torch.tensor(weights_eyeq + weights_dd, dtype=torch.float32)
+        combined_train_ds = ConcatDataset([eyeq_train_ds, dd_train_ds])
+        sampler = torch.utils.data.WeightedRandomSampler(
+            weights=combined_weights, num_samples=len(combined_weights), replacement=True
+        )
+        train_loader = DataLoader(combined_train_ds, batch_size=batch_size, sampler=sampler)
+    else:
+        train_loader = DataLoader(eyeq_train_ds, batch_size=batch_size, shuffle=True)
+
+    if deepdrid_val_p.is_file():
+        df_dd_val = pd.read_csv(deepdrid_val_p)
+        dd_val_ds = RetinalQualityDataset(
+            df_dd_val, is_training=False, image_size=img_size, allow_synthetic_fallback=fixture_mode
+        )
+        val_ds = ConcatDataset([val_ds, dd_val_ds])
+
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
 
     # Initialize Multi-Task Model & Loss
