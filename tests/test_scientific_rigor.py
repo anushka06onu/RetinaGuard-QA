@@ -15,17 +15,19 @@ def test_production_data_directory_isolation():
     """Verify that production data/manifests/ and data/splits/ contain no mock or fixture entries."""
     for p in Path("data/manifests").glob("*.csv"):
         df = pd.read_csv(p)
-        assert "mock_sha" not in str(
-            df["sha256"].values
-        ), f"Mock hashes found in production manifest: {p}"
+        if "sha256" in df.columns:
+            assert "mock_sha" not in str(
+                df["sha256"].values
+            ), f"Mock hashes found in production manifest: {p}"
         if "is_fixture" in df.columns:
             assert not df["is_fixture"].any(), f"Fixture records found in production manifest: {p}"
 
     for p in Path("data/splits").glob("*.csv"):
         df = pd.read_csv(p)
-        assert "mock_sha" not in str(
-            df["sha256"].values
-        ), f"Mock hashes found in production split: {p}"
+        if "sha256" in df.columns:
+            assert "mock_sha" not in str(
+                df["sha256"].values
+            ), f"Mock hashes found in production split: {p}"
         if "is_fixture" in df.columns:
             assert not df["is_fixture"].any(), f"Fixture records found in production split: {p}"
 

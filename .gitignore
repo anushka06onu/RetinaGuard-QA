@@ -23,13 +23,18 @@ wheels/
 .installed.cfg
 *.egg
 
-# Data (Raw, Interim, Processed)
+# Data (Raw, Interim, Processed, External, Manifests, Splits)
+external/
 data/raw/*
 !data/raw/.gitkeep
 data/interim/*
 !data/interim/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+data/manifests/*
+!data/manifests/.gitkeep
+data/splits/*
+!data/splits/.gitkeep
 
 # Environment variables & secrets
 .env

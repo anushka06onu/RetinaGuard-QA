@@ -177,7 +177,11 @@ def parse_deepdrid_metadata(
     exclusions_csv: Optional[Union[str, Path]] = None,
 ) -> pd.DataFrame:
     """Parse DeepDRiD raw fold labels CSV into canonical schema with strict label validation."""
-    df_raw = pd.read_csv(csv_path)
+    csv_p_obj = Path(csv_path)
+    if csv_p_obj.suffix.lower() in [".xlsx", ".xls"]:
+        df_raw = pd.read_excel(csv_p_obj)
+    else:
+        df_raw = pd.read_csv(csv_p_obj)
     img_dir = Path(images_dir)
     rows = []
     exclusions = []
@@ -199,30 +203,42 @@ def parse_deepdrid_metadata(
     }
 
     # Ordinal Attribute mappings (0=none/clear/adequate, 1=mild/moderate, 2=severe/poor)
-    # Supports 3-level (0, 1, 2) and 5-level (0-4) raw ratings per deepdrid_label_mapping.yaml
+    # Supports 3-level (0, 1, 2), 5-level (0-4), and 10-point challenge scales (0, 1, 4, 6, 8, 10)
     attr_map = {
         0: 0,
         1: 1,
         2: 1,
         3: 2,
-        4: 2,
+        4: 1,
+        6: 2,
+        8: 2,
+        10: 2,
         "0": 0,
         "1": 1,
         "2": 1,
         "3": 2,
-        "4": 2,
+        "4": 1,
+        "6": 2,
+        "8": 2,
+        "10": 2,
     }
     clarity_fld_map = {
-        0: 0,
-        1: 0,
+        0: 2,
+        1: 2,
         2: 1,
-        3: 2,
-        4: 2,
-        "0": 0,
-        "1": 0,
+        3: 1,
+        4: 1,
+        6: 1,
+        8: 0,
+        10: 0,
+        "0": 2,
+        "1": 2,
         "2": 1,
-        "3": 2,
-        "4": 2,
+        "3": 1,
+        "4": 1,
+        "6": 1,
+        "8": 0,
+        "10": 0,
     }
 
     for _, r in df_raw.iterrows():
@@ -243,8 +259,13 @@ def parse_deepdrid_metadata(
             img_name = f"{img_name}.jpg"
 
         img_path = img_dir / img_name
-        rel_path = str(img_path)
         p_id, eye = extract_patient_and_eye(img_name)
+        if not img_path.is_file() and p_id:
+            nested_p = img_dir / str(p_id) / img_name
+            if nested_p.is_file():
+                img_path = nested_p
+
+        rel_path = str(img_path)
 
         if not img_path.is_file():
             exclusions.append(
