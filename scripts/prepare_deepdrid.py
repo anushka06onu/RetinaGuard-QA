@@ -1,12 +1,17 @@
 """Data preparation script constructing canonical DeepDRiD manifest per blueprint Section 8."""
 
 import argparse
+import json
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 from src.retinaguard.data.adapters import (
     build_canonical_manifest,
+    load_deepdrid_label_mapping,
     parse_deepdrid_metadata,
 )
+from src.retinaguard.utils.hashing import compute_sha256
 
 
 def main():
@@ -142,12 +147,68 @@ def main():
     out_p.parent.mkdir(parents=True, exist_ok=True)
     manifest_df = build_canonical_manifest(dfs, out_p)
 
-    from src.retinaguard.data.adapters import load_deepdrid_label_mapping
-
     mapping_info = load_deepdrid_label_mapping()
+    manifest_sha = compute_sha256(out_p)
+
+    try:
+        git_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    except Exception:
+        git_commit = "unknown"
+
+    source_folds_info = {}
+    if ext_dir.is_dir() and not Path(args.labels_csv).is_file():
+        source_folds_info = {
+            "train": {
+                "images": len(df_train),
+                "patients": int(df_train["patient_id"].nunique()),
+                "raw_labels_path": str(train_csv),
+                "raw_labels_sha256": compute_sha256(train_csv),
+            },
+            "val": {
+                "images": len(df_val),
+                "patients": int(df_val["patient_id"].nunique()),
+                "raw_labels_path": str(val_csv),
+                "raw_labels_sha256": compute_sha256(val_csv),
+            },
+            "external_test": {
+                "images": len(df_eval),
+                "patients": int(df_eval["patient_id"].nunique()),
+                "raw_labels_path": str(eval_csv),
+                "raw_labels_sha256": compute_sha256(eval_csv),
+            },
+        }
+    else:
+        source_folds_info = {
+            "custom": {
+                "images": len(manifest_df),
+                "patients": int(manifest_df["patient_id"].nunique()),
+                "raw_labels_path": str(args.labels_csv),
+                "raw_labels_sha256": (
+                    compute_sha256(args.labels_csv) if Path(args.labels_csv).is_file() else "N/A"
+                ),
+            }
+        }
+
+    metadata = {
+        "dataset": "DeepDRiD",
+        "manifest_path": str(out_p),
+        "manifest_sha256": manifest_sha,
+        "mapping_path": mapping_info.get("mapping_path", "configs/deepdrid_label_mapping.yaml"),
+        "mapping_sha256": mapping_info.get("mapping_sha256", "N/A"),
+        "source_folds": source_folds_info,
+        "total_records": len(manifest_df),
+        "total_patients": int(manifest_df["patient_id"].nunique()),
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "git_commit": git_commit,
+    }
+
+    meta_p = out_p.parent / f"{out_p.stem}.metadata.json"
+    with open(meta_p, "w", encoding="utf-8") as f:
+        json.dump(metadata, f, indent=2)
 
     print("\n=== DeepDRiD Canonical Label Mapping & Distribution Verification ===")
     print(f"Mapping Schema SHA-256: {mapping_info.get('mapping_sha256', 'N/A')}")
+    print(f"Manifest SHA-256: {manifest_sha}")
     for col in ["overall_quality_canonical", "artifact", "clarity", "field_definition"]:
         counts = dict(manifest_df[col].value_counts(dropna=False).sort_index())
         print(f"  {col}: {counts}")
@@ -155,6 +216,7 @@ def main():
     print(
         f"\nSuccessfully constructed canonical DeepDRiD manifest ({len(manifest_df)} records, {manifest_df['patient_id'].nunique()} patients) at: {out_p}"
     )
+    print(f"Persistent provenance metadata saved to: {meta_p}")
     print(f"Total exclusions across all folds: {len(exclusions_list)} (written to {ex_p})")
 
 
