@@ -152,7 +152,7 @@ def test_deepdrid_adapter_label_validations_and_exclusions(tmp_path):
             },
             {
                 "image_id": "img2.jpg",
-                "overall_quality": "Usable",
+                "overall_quality": "1",
                 "artifact": 4,
                 "clarity": 6,
                 "field_definition": 6,
@@ -179,7 +179,7 @@ def test_deepdrid_adapter_label_validations_and_exclusions(tmp_path):
 
     assert len(df_manifest) == 3
     assert df_manifest.iloc[0]["overall_quality_canonical"] == "good"
-    assert df_manifest.iloc[1]["overall_quality_canonical"] == "usable"
+    assert df_manifest.iloc[1]["overall_quality_canonical"] == "good"
     assert df_manifest.iloc[2]["overall_quality_canonical"] == "reject"
     # Ensure quality_raw and quality_canonical are None for DeepDRiD
     assert df_manifest.iloc[0]["quality_canonical"] is None

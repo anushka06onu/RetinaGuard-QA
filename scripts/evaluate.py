@@ -153,15 +153,15 @@ def main():
         f"EyeQ Internal Macro-F1: {eyeq_metrics['macro_f1']} (95% CI: [{eyeq_metrics['macro_f1_95_ci']['ci_lower']}, {eyeq_metrics['macro_f1_95_ci']['ci_upper']}])"
     )
 
-    # 2. External DeepDRiD Evaluation
-    print(f"Loading DeepDRiD external split from {args.deepdrid_split}...")
+    # 2. DeepDRiD Held-Out Evaluation
+    print(f"Loading DeepDRiD evaluation split from {args.deepdrid_split}...")
     deepdrid_metrics = evaluate_dataset_partition(
-        model, args.deepdrid_split, "DeepDRiD (External)", is_deepdrid=True
+        model, args.deepdrid_split, "DeepDRiD (Held-Out Evaluation)", is_deepdrid=True
     )
-    with open(out_p / "external_deepdrid.json", "w", encoding="utf-8") as f:
+    with open(out_p / "held_out_deepdrid.json", "w", encoding="utf-8") as f:
         json.dump(deepdrid_metrics, f, indent=2)
     print(
-        f"DeepDRiD External Macro-F1: {deepdrid_metrics['macro_f1']} (95% CI: [{deepdrid_metrics['macro_f1_95_ci']['ci_lower']}, {deepdrid_metrics['macro_f1_95_ci']['ci_upper']}])"
+        f"DeepDRiD Held-Out Macro-F1: {deepdrid_metrics['macro_f1']} (95% CI: [{deepdrid_metrics['macro_f1_95_ci']['ci_lower']}, {deepdrid_metrics['macro_f1_95_ci']['ci_upper']}])"
     )
 
 

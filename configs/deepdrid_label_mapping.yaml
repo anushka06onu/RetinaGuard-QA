@@ -31,39 +31,19 @@ raw_column_names:
     - "Field_definition"
     - "field_def"
 
-# 1. Overall Quality
+# 1. Overall Quality (Binary Task in Official Challenge)
 # Official Definition:
-# 0 = Quality is not good enough for diagnosis of retinal diseases (Reject / Unusable)
-# 1 = Quality is good enough for diagnosis of retinal diseases (Diagnosable / Good)
+# 0 = Quality is not good enough for diagnosis of retinal diseases (Reject)
+# 1 = Quality is good enough for diagnosis of retinal diseases (Good)
 overall_quality:
-  description: "Global acquisition grade for clinical reading (0=not diagnosable/reject, 1=diagnosable/good)"
+  description: "Binary acquisition quality (0 = not diagnosable/reject, 1 = diagnosable/good)"
   scale_type: "categorical"
-  accepted_raw_values:
-    - 0
-    - 1
-    - 2
-    - "0"
-    - "1"
-    - "2"
-    - "Good"
-    - "Usable"
-    - "Reject"
-    - "good"
-    - "usable"
-    - "reject"
+  accepted_raw_values: [0, 1, "0", "1"]
   canonical_mapping:
     0: "reject"
     1: "good"
-    2: "reject"
     "0": "reject"
     "1": "good"
-    "2": "reject"
-    "Good": "good"
-    "Usable": "usable"
-    "Reject": "reject"
-    "good": "good"
-    "usable": "usable"
-    "reject": "reject"
 
 # 2. Artifacts
 # Official Scale: 0=None, 1=Outside arch <1/4, 4=Non-macular <1/4, 6=Cover 1/4-1/2, 8=Cover >1/2, 10=Entire pole
@@ -71,28 +51,24 @@ overall_quality:
 artifact:
   description: "Presence of optical dust, reflection, eyelashes, or camera smudge"
   scale_type: "ordinal"
-  accepted_raw_values: [0, 1, 2, 3, 4, 6, 8, 10, "0", "1", "2", "3", "4", "6", "8", "10"]
+  accepted_raw_values: [0, 1, 4, 6, 8, 10, "0", "1", "4", "6", "8", "10"]
   canonical_mapping:
     0: 0
     1: 1
-    2: 1
     4: 1
-    3: 2
     6: 2
     8: 2
     10: 2
     "0": 0
     "1": 1
-    "2": 1
     "4": 1
-    "3": 2
     "6": 2
     "8": 2
     "10": 2
   levels:
     0: "None / Negligible (raw 0)"
-    1: "Mild / Moderate (raw 1, 2, 4)"
-    2: "Severe / Extreme (raw 3, 6, 8, 10)"
+    1: "Mild / Moderate (raw 1, 4)"
+    2: "Severe / Extreme (raw 6, 8, 10)"
 
 # 3. Clarity
 # Official Scale: 1=Level 1 arch only (severe blur), 4=Level 2 arch & few lesions, 6=Level 3 arch & some lesions, 8=Level 3 arch & most lesions, 10=Level 3 arch & all lesions
@@ -100,28 +76,22 @@ artifact:
 clarity:
   description: "Optical sharpness and vascular edge contrast"
   scale_type: "ordinal"
-  accepted_raw_values: [0, 1, 2, 3, 4, 6, 8, 10, "0", "1", "2", "3", "4", "6", "8", "10"]
+  accepted_raw_values: [1, 4, 6, 8, 10, "1", "4", "6", "8", "10"]
   canonical_mapping:
     10: 0
     8: 0
-    0: 0
     6: 1
     4: 1
-    2: 1
     1: 2
-    3: 2
     "10": 0
     "8": 0
-    "0": 0
     "6": 1
     "4": 1
-    "2": 1
     "1": 2
-    "3": 2
   levels:
-    0: "High / Good clarity (raw 8, 10, 0)"
-    1: "Moderate clarity (raw 4, 6, 2)"
-    2: "Low clarity / Severe blur (raw 1, 3)"
+    0: "High / Good clarity (raw 8, 10)"
+    1: "Moderate clarity (raw 4, 6)"
+    2: "Low clarity / Severe blur (raw 1)"
 
 # 4. Field Definition
 # Official Scale: 1=Missing disc & macula, 4=Only disc or macula, 6=Both disc & macula, 8=Within 2PD, 10=Within 1PD
@@ -129,26 +99,20 @@ clarity:
 field_definition:
   description: "Completeness of retinal field coverage (macula + optic disc centration)"
   scale_type: "ordinal"
-  accepted_raw_values: [0, 1, 2, 3, 4, 6, 8, 10, "0", "1", "2", "3", "4", "6", "8", "10"]
+  accepted_raw_values: [1, 4, 6, 8, 10, "1", "4", "6", "8", "10"]
   canonical_mapping:
     10: 0
     8: 0
-    0: 0
     6: 1
-    2: 1
     4: 2
     1: 2
-    3: 2
     "10": 0
     "8": 0
-    "0": 0
     "6": 1
-    "2": 1
     "4": 2
     "1": 2
-    "3": 2
   levels:
-    0: "Adequate (raw 8, 10, 0)"
-    1: "Acceptable / Minor clipping (raw 6, 2)"
-    2: "Poor / Landmark missing (raw 1, 4, 3)"
+    0: "Adequate (raw 8, 10)"
+    1: "Acceptable / Minor clipping (raw 6)"
+    2: "Poor / Landmark missing (raw 1, 4)"
 

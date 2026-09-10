@@ -69,35 +69,46 @@ def main():
                 "Scientific evaluation requires all three official DeepDRiD folds."
             )
 
-        print(f"Parsing DeepDRiD training fold from {train_csv}...")
-        df_train = parse_deepdrid_metadata(
-            train_csv, train_img, source_split="train", exclusions_list=exclusions_list
-        )
-        assert len(df_train) == 1200, f"Expected 1200 training images, found {len(df_train)}"
-        assert (
-            df_train["patient_id"].nunique() == 300
-        ), f"Expected 300 training patients, found {df_train['patient_id'].nunique()}"
-        dfs.append(df_train)
+        def safe_save_exclusions():
+            ex_p.parent.mkdir(parents=True, exist_ok=True)
+            import pandas as pd
 
-        print(f"Parsing DeepDRiD validation fold from {val_csv}...")
-        df_val = parse_deepdrid_metadata(
-            val_csv, val_img, source_split="val", exclusions_list=exclusions_list
-        )
-        assert len(df_val) == 400, f"Expected 400 validation images, found {len(df_val)}"
-        assert (
-            df_val["patient_id"].nunique() == 100
-        ), f"Expected 100 validation patients, found {df_val['patient_id'].nunique()}"
-        dfs.append(df_val)
+            from src.retinaguard.data.adapters import EXCLUSION_COLUMNS
 
-        print(f"Parsing DeepDRiD external evaluation fold from {eval_csv}...")
-        df_eval = parse_deepdrid_metadata(
-            eval_csv, eval_img, source_split="external_test", exclusions_list=exclusions_list
-        )
-        assert len(df_eval) == 400, f"Expected 400 evaluation images, found {len(df_eval)}"
-        assert (
-            df_eval["patient_id"].nunique() == 100
-        ), f"Expected 100 evaluation patients, found {df_eval['patient_id'].nunique()}"
-        dfs.append(df_eval)
+            pd.DataFrame(exclusions_list, columns=EXCLUSION_COLUMNS).to_csv(ex_p, index=False)
+
+        try:
+            print(f"Parsing DeepDRiD training fold from {train_csv}...")
+            df_train = parse_deepdrid_metadata(
+                train_csv, train_img, source_split="train", exclusions_list=exclusions_list
+            )
+            assert len(df_train) == 1200, f"Expected 1200 training images, found {len(df_train)}"
+            assert (
+                df_train["patient_id"].nunique() == 300
+            ), f"Expected 300 training patients, found {df_train['patient_id'].nunique()}"
+            dfs.append(df_train)
+
+            print(f"Parsing DeepDRiD validation fold from {val_csv}...")
+            df_val = parse_deepdrid_metadata(
+                val_csv, val_img, source_split="val", exclusions_list=exclusions_list
+            )
+            assert len(df_val) == 400, f"Expected 400 validation images, found {len(df_val)}"
+            assert (
+                df_val["patient_id"].nunique() == 100
+            ), f"Expected 100 validation patients, found {df_val['patient_id'].nunique()}"
+            dfs.append(df_val)
+
+            print(f"Parsing DeepDRiD external evaluation fold from {eval_csv}...")
+            df_eval = parse_deepdrid_metadata(
+                eval_csv, eval_img, source_split="external_test", exclusions_list=exclusions_list
+            )
+            assert len(df_eval) == 400, f"Expected 400 evaluation images, found {len(df_eval)}"
+            assert (
+                df_eval["patient_id"].nunique() == 100
+            ), f"Expected 100 evaluation patients, found {df_eval['patient_id'].nunique()}"
+            dfs.append(df_eval)
+        finally:
+            safe_save_exclusions()
 
     else:
         labels_p = Path(args.labels_csv)
@@ -114,24 +125,29 @@ def main():
                 "Please download authorized DeepDRiD images into data/raw/deepdrid/images/ per docs/data-card.md."
             )
 
-        print(f"Parsing official DeepDRiD metadata from {labels_p} and images in {images_p}...")
-        dfs.append(
-            parse_deepdrid_metadata(labels_p, str(images_p), exclusions_list=exclusions_list)
-        )
+        try:
+            print(f"Parsing official DeepDRiD metadata from {labels_p} and images in {images_p}...")
+            dfs.append(
+                parse_deepdrid_metadata(labels_p, str(images_p), exclusions_list=exclusions_list)
+            )
+        finally:
+            ex_p.parent.mkdir(parents=True, exist_ok=True)
+            import pandas as pd
 
-    # Write combined exclusions report across all folds
-    ex_p.parent.mkdir(parents=True, exist_ok=True)
-    import pandas as pd
+            from src.retinaguard.data.adapters import EXCLUSION_COLUMNS
 
-    from src.retinaguard.data.adapters import EXCLUSION_COLUMNS
-
-    pd.DataFrame(exclusions_list, columns=EXCLUSION_COLUMNS).to_csv(ex_p, index=False)
+            pd.DataFrame(exclusions_list, columns=EXCLUSION_COLUMNS).to_csv(ex_p, index=False)
 
     out_p = Path(args.output_csv)
     out_p.parent.mkdir(parents=True, exist_ok=True)
     manifest_df = build_canonical_manifest(dfs, out_p)
 
+    from src.retinaguard.data.adapters import load_deepdrid_label_mapping
+
+    mapping_info = load_deepdrid_label_mapping()
+
     print("\n=== DeepDRiD Canonical Label Mapping & Distribution Verification ===")
+    print(f"Mapping Schema SHA-256: {mapping_info.get('mapping_sha256', 'N/A')}")
     for col in ["overall_quality_canonical", "artifact", "clarity", "field_definition"]:
         counts = dict(manifest_df[col].value_counts(dropna=False).sort_index())
         print(f"  {col}: {counts}")

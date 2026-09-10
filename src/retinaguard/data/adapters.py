@@ -176,7 +176,7 @@ def parse_eyeq_metadata(
 
 def load_deepdrid_label_mapping(
     config_path: Optional[Union[str, Path]] = None,
-) -> Dict[str, Dict[Any, Any]]:
+) -> Dict[str, Any]:
     """Load authoritative DeepDRiD label mappings from YAML configuration."""
     if config_path is None:
         p = Path("configs/deepdrid_label_mapping.yaml")
@@ -184,86 +184,39 @@ def load_deepdrid_label_mapping(
         p = Path(config_path)
 
     if not p.is_file():
-        # Fallback to standard ISBI 2020 definitions if config file is absent
-        return {
-            "overall_quality": {
-                0: "reject",
-                1: "good",
-                2: "reject",
-                "0": "reject",
-                "1": "good",
-                "2": "reject",
-                "Good": "good",
-                "Usable": "usable",
-                "Reject": "reject",
-                "good": "good",
-                "usable": "usable",
-                "reject": "reject",
-            },
-            "artifact": {
-                0: 0,
-                1: 1,
-                2: 1,
-                4: 1,
-                3: 2,
-                6: 2,
-                8: 2,
-                10: 2,
-                "0": 0,
-                "1": 1,
-                "2": 1,
-                "4": 1,
-                "3": 2,
-                "6": 2,
-                "8": 2,
-                "10": 2,
-            },
-            "clarity": {
-                10: 0,
-                8: 0,
-                0: 0,
-                6: 1,
-                4: 1,
-                2: 1,
-                1: 2,
-                3: 2,
-                "10": 0,
-                "8": 0,
-                "0": 0,
-                "6": 1,
-                "4": 1,
-                "2": 1,
-                "1": 2,
-                "3": 2,
-            },
-            "field_definition": {
-                10: 0,
-                8: 0,
-                0: 0,
-                6: 1,
-                2: 1,
-                4: 2,
-                1: 2,
-                3: 2,
-                "10": 0,
-                "8": 0,
-                "0": 0,
-                "6": 1,
-                "2": 1,
-                "4": 2,
-                "1": 2,
-                "3": 2,
-            },
-        }
+        raise FileNotFoundError(
+            f"Required DeepDRiD mapping configuration not found: {p}. "
+            "Authoritative label mapping requires a verified configs/deepdrid_label_mapping.yaml file."
+        )
 
     with open(p, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
+
+    if not isinstance(cfg, dict):
+        raise ValueError(
+            f"Invalid DeepDRiD mapping configuration in {p}: root must be a mapping dict."
+        )
+
+    required_sections = ["overall_quality", "artifact", "clarity", "field_definition"]
+    for section in required_sections:
+        if (
+            section not in cfg
+            or not isinstance(cfg[section], dict)
+            or "canonical_mapping" not in cfg[section]
+        ):
+            raise ValueError(
+                f"Invalid DeepDRiD mapping schema in {p}: missing '{section}.canonical_mapping'"
+            )
+
+    sha256 = compute_sha256(p)
 
     return {
         "overall_quality": cfg["overall_quality"]["canonical_mapping"],
         "artifact": cfg["artifact"]["canonical_mapping"],
         "clarity": cfg["clarity"]["canonical_mapping"],
         "field_definition": cfg["field_definition"]["canonical_mapping"],
+        "mapping_sha256": sha256,
+        "mapping_path": str(p),
     }
 
 

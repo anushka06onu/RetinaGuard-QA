@@ -28,7 +28,19 @@
 
 ---
 
-## 2. Integrity & Leakage Prevention Audit
+## 3. Experimental Evaluation Taxonomy
+
+To maintain scientific precision and avoid conflating supervised multi-task learning with zero-shot domain transfer, the experimental evaluation is partitioned into three distinct benchmark protocols:
+
+| Experiment Protocol | Training Cohort | Test Cohort | Scientific Meaning |
+|---|---|---|---|
+| **EyeQ Baseline** | EyeQ Train | EyeQ Test | **Internal performance** on primary screening distribution |
+| **Zero-Shot Transfer** | EyeQ Train only | DeepDRiD External Evaluation | **External generalization** without target-domain adaptation |
+| **Multi-Task Model** | EyeQ Train + DeepDRiD Train | DeepDRiD Held-Out Evaluation | **Multi-dataset supervised performance** on shared quality & attributes |
+
+---
+
+## 4. Integrity & Leakage Prevention Audit
 - **Cryptographic Audit:** Every raw image is indexed with a unique SHA-256 hash.
 - **Subject Leakage Isolation:** All images sharing patient identifiers or capture dates are assigned atomically to single partitions.
 - **Exclusion Protocol:** Corrupt headers, zero-byte files, and unreadable images are logged to `data/manifests/*_exclusions.csv` and audited in `artifacts/reports/data_audit.json`.
