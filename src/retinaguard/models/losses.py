@@ -45,7 +45,13 @@ class MaskedMultiTaskLoss(nn.Module):
         l_q = calc_masked_loss(
             preds["quality_logits"],
             batch.get("quality_target", torch.zeros(1, dtype=torch.long, device=device)),
-            batch.get("quality_mask", torch.ones(1, device=device)),
+            batch.get("quality_mask", torch.zeros(1, device=device)),
+        )
+
+        l_oq = calc_masked_loss(
+            preds["overall_quality_logits"],
+            batch.get("overall_quality_target", torch.zeros(1, dtype=torch.long, device=device)),
+            batch.get("overall_quality_mask", torch.zeros(1, device=device)),
         )
 
         l_art = calc_masked_loss(
@@ -66,11 +72,18 @@ class MaskedMultiTaskLoss(nn.Module):
             batch.get("field_definition_mask", torch.zeros(1, device=device)),
         )
 
-        total_loss = self.w_q * l_q + self.w_art * l_art + self.w_cla * l_cla + self.w_fld * l_fld
+        total_loss = (
+            self.w_q * l_q
+            + self.w_oq * l_oq
+            + self.w_art * l_art
+            + self.w_cla * l_cla
+            + self.w_fld * l_fld
+        )
 
         return {
             "loss_total": total_loss,
             "loss_quality": l_q,
+            "loss_overall_quality": l_oq,
             "loss_artifact": l_art,
             "loss_clarity": l_cla,
             "loss_field_def": l_fld,

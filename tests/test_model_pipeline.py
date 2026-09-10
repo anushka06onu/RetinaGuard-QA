@@ -32,14 +32,18 @@ def test_multitask_model_forward_and_loss():
     preds = model(x)
 
     assert "quality_logits" in preds
+    assert "overall_quality_logits" in preds
     assert preds["quality_logits"].shape == (2, 3)
+    assert preds["overall_quality_logits"].shape == (2, 3)
     assert preds["artifact_logits"].shape == (2, 3)
     assert preds["latent_features"].shape == (2, 128)
 
     criterion = MaskedMultiTaskLoss()
     batch = {
         "quality_target": torch.tensor([0, 1]),
-        "quality_mask": torch.tensor([1.0, 1.0]),
+        "quality_mask": torch.tensor([1.0, 0.0]),
+        "overall_quality_target": torch.tensor([0, 2]),
+        "overall_quality_mask": torch.tensor([0.0, 1.0]),
         "artifact_target": torch.tensor([0, 2]),
         "artifact_mask": torch.tensor([1.0, 0.0]),
         "clarity_target": torch.tensor([1, 1]),
@@ -50,4 +54,7 @@ def test_multitask_model_forward_and_loss():
 
     loss_dict = criterion(preds, batch)
     assert "loss_total" in loss_dict
+    assert "loss_quality" in loss_dict
+    assert "loss_overall_quality" in loss_dict
     assert loss_dict["loss_total"].item() > 0
+    assert loss_dict["loss_overall_quality"].item() > 0
