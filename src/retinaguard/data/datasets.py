@@ -80,7 +80,9 @@ class RetinalQualityDataset(Dataset):
             not dataset_name
             and "quality_canonical" in row
             and pd.notna(row["quality_canonical"])
-            and not ("overall_quality_canonical" in row and pd.notna(row["overall_quality_canonical"]))
+            and not (
+                "overall_quality_canonical" in row and pd.notna(row["overall_quality_canonical"])
+            )
         ):
             q_label = row.get("quality_canonical", row.get("quality_raw", None))
             if pd.notna(q_label) and q_label in self.QUALITY_MAP:
@@ -110,9 +112,7 @@ class RetinalQualityDataset(Dataset):
                 ),
             )
             if pd.notna(oq_label) and oq_label in self.QUALITY_MAP:
-                overall_quality_target = torch.tensor(
-                    self.QUALITY_MAP[oq_label], dtype=torch.long
-                )
+                overall_quality_target = torch.tensor(self.QUALITY_MAP[oq_label], dtype=torch.long)
                 overall_quality_mask = torch.tensor(1.0, dtype=torch.float32)
 
         # 3. DeepDRiD Attribute Labels & Masks

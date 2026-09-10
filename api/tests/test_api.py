@@ -67,3 +67,15 @@ def test_api_predict_grayscale_ood():
     assert res.status_code == 200
     data = res.json()
     assert data["decision"] in ["unsupported_input", "manual_review"]
+
+
+def test_api_production_lifespan_failure_without_models(monkeypatch):
+    import pytest
+
+    monkeypatch.setenv("APP_MODE", "production")
+    monkeypatch.setenv("TEST_MODE", "0")
+    monkeypatch.setenv("MODEL_PATH", "nonexistent/model.onnx")
+
+    with pytest.raises(RuntimeError, match="Strict production startup halted"):
+        with TestClient(app):
+            pass

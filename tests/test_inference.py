@@ -88,3 +88,45 @@ def test_predictor_onnx_inference(tmp_path):
     assert res.calibrated_confidence > 0
     assert res.probabilities.good >= 0
     assert res.latency_ms is not None and res.latency_ms > 0
+
+
+def test_predictor_strict_config_validation(tmp_path):
+    import json
+
+    import pytest
+
+    # 1. Invalid temperature (<= 0)
+    cal_file = tmp_path / "bad_calibration.json"
+    cal_file.write_text(json.dumps({"temperature": -0.5}))
+
+    with pytest.raises(ValueError, match="Temperature must be > 0"):
+        RetinaGuardPredictor(calibration_config_path=cal_file, model_path=None)
+
+    # 2. Invalid preprocessing image_size
+    prep_file = tmp_path / "bad_preprocessing.json"
+    prep_file.write_text(json.dumps({"image_size": -100}))
+
+    with pytest.raises(ValueError, match="Invalid image_size"):
+        RetinaGuardPredictor(preprocessing_config_path=prep_file, model_path=None)
+
+    # 3. Valid configs pass
+    cal_good = tmp_path / "good_calibration.json"
+    cal_good.write_text(json.dumps({"temperature": 1.25}))
+    prep_good = tmp_path / "good_preprocessing.json"
+    prep_good.write_text(
+        json.dumps(
+            {
+                "image_size": 224,
+                "normalization": {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]},
+                "class_order": ["good", "usable", "reject"],
+            }
+        )
+    )
+
+    pred = RetinaGuardPredictor(
+        model_path=None,
+        preprocessing_config_path=prep_good,
+        calibration_config_path=cal_good,
+    )
+    assert pred.temperature == 1.25
+    assert pred.image_size == 224

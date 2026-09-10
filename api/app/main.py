@@ -4,6 +4,8 @@ import io
 import logging
 import os
 import uuid
+from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
@@ -21,10 +23,58 @@ MAX_UPLOAD_SIZE = 15 * 1024 * 1024  # 15 MB
 MAX_DIMENSION = 8192
 MIN_DIMENSION = 32
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """FastAPI lifespan hook strictly checking production artifact integrity."""
+    app_mode = os.environ.get("APP_MODE", "development").lower()
+    is_test_mode = os.environ.get("TEST_MODE", "0") == "1"
+
+    if app_mode == "production" and not is_test_mode:
+        onnx_path = Path(os.environ.get("MODEL_PATH", "artifacts/models/model.onnx"))
+        preproc_path = Path(
+            os.environ.get("PREPROCESSING_PATH", "artifacts/models/preprocessing.json")
+        )
+        calib_path = Path(
+            os.environ.get("CALIBRATION_PATH", "artifacts/models/calibration_metadata.json")
+        )
+
+        missing = []
+        if not onnx_path.is_file():
+            missing.append(f"ONNX Model ({onnx_path})")
+        if not preproc_path.is_file():
+            missing.append(f"Preprocessing Metadata ({preproc_path})")
+        if not calib_path.is_file():
+            missing.append(f"Calibration Metadata ({calib_path})")
+
+        if missing:
+            err = (
+                f"Strict production startup halted: Required production artifacts missing: "
+                f"{', '.join(missing)}.\n"
+                "To run in development mode, set APP_MODE=development."
+            )
+            logger.critical(err)
+            raise RuntimeError(err)
+
+        service = get_service()
+        if service.predictor.ort_session is None and service.predictor.pt_model is None:
+            raise RuntimeError(
+                "Production startup failed: Inference model session could not be initialized."
+            )
+        logger.info("RetinaGuard-QA API production verification passed.")
+    elif app_mode == "development":
+        logger.info(
+            "RetinaGuard-QA API running in development mode (un-trained fallback enabled if models missing)."
+        )
+
+    yield
+
+
 app = FastAPI(
     title="RetinaGuard-QA API",
     description="Uncertainty-aware and device-robust quality control for retinal fundus images.",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS Configuration from environment or defaults

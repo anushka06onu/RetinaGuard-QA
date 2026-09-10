@@ -48,22 +48,56 @@ class RetinaGuardPredictor:
         self.pt_model = None
 
         # Load authoritative preprocessing config if present
-        if preprocessing_config_path and Path(preprocessing_config_path).is_file():
-            try:
-                with open(preprocessing_config_path, "r", encoding="utf-8") as f:
+        if preprocessing_config_path:
+            p_path = Path(preprocessing_config_path)
+            if p_path.is_file():
+                with open(p_path, "r", encoding="utf-8") as f:
                     cfg = json.load(f)
-                    self.image_size = cfg.get("image_size", self.image_size)
-            except Exception:
-                pass
+                img_sz = cfg.get("image_size", self.image_size)
+                if isinstance(img_sz, int) and img_sz > 0:
+                    self.image_size = img_sz
+                elif (
+                    isinstance(img_sz, (list, tuple))
+                    and len(img_sz) == 2
+                    and all(isinstance(x, int) and x > 0 for x in img_sz)
+                ):
+                    self.image_size = img_sz[0]
+                else:
+                    raise ValueError(
+                        f"Invalid image_size in {preprocessing_config_path}: {img_sz}. Must be positive integer or [H, W] pair."
+                    )
+
+                if "normalization" in cfg:
+                    norm = cfg["normalization"]
+                    if (
+                        "mean" in norm
+                        and (not isinstance(norm["mean"], list) or len(norm["mean"]) != 3)
+                    ) or (
+                        "std" in norm
+                        and (not isinstance(norm["std"], list) or len(norm["std"]) != 3)
+                    ):
+                        raise ValueError(
+                            f"Invalid normalization parameters in {preprocessing_config_path}: must have 3-channel mean and std."
+                        )
+
+                if "class_order" in cfg:
+                    if list(cfg["class_order"]) != ["good", "usable", "reject"]:
+                        raise ValueError(
+                            f"Invalid class_order in {preprocessing_config_path}: {cfg['class_order']}. Expected ['good', 'usable', 'reject']."
+                        )
 
         # Load authoritative calibration temperature if present
-        if calibration_config_path and Path(calibration_config_path).is_file():
-            try:
-                with open(calibration_config_path, "r", encoding="utf-8") as f:
+        if calibration_config_path:
+            cal_path = Path(calibration_config_path)
+            if cal_path.is_file():
+                with open(cal_path, "r", encoding="utf-8") as f:
                     cal_cfg = json.load(f)
-                    self.temperature = float(cal_cfg.get("temperature", 1.0))
-            except Exception:
-                pass
+                temp = float(cal_cfg.get("temperature", cal_cfg.get("optimal_temperature", 1.0)))
+                if temp <= 0.0 or not np.isfinite(temp):
+                    raise ValueError(
+                        f"Invalid temperature in {calibration_config_path}: {temp}. Temperature must be > 0."
+                    )
+                self.temperature = temp
 
         if model_path is not None and Path(model_path).is_file():
             self.load_model(model_path)
