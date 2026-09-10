@@ -72,24 +72,36 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if eyeq_p.is_file():
-        print(f"Loading EyeQ manifest from {eyeq_p}...")
         eyeq_df = pd.read_csv(eyeq_p)
-        eyeq_splits = split_eyeq_preserving_official_partitions(eyeq_df, seed=args.seed)
-        saved_eyeq = save_split_manifests(eyeq_splits, output_dir=out_dir, prefix="eyeq")
-        print("Saved EyeQ splits:")
-        for k, p in saved_eyeq.items():
-            print(f"  - {k}: {p} ({len(eyeq_splits[k])} samples)")
+        if len(eyeq_df) > 0:
+            print(f"Loading EyeQ manifest from {eyeq_p} ({len(eyeq_df)} records)...")
+            eyeq_splits = split_eyeq_preserving_official_partitions(eyeq_df, seed=args.seed)
+            saved_eyeq = save_split_manifests(eyeq_splits, output_dir=out_dir, prefix="eyeq")
+            print("Saved EyeQ splits:")
+            for k, p in saved_eyeq.items():
+                print(f"  - {k}: {p} ({len(eyeq_splits[k])} samples)")
+        else:
+            print(
+                f"EyeQ manifest at {eyeq_p} has 0 valid records (images not present locally). Skipping EyeQ split creation."
+            )
 
     if deepdrid_p.is_file():
-        print(f"Loading DeepDRiD manifest from {deepdrid_p}...")
         deepdrid_df = pd.read_csv(deepdrid_p)
-        deepdrid_splits = split_deepdrid_preserving_official_partitions(deepdrid_df, seed=args.seed)
-        saved_deepdrid = save_split_manifests(
-            deepdrid_splits, output_dir=out_dir, prefix="deepdrid"
-        )
-        print("Saved DeepDRiD splits:")
-        for k, p in saved_deepdrid.items():
-            print(f"  - {k}: {p} ({len(deepdrid_splits[k])} samples)")
+        if len(deepdrid_df) > 0:
+            print(f"Loading DeepDRiD manifest from {deepdrid_p} ({len(deepdrid_df)} records)...")
+            deepdrid_splits = split_deepdrid_preserving_official_partitions(
+                deepdrid_df, seed=args.seed
+            )
+            saved_deepdrid = save_split_manifests(
+                deepdrid_splits, output_dir=out_dir, prefix="deepdrid"
+            )
+            print("Saved DeepDRiD splits:")
+            for k, p in saved_deepdrid.items():
+                print(f"  - {k}: {p} ({len(deepdrid_splits[k])} samples)")
+        else:
+            print(
+                f"DeepDRiD manifest at {deepdrid_p} has 0 valid records. Skipping DeepDRiD split creation."
+            )
 
 
 if __name__ == "__main__":
