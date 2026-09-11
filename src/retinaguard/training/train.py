@@ -4,7 +4,7 @@ import datetime
 import platform
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import pandas as pd
 import torch
@@ -162,7 +162,7 @@ def run_training_experiment(
     num_workers = 0 if fixture_mode else train_cfg.get("num_workers", 2)
     use_amp = train_cfg.get("mixed_precision", False) and device.type == "cuda"
     selection_metric = train_cfg.get("selection_metric", "primary_macro_f1")
-    selection_mode = "min" if selection_metric == "val_loss" else "max"
+    selection_mode: Literal["min", "max"] = "min" if selection_metric == "val_loss" else "max"
 
     # Build Training Dataset & Loader
     train_datasets = []

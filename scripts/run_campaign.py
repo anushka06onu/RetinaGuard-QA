@@ -31,8 +31,19 @@ def generate_seed_checksums(seed_dir: Path) -> Path:
     return sums_file
 
 
+def get_git_commit() -> str:
+    """Retrieve current Git commit SHA-256."""
+    try:
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    except Exception:
+        return "unknown"
+
+
 def verify_existing_seed_run(
-    seed_dir: Path, expected_mode: str, expected_config_sha: str
+    seed_dir: Path,
+    expected_mode: str,
+    expected_config_sha: str,
+    allow_cross_commit: bool = False,
 ) -> Tuple[bool, Optional[Dict[str, Any]], str]:
     """Verify that an existing seed run is complete, uncorrupted, and matches configuration."""
     manifest_p = seed_dir / "run_manifest.json"
@@ -58,29 +69,74 @@ def verify_existing_seed_run(
             f"Config hash mismatch: {manifest.get('config_sha256')} != {expected_config_sha}",
         )
 
+    current_commit = get_git_commit()
+    if (
+        not allow_cross_commit
+        and manifest.get("git_commit") != current_commit
+        and current_commit != "unknown"
+    ):
+        return (
+            False,
+            None,
+            f"Git commit mismatch: {manifest.get('git_commit')} != {current_commit}",
+        )
+
     sums_file = seed_dir / "SHA256SUMS"
     if not sums_file.is_file():
         return False, None, "Missing SHA256SUMS file"
 
+    seen_rel_paths = set()
+    seed_dir_resolved = seed_dir.resolve()
+
     with open(sums_file, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
+        for line_num, raw_line in enumerate(f, start=1):
+            line = raw_line.strip()
             if not line:
                 continue
             parts = line.split(maxsplit=1)
             if len(parts) != 2:
-                continue
-            expected_sha, rel_path = parts
-            target_p = seed_dir / rel_path
+                return False, None, f"Malformed line {line_num} in SHA256SUMS: {raw_line}"
+            expected_sha, rel_str = parts
+            if len(expected_sha) != 64 or not all(
+                c in "0123456789abcdefABCDEF" for c in expected_sha
+            ):
+                return False, None, f"Invalid SHA-256 hash at line {line_num}: {expected_sha}"
+            if rel_str.startswith("/") or rel_str.startswith("\\"):
+                return False, None, f"Absolute path forbidden in SHA256SUMS: {rel_str}"
+            if ".." in rel_str.replace("\\", "/").split("/"):
+                return False, None, f"Path traversal forbidden in SHA256SUMS: {rel_str}"
+            if rel_str in seen_rel_paths:
+                return False, None, f"Duplicate entry in SHA256SUMS: {rel_str}"
+            seen_rel_paths.add(rel_str)
+
+            target_p = (seed_dir / rel_str).resolve()
+            if not target_p.is_relative_to(seed_dir_resolved):
+                return False, None, f"Path points outside seed directory: {rel_str}"
             if not target_p.is_file():
-                return False, None, f"Missing file in manifest: {rel_path}"
+                return False, None, f"Missing file listed in SHA256SUMS: {rel_str}"
             actual_sha = compute_sha256(target_p)
-            if actual_sha != expected_sha:
+            if actual_sha.lower() != expected_sha.lower():
                 return (
                     False,
                     None,
-                    f"Checksum mismatch for {rel_path}: {actual_sha} != {expected_sha}",
+                    f"Checksum mismatch for {rel_str}: {actual_sha} != {expected_sha}",
                 )
+
+    # Bidirectional: verify every file on disk is listed in SHA256SUMS
+    for disk_p in seed_dir.rglob("*"):
+        if disk_p.is_file() and disk_p.name != "SHA256SUMS":
+            rel_disk = str(disk_p.relative_to(seed_dir))
+            if rel_disk not in seen_rel_paths:
+                return False, None, f"Unlisted file on disk not recorded in SHA256SUMS: {rel_disk}"
+
+    # Re-run strict validation on every metric file
+    metrics_dir = seed_dir / "metrics"
+    if metrics_dir.is_dir():
+        for m_file in metrics_dir.glob("*.json"):
+            try:
+                validate_empirical_result(m_file)
+            except Exception as e:
+                return False, None, f"Metric validation failed for {m_file.name}: {e}"
 
     return True, manifest, "Verified"
 
@@ -134,6 +190,11 @@ def main():
         action="store_true",
         help="Overwrite existing completed seed runs",
     )
+    parser.add_argument(
+        "--allow-cross-commit-reuse",
+        action="store_true",
+        help="Allow reusing verified seed runs generated from previous Git commits",
+    )
     args = parser.parse_args()
 
     # Automatically switch default config if zero-shot mode is specified with multitask default
@@ -167,7 +228,10 @@ def main():
 
         if seed_dir.exists() and not args.overwrite:
             is_valid, saved_manifest, reason = verify_existing_seed_run(
-                seed_dir, mode_name, config_sha256
+                seed_dir,
+                mode_name,
+                config_sha256,
+                allow_cross_commit=args.allow_cross_commit_reuse,
             )
             if is_valid and saved_manifest:
                 print(
@@ -420,30 +484,45 @@ def main():
     df_summary.to_csv(summary_csv, index=False)
     print(f"Exported campaign summary to {summary_csv}")
 
-    # Campaign-Level Archival Directory & Checksums (Item 7)
+    # Campaign-Level Archival Directory & Checksums (Self-Contained Evidence Package)
     timestamp_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
     campaign_archive_dir = campaigns_dir / f"{mode_name}_{timestamp_str}"
     campaign_archive_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy full per-seed directories into self-contained campaign archive
+    archived_seeds = []
+    for seed in args.seeds:
+        src_seed = runs_base_dir / f"seed_{seed}"
+        dst_seed = campaign_archive_dir / f"seed_{seed}"
+        if src_seed.exists():
+            if dst_seed.exists():
+                shutil.rmtree(dst_seed)
+            shutil.copytree(src_seed, dst_seed)
+            archived_seeds.append(f"seed_{seed}")
 
     df_seeds.to_csv(campaign_archive_dir / csv_name, index=False)
     df_summary.to_csv(campaign_archive_dir / summary_name, index=False)
 
     campaign_manifest = {
         "status": "completed",
+        "eligible_for_aggregation": True,
         "campaign_mode": mode_name,
         "seeds": args.seeds,
         "config_path": args.config,
         "config_sha256": config_sha256,
         "git_commit": git_commit,
         "created_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "per_seed_csv": str(campaign_archive_dir / csv_name),
-        "summary_csv": str(campaign_archive_dir / summary_name),
+        "archived_seed_directories": archived_seeds,
+        "per_seed_csv": csv_name,
+        "summary_csv": summary_name,
     }
     with open(campaign_archive_dir / "campaign_manifest.json", "w", encoding="utf-8") as f:
         json.dump(campaign_manifest, f, indent=2)
 
     generate_seed_checksums(campaign_archive_dir)
-    print(f"Archived full campaign manifest and checksums to {campaign_archive_dir}")
+    print(
+        f"Archived self-contained campaign evidence package and checksums to {campaign_archive_dir}"
+    )
 
     print(f"\n=== 3-Seed {mode_str} Summary (Sample SD ddof=1) ===")
     print(df_summary.to_string(index=False))

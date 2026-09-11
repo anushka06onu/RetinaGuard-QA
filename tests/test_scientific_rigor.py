@@ -369,3 +369,106 @@ def test_baseline_provenance_validation(tmp_path):
     res = validate_baseline_result(valid_baseline)
     assert res["valid"] is True
     assert res["type"] == "completed_baseline_result"
+
+
+def test_verify_existing_seed_run_bidirectional(tmp_path):
+    """Test strict bidirectional checksum and integrity verification for campaign seeds."""
+    from scripts.run_campaign import generate_seed_checksums, verify_existing_seed_run
+
+    seed_dir = tmp_path / "seed_2026"
+    seed_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. Missing manifest
+    valid, _, reason = verify_existing_seed_run(seed_dir, "multitask", "cfg_hash")
+    assert valid is False
+    assert "Missing run_manifest.json" in reason
+
+    # Setup valid structure
+    metrics_dir = seed_dir / "metrics"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    preds_dir = seed_dir / "predictions"
+    preds_dir.mkdir(parents=True, exist_ok=True)
+
+    split_file = tmp_path / "test_split.csv"
+    split_file.write_text("image_id,path\ns1,img1.png\n")
+    split_sha = compute_sha256(split_file)
+
+    pred_file = preds_dir / "eyeq_test_predictions.csv"
+    pred_file.write_text(
+        "image_id,patient_id,dataset,split,target,prediction\ns1,p1,eyeq,test,0,0\n"
+    )
+    pred_sha = compute_sha256(pred_file)
+
+    ckpt_file = seed_dir / "best.ckpt"
+    ckpt_file.write_text("ckpt_data")
+    ckpt_sha = compute_sha256(ckpt_file)
+
+    metric_file = metrics_dir / "eyeq_test.json"
+    metric_payload = {
+        "status": "completed",
+        "eligible_as_final_result": True,
+        "generated_by": "scripts/run_campaign.py",
+        "git_commit": "abc1234",
+        "checkpoint_path": str(ckpt_file),
+        "checkpoint_sha256": ckpt_sha,
+        "split_path": str(split_file),
+        "split_sha256": split_sha,
+        "prediction_file": str(pred_file),
+        "prediction_file_sha256": pred_sha,
+        "num_samples": 1,
+        "accuracy": 1.0,
+        "macro_f1": 1.0,
+        "balanced_accuracy": 1.0,
+        "confusion_matrix": [[1]],
+        "created_at_utc": "2026-09-11T12:00:00Z",
+    }
+    metric_file.write_text(json.dumps(metric_payload, indent=2))
+
+    manifest_file = seed_dir / "run_manifest.json"
+    manifest_payload = {
+        "status": "completed",
+        "eligible_for_aggregation": True,
+        "campaign_mode": "multitask",
+        "seed": 2026,
+        "config_sha256": "cfg_hash_123",
+        "git_commit": "abc1234",
+        "summary_metrics": {"macro_f1": 1.0},
+    }
+    manifest_file.write_text(json.dumps(manifest_payload, indent=2))
+
+    # Generate proper checksums
+    generate_seed_checksums(seed_dir)
+
+    # Valid run passes (with allow_cross_commit=True since git commit is mocked)
+    valid, man, reason = verify_existing_seed_run(
+        seed_dir, "multitask", "cfg_hash_123", allow_cross_commit=True
+    )
+    assert valid is True
+    assert reason == "Verified"
+
+    # Bidirectional test: add unlisted file on disk
+    unlisted_file = seed_dir / "sneaky_file.txt"
+    unlisted_file.write_text("untracked")
+    valid, _, reason = verify_existing_seed_run(
+        seed_dir, "multitask", "cfg_hash_123", allow_cross_commit=True
+    )
+    assert valid is False
+    assert "Unlisted file on disk not recorded in SHA256SUMS" in reason
+    unlisted_file.unlink()
+
+    # Tampered checksum test - single token line
+    sums_file = seed_dir / "SHA256SUMS"
+    sums_file.write_text("singletokenline\n")
+    valid, _, reason = verify_existing_seed_run(
+        seed_dir, "multitask", "cfg_hash_123", allow_cross_commit=True
+    )
+    assert valid is False
+    assert "Malformed line" in reason
+
+    # Invalid SHA256 length / non-hex test
+    sums_file.write_text("not_a_valid_64_char_hex_hash  best.ckpt\n")
+    valid, _, reason = verify_existing_seed_run(
+        seed_dir, "multitask", "cfg_hash_123", allow_cross_commit=True
+    )
+    assert valid is False
+    assert "Invalid SHA-256 hash" in reason

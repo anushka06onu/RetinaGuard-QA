@@ -147,6 +147,13 @@ def main():
     parser.add_argument(
         "--deepdrid-split", type=str, default="data/splits/deepdrid_external_test.csv"
     )
+    parser.add_argument(
+        "--seeds",
+        type=int,
+        nargs="+",
+        default=[2026, 2027, 2028],
+        help="List of random seeds to execute per ablation variant",
+    )
     parser.add_argument("--output-dir", type=str, default="artifacts/ablations")
     parser.add_argument("--smoke-test", action="store_true")
     args = parser.parse_args()
@@ -155,7 +162,8 @@ def main():
     out_base.mkdir(parents=True, exist_ok=True)
 
     print("=========================================================")
-    print("=== Running Essential Ablation Studies (Item 11)     ===")
+    print("=== Running Essential Ablation Studies across Seeds   ===")
+    print(f"=== Seeds: {args.seeds} | Output: {out_base} ===")
     print("=========================================================\n")
 
     ablations = [
@@ -177,37 +185,74 @@ def main():
                     "heads": {
                         "quality": {"num_classes": 3, "weight": 1.0},
                         "overall_quality": {"num_classes": 2, "weight": 1.0},
-                        "artifact": {"num_classes": 3, "weight": 0.0001},
-                        "clarity": {"num_classes": 3, "weight": 0.0001},
-                        "field_definition": {"num_classes": 3, "weight": 0.0001},
+                        "artifact": {"num_classes": 3, "weight": 0.0},
+                        "clarity": {"num_classes": 3, "weight": 0.0},
+                        "field_definition": {"num_classes": 3, "weight": 0.0},
                     }
                 }
             },
         ),
     ]
 
-    results = []
+    all_seed_results = []
     for name, cfg_path, overrides in ablations:
-        print(f"\n>>> Running Ablation Variant: {name}...")
-        res = run_ablation_experiment(
-            name=name,
-            base_config_path=cfg_path,
-            overrides=overrides,
-            output_dir=out_base / name,
-            eyeq_split=args.eyeq_split,
-            deepdrid_split=args.deepdrid_split,
-            smoke_test=args.smoke_test,
-        )
-        results.append(res)
+        variant_dir = out_base / name
+        variant_dir.mkdir(parents=True, exist_ok=True)
+        for seed in args.seeds:
+            print(f"\n>>> Running Ablation Variant: {name} (Seed {seed})...")
+            seed_dir = variant_dir / f"seed_{seed}"
+            seed_overrides = dict(overrides)
+            if "training" not in seed_overrides:
+                seed_overrides["training"] = {}
+            seed_overrides["training"]["seed"] = seed
 
-    df_ablations = pd.DataFrame(results)
+            res = run_ablation_experiment(
+                name=f"{name}_seed_{seed}",
+                base_config_path=cfg_path,
+                overrides=seed_overrides,
+                output_dir=seed_dir,
+                eyeq_split=args.eyeq_split,
+                deepdrid_split=args.deepdrid_split,
+                smoke_test=args.smoke_test,
+            )
+            res["variant"] = name
+            res["seed"] = seed
+            all_seed_results.append(res)
+
+    df_seed_ablations = pd.DataFrame(all_seed_results)
+    per_seed_csv = out_base / "ablations_per_seed.csv"
+    df_seed_ablations.to_csv(per_seed_csv, index=False)
+
+    # Compute summary mean +/- sample std per variant
+    summary_rows = []
+    for name, _, _ in ablations:
+        variant_df = df_seed_ablations[df_seed_ablations["variant"] == name]
+        row: Dict[str, Any] = {"variant": name, "num_seeds": len(variant_df)}
+        for metric in [
+            "eyeq_macro_f1",
+            "eyeq_accuracy",
+            "deepdrid_macro_f1",
+            "deepdrid_accuracy",
+            "best_val_macro_f1",
+        ]:
+            if metric in variant_df.columns:
+                vals = variant_df[metric].dropna()
+                if len(vals) > 0:
+                    row[f"{metric}_mean"] = round(float(vals.mean()), 4)
+                    row[f"{metric}_std"] = (
+                        round(float(vals.std(ddof=1)), 4) if len(vals) > 1 else 0.0
+                    )
+        summary_rows.append(row)
+
+    df_summary = pd.DataFrame(summary_rows)
     summary_csv = out_base / "ablations_summary.csv"
-    df_ablations.to_csv(summary_csv, index=False)
+    df_summary.to_csv(summary_csv, index=False)
     with open(out_base / "ablations.json", "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2)
+        json.dump(all_seed_results, f, indent=2)
 
-    print(f"\nExported ablation summary to {summary_csv}")
-    print(df_ablations.to_string(index=False))
+    print(f"\nExported ablation per-seed to {per_seed_csv}")
+    print(f"Exported ablation summary to {summary_csv}")
+    print(df_summary.to_string(index=False))
 
 
 if __name__ == "__main__":
