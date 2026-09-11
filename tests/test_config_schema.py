@@ -183,6 +183,7 @@ def test_extra_unknown_fields_rejected():
 
 def test_all_training_yamls_pass_validation():
     from pathlib import Path
+
     import yaml
 
     config_dir = Path("configs")
@@ -233,3 +234,99 @@ def test_disabled_dataset_without_splits_is_valid():
     assert validated.training.scheduler == "reduce_on_plateau"
     assert validated.training.selection_metric == "quality_macro_f1"
 
+
+def test_missing_required_head_for_enabled_dataset():
+    # DeepDRiD enabled but missing attribute heads
+    config_dict = {
+        "data": {
+            "datasets": {
+                "deepdrid": {
+                    "enabled": True,
+                    "train_split": "data/splits/deepdrid_train.csv",
+                    "val_split": "data/splits/deepdrid_val.csv",
+                },
+            }
+        },
+        "model": {
+            "backbone": "mobilenetv3_large_100",
+            "heads": {
+                "overall_quality": {"num_classes": 2, "weight": 1.0},
+            },
+        },
+        "training": {
+            "image_size": 384,
+            "epochs": 10,
+            "batch_size": 16,
+        },
+        "loss": {
+            "quality_loss": "cross_entropy",
+            "attribute_loss": "ordinal_or_ce",
+        },
+    }
+    with pytest.raises(
+        ValidationError, match="DeepDRiD dataset is enabled, but required heads are missing"
+    ):
+        validate_training_config(config_dict)
+
+
+def test_unknown_head_name_rejected():
+    config_dict = {
+        "data": {
+            "datasets": {
+                "eyeq": {
+                    "enabled": True,
+                    "train_split": "data/splits/eyeq_train.csv",
+                    "val_split": "data/splits/eyeq_val.csv",
+                },
+            }
+        },
+        "model": {
+            "backbone": "mobilenetv3_large_100",
+            "heads": {
+                "quality": {"num_classes": 3, "weight": 1.0},
+                "unknown_head": {"num_classes": 2, "weight": 0.5},
+            },
+        },
+        "training": {
+            "image_size": 384,
+            "epochs": 10,
+            "batch_size": 16,
+        },
+        "loss": {
+            "quality_loss": "cross_entropy",
+            "attribute_loss": "ordinal_or_ce",
+        },
+    }
+    with pytest.raises(ValidationError, match="Unknown model heads configured"):
+        validate_training_config(config_dict)
+
+
+def test_all_zero_head_weights_rejected():
+    config_dict = {
+        "data": {
+            "datasets": {
+                "eyeq": {
+                    "enabled": True,
+                    "train_split": "data/splits/eyeq_train.csv",
+                    "val_split": "data/splits/eyeq_val.csv",
+                },
+            }
+        },
+        "model": {
+            "backbone": "mobilenetv3_large_100",
+            "heads": {
+                "quality": {"num_classes": 3, "weight": 0.0},
+            },
+        },
+        "training": {
+            "image_size": 384,
+            "epochs": 10,
+            "batch_size": 16,
+        },
+        "loss": {
+            "quality_loss": "cross_entropy",
+            "attribute_loss": "ordinal_or_ce",
+        },
+    }
+    with pytest.raises(ValidationError, match="Every enabled dataset head has weight 0.0"):
+        validate_training_config(config_dict)

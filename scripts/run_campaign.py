@@ -1,15 +1,14 @@
-"""Three-seed training and evaluation campaign runner with strict per-seed isolation and auditable provenance."""
-
 import argparse
 import datetime
 import json
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+import torch
 
 from retinaguard.evaluation.provenance import validate_empirical_result
 from retinaguard.models.multitask import RetinaGuardMultiTaskModel
@@ -30,6 +29,60 @@ def generate_seed_checksums(seed_dir: Path) -> Path:
     with open(sums_file, "w", encoding="utf-8") as f:
         f.write("\n".join(checksum_lines) + "\n")
     return sums_file
+
+
+def verify_existing_seed_run(
+    seed_dir: Path, expected_mode: str, expected_config_sha: str
+) -> Tuple[bool, Optional[Dict[str, Any]], str]:
+    """Verify that an existing seed run is complete, uncorrupted, and matches configuration."""
+    manifest_p = seed_dir / "run_manifest.json"
+    if not manifest_p.is_file():
+        return False, None, "Missing run_manifest.json"
+
+    try:
+        with open(manifest_p, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+    except Exception as e:
+        return False, None, f"Unreadable run_manifest.json: {e}"
+
+    if manifest.get("status") != "completed":
+        return False, None, f"Status is not completed: {manifest.get('status')}"
+    if manifest.get("eligible_for_aggregation") is not True:
+        return False, None, "eligible_for_aggregation is not True"
+    if manifest.get("campaign_mode") != expected_mode:
+        return False, None, f"Mode mismatch: {manifest.get('campaign_mode')} != {expected_mode}"
+    if manifest.get("config_sha256") != expected_config_sha and expected_config_sha != "unknown":
+        return (
+            False,
+            None,
+            f"Config hash mismatch: {manifest.get('config_sha256')} != {expected_config_sha}",
+        )
+
+    sums_file = seed_dir / "SHA256SUMS"
+    if not sums_file.is_file():
+        return False, None, "Missing SHA256SUMS file"
+
+    with open(sums_file, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split(maxsplit=1)
+            if len(parts) != 2:
+                continue
+            expected_sha, rel_path = parts
+            target_p = seed_dir / rel_path
+            if not target_p.is_file():
+                return False, None, f"Missing file in manifest: {rel_path}"
+            actual_sha = compute_sha256(target_p)
+            if actual_sha != expected_sha:
+                return (
+                    False,
+                    None,
+                    f"Checksum mismatch for {rel_path}: {actual_sha} != {expected_sha}",
+                )
+
+    return True, manifest, "Verified"
 
 
 def main():
@@ -63,6 +116,12 @@ def main():
         help="Directory to save aggregated campaign metrics",
     )
     parser.add_argument(
+        "--output-campaigns-dir",
+        type=str,
+        default="artifacts/campaigns",
+        help="Directory to archive structured timestamped campaigns",
+    )
+    parser.add_argument(
         "--zero-shot",
         action="store_true",
         help="Run genuine EyeQ-only zero-shot transfer campaign on DeepDRiD",
@@ -85,7 +144,10 @@ def main():
     runs_base_dir.mkdir(parents=True, exist_ok=True)
     metrics_dir = Path(args.output_metrics_dir)
     metrics_dir.mkdir(parents=True, exist_ok=True)
+    campaigns_dir = Path(args.output_campaigns_dir)
+    campaigns_dir.mkdir(parents=True, exist_ok=True)
 
+    mode_name = "zero_shot" if args.zero_shot else "multitask"
     mode_str = "Zero-Shot Transfer Campaign" if args.zero_shot else "Supervised Multi-Task Campaign"
     print("===========================================================")
     print(f"=== Starting 3-Seed {mode_str} across Seeds: {args.seeds} ===")
@@ -102,16 +164,22 @@ def main():
 
     for seed in args.seeds:
         seed_dir = runs_base_dir / f"seed_{seed}"
-        manifest_path = seed_dir / "run_manifest.json"
 
-        if seed_dir.exists() and manifest_path.is_file() and not args.overwrite:
-            print(
-                f">>> [SEED {seed}] Found existing completed run at {seed_dir}. Skipping (pass --overwrite to re-run)."
+        if seed_dir.exists() and not args.overwrite:
+            is_valid, saved_manifest, reason = verify_existing_seed_run(
+                seed_dir, mode_name, config_sha256
             )
-            with open(manifest_path, "r", encoding="utf-8") as f:
-                saved_manifest = json.load(f)
+            if is_valid and saved_manifest:
+                print(
+                    f">>> [SEED {seed}] Found verified completed run at {seed_dir}. Reusing results."
+                )
                 seed_records.append(saved_manifest.get("summary_metrics", {}))
-            continue
+                continue
+            else:
+                print(
+                    f">>> [SEED {seed}] Existing run at {seed_dir} could not be verified ({reason}). Rerunning..."
+                )
+                shutil.rmtree(seed_dir)
 
         if seed_dir.exists() and args.overwrite:
             print(f">>> [SEED {seed}] Overwriting existing run directory {seed_dir}...")
@@ -137,6 +205,24 @@ def main():
             raise FileNotFoundError(f"Checkpoint was not produced at {ckpt_path}")
 
         ckpt_sha256 = compute_sha256(ckpt_path)
+
+        # Enforce zero-shot provenance (Item 5)
+        if args.zero_shot:
+            if train_res.get("training_datasets") != ["EyeQ"]:
+                raise ValueError(
+                    f"Zero-shot campaign requires training exclusively on EyeQ, got {train_res.get('training_datasets')}"
+                )
+            ckpt_state = torch.load(ckpt_path, map_location="cpu")
+            ckpt_meta = ckpt_state.get("metadata", {})
+            if (
+                "deepdrid" in ckpt_meta.get("train_split_hashes", {})
+                or "deepdrid" in ckpt_meta.get("val_split_hashes", {})
+                or "DeepDRiD" in ckpt_meta.get("training_datasets", [])
+            ):
+                raise ValueError(
+                    "Checkpoint metadata contains DeepDRiD split provenance; cannot be used for genuine zero-shot evaluation."
+                )
+
         print(f">>> [SEED {seed}] Checkpoint verified at {ckpt_path}. Evaluating test splits...")
 
         model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_path)
@@ -212,9 +298,11 @@ def main():
             dd_eval, df_dd_preds = evaluate_dataset_partition(
                 model,
                 args.deepdrid_split,
-                "DeepDRiD (Zero-Shot External Transfer)"
-                if is_zs
-                else "DeepDRiD (Held-Out Supervised)",
+                (
+                    "DeepDRiD (Zero-Shot External Transfer)"
+                    if is_zs
+                    else "DeepDRiD (Held-Out Supervised)"
+                ),
                 is_deepdrid=True,
                 is_zero_shot=is_zs,
             )
@@ -231,12 +319,12 @@ def main():
                     "seed": seed,
                     "config_path": args.config,
                     "config_sha256": config_sha256,
-                    "dataset_task": "DeepDRiD_ZeroShot_Binary"
-                    if is_zs
-                    else "DeepDRiD_Overall_Quality_Binary",
-                    "head_identity": "quality_head_mapped_binary"
-                    if is_zs
-                    else "overall_quality_head",
+                    "dataset_task": (
+                        "DeepDRiD_ZeroShot_Binary" if is_zs else "DeepDRiD_Overall_Quality_Binary"
+                    ),
+                    "head_identity": (
+                        "quality_head_mapped_binary" if is_zs else "overall_quality_head"
+                    ),
                     "checkpoint_path": str(ckpt_path),
                     "checkpoint_sha256": ckpt_sha256,
                     "split_path": args.deepdrid_split,
@@ -269,9 +357,14 @@ def main():
                         seed_entry[f"{attr}_f1"] = dd_eval["attribute_metrics"][attr]["macro_f1"]
                         seed_entry[f"{attr}_mae"] = dd_eval["attribute_metrics"][attr]["mae"]
 
-        # Save Run Manifest
+        # Save Run Manifest with explicit completion status (Item 6)
         run_manifest = {
+            "status": "completed",
+            "eligible_for_aggregation": True,
+            "campaign_mode": mode_name,
             "seed": seed,
+            "config_path": args.config,
+            "config_sha256": config_sha256,
             "git_commit": git_commit,
             "created_at_utc": created_at_utc,
             "summary_metrics": seed_entry,
@@ -280,6 +373,7 @@ def main():
                 "epochs_trained": train_res["epochs_trained"],
             },
         }
+        manifest_path = seed_dir / "run_manifest.json"
         with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump(run_manifest, f, indent=2)
 
@@ -325,6 +419,31 @@ def main():
     summary_csv = metrics_dir / summary_name
     df_summary.to_csv(summary_csv, index=False)
     print(f"Exported campaign summary to {summary_csv}")
+
+    # Campaign-Level Archival Directory & Checksums (Item 7)
+    timestamp_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
+    campaign_archive_dir = campaigns_dir / f"{mode_name}_{timestamp_str}"
+    campaign_archive_dir.mkdir(parents=True, exist_ok=True)
+
+    df_seeds.to_csv(campaign_archive_dir / csv_name, index=False)
+    df_summary.to_csv(campaign_archive_dir / summary_name, index=False)
+
+    campaign_manifest = {
+        "status": "completed",
+        "campaign_mode": mode_name,
+        "seeds": args.seeds,
+        "config_path": args.config,
+        "config_sha256": config_sha256,
+        "git_commit": git_commit,
+        "created_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "per_seed_csv": str(campaign_archive_dir / csv_name),
+        "summary_csv": str(campaign_archive_dir / summary_name),
+    }
+    with open(campaign_archive_dir / "campaign_manifest.json", "w", encoding="utf-8") as f:
+        json.dump(campaign_manifest, f, indent=2)
+
+    generate_seed_checksums(campaign_archive_dir)
+    print(f"Archived full campaign manifest and checksums to {campaign_archive_dir}")
 
     print(f"\n=== 3-Seed {mode_str} Summary (Sample SD ddof=1) ===")
     print(df_summary.to_string(index=False))

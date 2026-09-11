@@ -165,6 +165,10 @@ def test_empirical_result_artifact_schema_and_integrity(tmp_path):
                 "prediction_file": "fake_preds.csv",
                 "prediction_file_sha256": "fake_pred_sha",
                 "num_samples": 100,
+                "accuracy": 0.9,
+                "macro_f1": 0.9,
+                "balanced_accuracy": 0.9,
+                "confusion_matrix": [[50, 0], [0, 50]],
                 "created_at_utc": "2026-09-11T12:00:00Z",
                 "eligible_as_final_result": False,
             }
@@ -217,6 +221,8 @@ def test_empirical_result_artifact_schema_and_integrity(tmp_path):
                 "num_samples": 1,
                 "accuracy": 1.0,
                 "macro_f1": 1.0,
+                "balanced_accuracy": 1.0,
+                "confusion_matrix": [[1]],
                 "created_at_utc": "2026-09-11T12:00:00Z",
             }
         )
@@ -243,6 +249,8 @@ def test_empirical_result_artifact_schema_and_integrity(tmp_path):
                 "num_samples": 1,
                 "accuracy": 1.0,
                 "macro_f1": 1.0,
+                "balanced_accuracy": 1.0,
+                "confusion_matrix": [[1]],
                 "created_at_utc": "2026-09-11T12:00:00Z",
             }
         )
@@ -273,6 +281,8 @@ def test_empirical_result_artifact_schema_and_integrity(tmp_path):
                 "num_samples": 1,
                 "accuracy": 1.0,
                 "macro_f1": 1.0,
+                "balanced_accuracy": 1.0,
+                "confusion_matrix": [[1]],
                 "created_at_utc": "2026-09-11T12:00:00Z",
             }
         )
@@ -303,6 +313,8 @@ def test_empirical_result_artifact_schema_and_integrity(tmp_path):
                 "num_samples": 2,
                 "accuracy": 1.0,
                 "macro_f1": 1.0,
+                "balanced_accuracy": 1.0,
+                "confusion_matrix": [[2]],
                 "created_at_utc": "2026-09-11T12:00:00Z",
             }
         )
@@ -310,3 +322,50 @@ def test_empirical_result_artifact_schema_and_integrity(tmp_path):
     with pytest.raises(ValueError, match="Duplicate image_id entries found in prediction file"):
         validate_empirical_result(dup_json)
 
+
+def test_baseline_provenance_validation(tmp_path):
+    """Test validation of baseline results schema without requiring neural checkpoint."""
+    from retinaguard.evaluation.provenance import validate_baseline_result
+
+    train_split = tmp_path / "train.csv"
+    train_split.write_text("image_id,path\n1,img1.png\n2,img2.png\n")
+    train_sha = compute_sha256(train_split)
+
+    test_split = tmp_path / "test.csv"
+    test_split.write_text("image_id,path\n3,img3.png\n4,img4.png\n")
+    test_sha = compute_sha256(test_split)
+
+    pred_file = tmp_path / "baseline_preds.csv"
+    pred_file.write_text(
+        "image_id,patient_id,dataset,split,target,prediction,confidence\n"
+        "3,p3,EyeQ,test.csv,0,0,0.85\n"
+        "4,p4,EyeQ,test.csv,1,1,0.85\n"
+    )
+    pred_sha = compute_sha256(pred_file)
+
+    valid_baseline = {
+        "status": "completed",
+        "eligible_as_final_result": True,
+        "generated_by": "scripts/train_baselines.py",
+        "git_commit": "abc1234",
+        "model": "Majority Class Baseline",
+        "task": "eyeq_quality",
+        "train_split_path": str(train_split),
+        "train_split_sha256": train_sha,
+        "test_split_path": str(test_split),
+        "test_split_sha256": test_sha,
+        "prediction_file": str(pred_file),
+        "prediction_file_sha256": pred_sha,
+        "num_train": 2,
+        "num_test": 2,
+        "created_at_utc": "2026-09-11T12:00:00Z",
+        "subset_experiment": False,
+        "accuracy": 1.0,
+        "macro_f1": 1.0,
+        "balanced_accuracy": 1.0,
+        "confusion_matrix": [[1, 0], [0, 1]],
+    }
+
+    res = validate_baseline_result(valid_baseline)
+    assert res["valid"] is True
+    assert res["type"] == "completed_baseline_result"

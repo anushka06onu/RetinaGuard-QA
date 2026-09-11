@@ -24,7 +24,9 @@ class DatasetSplitConfig(BaseModel):
     def validate_splits_when_enabled(self) -> "DatasetSplitConfig":
         if self.enabled:
             if not self.train_split or not self.val_split:
-                raise ValueError("Enabled dataset must specify non-empty train_split and val_split paths.")
+                raise ValueError(
+                    "Enabled dataset must specify non-empty train_split and val_split paths."
+                )
         return self
 
 
@@ -111,6 +113,63 @@ class TrainMultiTaskConfig(BaseModel):
     model: ModelConfig
     training: TrainingConfig
     loss: LossConfig
+
+    @model_validator(mode="after")
+    def validate_heads_match_datasets(self) -> "TrainMultiTaskConfig":
+        allowed_heads = {
+            "quality",
+            "overall_quality",
+            "artifact",
+            "clarity",
+            "field_definition",
+        }
+        unknown_heads = set(self.model.heads.keys()) - allowed_heads
+        if unknown_heads:
+            raise ValueError(
+                f"Unknown model heads configured: {unknown_heads}. Allowed: {allowed_heads}"
+            )
+
+        eyeq_cfg = self.data.datasets.get("eyeq")
+        eyeq_enabled = eyeq_cfg.enabled if eyeq_cfg else False
+
+        deepdrid_cfg = self.data.datasets.get("deepdrid")
+        deepdrid_enabled = deepdrid_cfg.enabled if deepdrid_cfg else False
+
+        if eyeq_enabled:
+            if "quality" not in self.model.heads:
+                raise ValueError(
+                    "EyeQ dataset is enabled, but required 'quality' head is missing in model.heads."
+                )
+
+        if deepdrid_enabled:
+            required_dd_heads = {
+                "overall_quality",
+                "artifact",
+                "clarity",
+                "field_definition",
+            }
+            missing_dd_heads = required_dd_heads - set(self.model.heads.keys())
+            if missing_dd_heads:
+                raise ValueError(
+                    f"DeepDRiD dataset is enabled, but required heads are missing in model.heads: {missing_dd_heads}"
+                )
+
+        # Check that total weight across relevant heads is greater than zero
+        active_heads = []
+        if eyeq_enabled:
+            active_heads.append("quality")
+        if deepdrid_enabled:
+            active_heads.extend(["overall_quality", "artifact", "clarity", "field_definition"])
+
+        total_weight = sum(
+            self.model.heads[h].weight for h in active_heads if h in self.model.heads
+        )
+        if total_weight <= 0.0:
+            raise ValueError(
+                "Every enabled dataset head has weight 0.0; at least one active head must have positive weight."
+            )
+
+        return self
 
 
 def validate_training_config(cfg_dict: Dict[str, Any]) -> TrainMultiTaskConfig:
