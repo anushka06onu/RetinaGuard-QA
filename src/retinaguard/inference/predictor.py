@@ -177,20 +177,26 @@ class RetinaGuardPredictor:
                     model_path_obj = Path(model_path)
                     if model_path_obj.suffix.lower() == ".onnx":
                         expected_sha = cal_cfg.get(
-                            "onnx_model_sha256",
-                            cal_cfg.get(
-                                "model_onnx_sha256", cal_cfg.get("model_checkpoint_sha256")
-                            ),
+                            "onnx_model_sha256", cal_cfg.get("model_onnx_sha256")
                         )
+                        if not expected_sha:
+                            raise ValueError(
+                                f"Production mode requires 'onnx_model_sha256' in {calibration_config_path} when loading ONNX model."
+                            )
                     else:
                         expected_sha = cal_cfg.get(
                             "source_checkpoint_sha256",
                             cal_cfg.get("model_checkpoint_sha256"),
                         )
+                        if not expected_sha:
+                            raise ValueError(
+                                f"Production mode requires 'source_checkpoint_sha256' in {calibration_config_path} when loading checkpoint."
+                            )
+
                     actual_sha = compute_sha256(model_path)
-                    if expected_sha and actual_sha != expected_sha:
+                    if actual_sha != expected_sha:
                         raise ValueError(
-                            f"Model artifact SHA256 ({actual_sha}) does not match calibration metadata expected hash ({expected_sha})."
+                            f"Model hash mismatch in production mode: loaded {model_path} ({actual_sha}) != metadata expected ({expected_sha})"
                         )
 
         if model_path is not None and Path(model_path).is_file():

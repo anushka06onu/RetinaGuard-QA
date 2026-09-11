@@ -179,11 +179,12 @@ def test_predictor_production_mode_requirements(tmp_path, monkeypatch):
                 "ood_score_type": "energy",
                 "validation_split_sha256": "abcdef",
                 "model_checkpoint_sha256": "DIFFERENT_HASH_12345",
+                "onnx_model_sha256": "DIFFERENT_ONNX_HASH_12345",
                 "fitting_method": "temperature_scaling",
                 "created_at_utc": "2026-09-10T12:00:00Z",
             }
         )
     )
 
-    with pytest.raises(ValueError, match="does not match calibration metadata"):
+    with pytest.raises(ValueError, match="Model hash mismatch in production mode"):
         RetinaGuardPredictor(calibration_config_path=cal_mismatch, model_path=dummy_model)

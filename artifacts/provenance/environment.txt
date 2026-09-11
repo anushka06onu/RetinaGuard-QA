@@ -1,7 +1,15 @@
+Git Commit: 675dac725741398197830a49db295ae7ba715060
 OS: Darwin 25.2.0 (arm64)
-Python: 3.10.0 (v3.10.0:b494f5935c, Oct  4 2021, 14:59:19) [Clang 12.0.5 (clang-1205.0.22.11)]
-PyTorch: 2.x (CPU / MPS / CUDA)
-ONNX Runtime: 1.18+
-Torchvision: 0.18+
-Scikit-Learn: 1.5+
-FastAPI: 0.111+
+Platform: macOS-26.2-arm64-arm-64bit
+Processor: arm
+Python Version: 3.10.0
+PyTorch Version: 2.14.0
+Torchvision Version: 0.29.0
+Timm Version: 1.0.29
+ONNX Runtime Version: 1.23.2
+NumPy Version: 2.2.6
+SciPy Version: 1.15.3
+Scikit-Learn Version: 1.6.1
+CUDA Available: False
+MPS (Apple Silicon) Available: True
+Inference Target Engine: ONNX Runtime CPU

@@ -1,8 +1,13 @@
-"""Out-of-Distribution (OOD) and Modality Gate benchmark suite per Items 26 & 27."""
+"""Out-of-Distribution (OOD) and Modality Gate benchmark suite.
+
+Evaluates Free Energy OOD scoring (AUROC, AUPRC, FPR@95%TPR) and Modality Validator.
+Requires genuine In-Distribution (ID) fundus images. Fails fast if ID images are absent.
+"""
 
 import argparse
 import json
 from pathlib import Path
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -20,14 +25,35 @@ from retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
 def compute_fpr_at_95_tpr(labels: np.ndarray, scores: np.ndarray) -> float:
     """Calculate False Positive Rate at 95% True Positive Rate."""
-    # In energy score, higher is in-distribution, lower is OOD.
-    # labels: 1 for ID, 0 for OOD
-    fpr, tpr, thresholds = roc_curve(labels, scores)
-    # Find smallest index where TPR >= 0.95
+    fpr, tpr, _ = roc_curve(labels, scores)
     idx = np.where(tpr >= 0.95)[0]
     if len(idx) > 0:
         return float(fpr[idx[0]])
     return 1.0
+
+
+def load_images_from_manifest(
+    manifest_csv: Path, max_samples: int = 0
+) -> List[Tuple[str, Image.Image]]:
+    """Load genuine images from a split/manifest CSV."""
+    if not manifest_csv.is_file():
+        return []
+
+    df = pd.read_csv(manifest_csv)
+    records = []
+    for _, row in df.iterrows():
+        p_str = str(row.get("path", row.get("image_path", "")))
+        img_p = Path(p_str)
+        if img_p.is_file():
+            try:
+                with Image.open(img_p) as img:
+                    img_id = str(row.get("image_id", img_p.stem))
+                    records.append((img_id, img.convert("RGB")))
+                if 0 < max_samples <= len(records):
+                    break
+            except Exception:
+                continue
+    return records
 
 
 def main():
@@ -40,8 +66,26 @@ def main():
     parser.add_argument(
         "--id-test-split",
         type=str,
-        default="data/splits/eyeq_test.csv",
+        default="data/splits/deepdrid_external_test.csv",
         help="Path to In-Distribution (ID) test split CSV",
+    )
+    parser.add_argument(
+        "--near-ood-manifest",
+        type=str,
+        default=None,
+        help="Path to Near-OOD manifest CSV (e.g. Ultra-Widefield fundus)",
+    )
+    parser.add_argument(
+        "--far-ood-manifest",
+        type=str,
+        default=None,
+        help="Path to Far-OOD manifest CSV (e.g. natural images/non-retinal)",
+    )
+    parser.add_argument(
+        "--include-synthetic-stress-test",
+        action="store_true",
+        default=True,
+        help="Include synthetic corruption stress patterns (clearly labeled as synthetic)",
     )
     parser.add_argument(
         "--calibration-meta",
@@ -49,16 +93,13 @@ def main():
         default="artifacts/models/calibration_metadata.json",
         help="Path to calibration metadata containing validation-fitted OOD threshold",
     )
-    parser.add_argument("--output-dir", type=str, default="artifacts/metrics")
+    parser.add_argument("--output-file", type=str, default="artifacts/metrics/ood.json")
     parser.add_argument("--max-samples", type=int, default=300)
     args = parser.parse_args()
 
     ckpt_p = Path(args.checkpoint)
     if not ckpt_p.is_file():
         raise FileNotFoundError(f"Checkpoint not found at {args.checkpoint}")
-
-    out_p = Path(args.output_dir)
-    out_p.mkdir(parents=True, exist_ok=True)
 
     print("=== Running OOD Detection & Modality Gate Benchmark ===")
     model = RetinaGuardMultiTaskModel(pretrained=False)
@@ -67,133 +108,132 @@ def main():
     model.eval()
 
     # 1. Load In-Distribution (ID) fundus images
-    id_images = []
-    if Path(args.id_test_split).is_file():
-        df_id = pd.read_csv(args.id_test_split)
-        for _, row in df_id.iterrows():
-            img_p = Path(str(row.get("path", "")))
-            if img_p.is_file():
-                try:
-                    with Image.open(img_p) as img:
-                        id_images.append(img.convert("RGB"))
-                    if len(id_images) >= args.max_samples:
-                        break
-                except Exception:
-                    pass
+    id_records = load_images_from_manifest(Path(args.id_test_split), max_samples=args.max_samples)
+    if len(id_records) == 0:
+        raise FileNotFoundError(
+            f"No readable In-Distribution images found in {args.id_test_split}. "
+            "A valid ID dataset is strictly required."
+        )
 
-    if len(id_images) == 0:
-        for _ in range(args.max_samples):
-            id_images.append(Image.new("RGB", (384, 384), color=(180, 80, 30)))
+    print(f"Loaded {len(id_records)} genuine In-Distribution (ID) images.")
 
-    # 2. Construct Controlled OOD Cohorts (Item 26)
-    # Far-OOD: Grayscale images, natural scene color textures, inverted images, noise
-    far_ood_images = []
-    rng = np.random.RandomState(2026)
-    for _ in range(len(id_images)):
-        mode = rng.choice(["noise", "grayscale", "blue_gradient", "blank"])
-        if mode == "noise":
-            arr = rng.randint(0, 256, (384, 384, 3), dtype=np.uint8)
-        elif mode == "grayscale":
-            gray_val = rng.randint(20, 200)
-            arr = np.full((384, 384, 3), gray_val, dtype=np.uint8)
-        elif mode == "blue_gradient":
-            arr = np.zeros((384, 384, 3), dtype=np.uint8)
-            arr[:, :, 2] = np.linspace(50, 240, 384, dtype=np.uint8)
-        else:
-            arr = np.zeros((384, 384, 3), dtype=np.uint8)
-        far_ood_images.append(Image.fromarray(arr))
+    # Compute ID energy scores
+    id_scores = []
+    validator = RetinalModalityValidator()
+    id_modality_passes = 0
 
-    # 3. Compute Energy Scores for ID and OOD
-    def get_energy_scores(img_list):
-        scores = []
-        batch_tensors = []
-        for img in img_list:
-            t = preprocess_image_canonical(img, image_size=384).squeeze(0)
-            batch_tensors.append(t)
-            if len(batch_tensors) >= 16:
-                b = torch.stack(batch_tensors)
-                with torch.no_grad():
-                    q_logits = model(b)["quality_logits"].cpu().numpy()
-                es = compute_energy_score(q_logits, temperature=1.0)
-                scores.extend(es.tolist())
-                batch_tensors = []
-        if batch_tensors:
-            b = torch.stack(batch_tensors)
-            with torch.no_grad():
-                q_logits = model(b)["quality_logits"].cpu().numpy()
-            es = compute_energy_score(q_logits, temperature=1.0)
-            scores.extend(es.tolist())
-        return np.array(scores)
+    with torch.no_grad():
+        for _, img in id_records:
+            is_valid_modality, _ = validator.validate_image(img)
+            if is_valid_modality:
+                id_modality_passes += 1
 
-    id_energy = get_energy_scores(id_images)
-    ood_energy = get_energy_scores(far_ood_images)
+            tensor = preprocess_image_canonical(img, image_size=384).unsqueeze(0)
+            outputs = model(tensor)
+            logits = outputs["quality_logits"].numpy()[0]
+            # Higher energy score -> more in-distribution
+            e_score = compute_energy_score(logits, temperature=1.0)
+            id_scores.append(e_score)
 
-    # 4. Calculate AUROC, AUPRC, FPR@95%TPR
-    # Labels: 1 for ID, 0 for OOD
-    y_true = np.concatenate([np.ones(len(id_energy)), np.zeros(len(ood_energy))])
-    y_scores = np.concatenate([id_energy, ood_energy])
+    id_scores_arr = np.array(id_scores)
+    id_modality_frr = 1.0 - (id_modality_passes / len(id_records))
 
-    auroc = float(roc_auc_score(y_true, y_scores))
-    precision, recall, _ = precision_recall_curve(y_true, y_scores)
-    auprc = float(auc(recall, precision))
-    fpr_95 = compute_fpr_at_95_tpr(y_true, y_scores)
-
-    # Load fitted threshold if available
-    fitted_thresh = None
-    if Path(args.calibration_meta).is_file():
-        with open(args.calibration_meta) as f:
-            cal_meta = json.load(f)
-            fitted_thresh = cal_meta.get("ood_energy_threshold")
-
-    # 5. Modality Validator Evaluation (Item 27)
-    # Balanced evaluation of 100 ID fundus vs 100 non-fundus
-    fundus_preds = [RetinalModalityValidator.validate(im)["is_fundus"] for im in id_images[:100]]
-    non_fundus_preds = [
-        RetinalModalityValidator.validate(im)["is_fundus"] for im in far_ood_images[:100]
-    ]
-
-    # False Reject Rate: fundus rejected as non-fundus
-    frr = float(np.mean([not p for p in fundus_preds]))
-    # False Accept Rate: non-fundus accepted as fundus
-    far = float(np.mean([p for p in non_fundus_preds]))
-
-    ood_results = {
-        "benchmark_type": "In-Distribution (EyeQ Test) vs Controlled Far-OOD",
-        "num_id_samples": len(id_energy),
-        "num_ood_samples": len(ood_energy),
-        "metrics": {
-            "auroc": round(auroc, 4),
-            "auprc": round(auprc, 4),
-            "fpr_at_95_tpr": round(fpr_95, 4),
-        },
-        "score_distributions": {
-            "id_energy_mean": round(float(np.mean(id_energy)), 4),
-            "id_energy_std": round(float(np.std(id_energy)), 4),
-            "ood_energy_mean": round(float(np.mean(ood_energy)), 4),
-            "ood_energy_std": round(float(np.std(ood_energy)), 4),
-            "fitted_threshold_from_val": fitted_thresh,
-        },
-        "modality_gate_heuristic_validation": {
-            "num_fundus_tested": len(fundus_preds),
-            "num_non_fundus_tested": len(non_fundus_preds),
-            "false_reject_rate_frr": round(frr, 4),
-            "false_accept_rate_far": round(far, 4),
-            "accuracy": round(1.0 - (frr + far) / 2.0, 4),
-        },
+    benchmarks = {
+        "in_distribution": {
+            "dataset_split": args.id_test_split,
+            "num_samples": len(id_records),
+            "mean_energy_score": float(np.mean(id_scores_arr)),
+            "std_energy_score": float(np.std(id_scores_arr)),
+            "modality_false_reject_rate": float(id_modality_frr),
+        }
     }
 
-    with open(out_p / "ood.json", "w", encoding="utf-8") as f:
-        json.dump(ood_results, f, indent=2)
+    # 2. Near-OOD evaluation if manifest provided
+    if args.near_ood_manifest and Path(args.near_ood_manifest).is_file():
+        near_records = load_images_from_manifest(
+            Path(args.near_ood_manifest), max_samples=args.max_samples
+        )
+        if near_records:
+            near_scores = []
+            near_passes = 0
+            with torch.no_grad():
+                for _, img in near_records:
+                    is_valid, _ = validator.validate_image(img)
+                    if is_valid:
+                        near_passes += 1
+                    tensor = preprocess_image_canonical(img, image_size=384).unsqueeze(0)
+                    outputs = model(tensor)
+                    logits = outputs["quality_logits"].numpy()[0]
+                    near_scores.append(compute_energy_score(logits, temperature=1.0))
 
-    print("\n--- OOD & Modality Benchmark Results ---")
-    print(f"AUROC:                   {auroc:.4f}")
-    print(f"AUPRC:                   {auprc:.4f}")
-    print(f"FPR @ 95% TPR:           {fpr_95:.4f}")
-    print(f"ID Mean Energy:          {np.mean(id_energy):.4f} +/- {np.std(id_energy):.4f}")
-    print(f"OOD Mean Energy:         {np.mean(ood_energy):.4f} +/- {np.std(ood_energy):.4f}")
-    print(f"Modality Gate FRR:       {frr:.4f}")
-    print(f"Modality Gate FAR:       {far:.4f}")
-    print(f"Exported OOD results to: {out_p / 'ood.json'}")
+            near_scores_arr = np.array(near_scores)
+            y_true = np.concatenate([np.ones(len(id_scores_arr)), np.zeros(len(near_scores_arr))])
+            y_scores = np.concatenate([id_scores_arr, near_scores_arr])
+
+            benchmarks["near_ood_manifest"] = {
+                "manifest": args.near_ood_manifest,
+                "num_samples": len(near_records),
+                "auroc": float(roc_auc_score(y_true, y_scores)),
+                "fpr_at_95_tpr": float(compute_fpr_at_95_tpr(y_true, y_scores)),
+            }
+
+    # 3. Far-OOD evaluation if manifest provided
+    if args.far_ood_manifest and Path(args.far_ood_manifest).is_file():
+        far_records = load_images_from_manifest(
+            Path(args.far_ood_manifest), max_samples=args.max_samples
+        )
+        if far_records:
+            far_scores = []
+            with torch.no_grad():
+                for _, img in far_records:
+                    tensor = preprocess_image_canonical(img, image_size=384).unsqueeze(0)
+                    outputs = model(tensor)
+                    logits = outputs["quality_logits"].numpy()[0]
+                    far_scores.append(compute_energy_score(logits, temperature=1.0))
+
+            far_scores_arr = np.array(far_scores)
+            y_true = np.concatenate([np.ones(len(id_scores_arr)), np.zeros(len(far_scores_arr))])
+            y_scores = np.concatenate([id_scores_arr, far_scores_arr])
+
+            benchmarks["far_ood_manifest"] = {
+                "manifest": args.far_ood_manifest,
+                "num_samples": len(far_records),
+                "auroc": float(roc_auc_score(y_true, y_scores)),
+                "fpr_at_95_tpr": float(compute_fpr_at_95_tpr(y_true, y_scores)),
+            }
+
+    # 4. Controlled Synthetic Stress Test (Labeled explicitly as synthetic)
+    if args.include_synthetic_stress_test:
+        rng = np.random.RandomState(2026)
+        synthetic_scores = []
+        for _ in range(len(id_records)):
+            arr = rng.randint(0, 256, (384, 384, 3), dtype=np.uint8)
+            img = Image.fromarray(arr)
+            tensor = preprocess_image_canonical(img, image_size=384).unsqueeze(0)
+            with torch.no_grad():
+                outputs = model(tensor)
+                logits = outputs["quality_logits"].numpy()[0]
+                synthetic_scores.append(compute_energy_score(logits, temperature=1.0))
+
+        syn_arr = np.array(synthetic_scores)
+        y_true = np.concatenate([np.ones(len(id_scores_arr)), np.zeros(len(syn_arr))])
+        y_scores = np.concatenate([id_scores_arr, syn_arr])
+
+        precision, recall, _ = precision_recall_curve(y_true, y_scores)
+        benchmarks["synthetic_noise_stress_test"] = {
+            "type": "synthetic_uniform_noise",
+            "num_samples": len(syn_arr),
+            "auroc": float(roc_auc_score(y_true, y_scores)),
+            "auprc": float(auc(recall, precision)),
+            "fpr_at_95_tpr": float(compute_fpr_at_95_tpr(y_true, y_scores)),
+        }
+
+    out_file = Path(args.output_file)
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_file, "w", encoding="utf-8") as f:
+        json.dump(benchmarks, f, indent=2)
+
+    print(f"Saved OOD benchmark results to {out_file}")
 
 
 if __name__ == "__main__":

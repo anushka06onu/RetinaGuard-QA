@@ -1,9 +1,0 @@
-Model / Comparison,Cohort / Dataset,Macro-F1,Balanced Acc,QWK,ECE,p95 Latency (ms)
-Majority Class Baseline,EyeQ Test,0.3333,0.3333,0.0,0.452,0.1
-Classical Features (RF),EyeQ Test,0.718,0.7042,0.651,0.182,12.0
-MobileNetV3 Single-Task,EyeQ Test,0.8412,0.832,0.8051,0.052,24.0
-EfficientNet-B0 Single-Task,EyeQ Test,0.8524,0.8441,0.819,0.048,38.0
-EyeQ Single-Task (Ablation),EyeQ Test,0.868,0.861,0.834,0.0495,23.5
-Multi-Task Proposed (Mean 3 Seeds),EyeQ Test,0.8919 ± 0.0026,0.8846 ± 0.0031,0.8587 ± 0.0038,0.0396 ± 0.0014,23.5
-Multi-Task Proposed (Mean 3 Seeds),DeepDRiD Held-Out,0.8100 ± 0.0031,0.8037 ± 0.0032,0.7739 ± 0.0043,0.0626 ± 0.0017,23.5
-Zero-Shot Transfer (EyeQ-Only Model),DeepDRiD External,0.7645,0.7512,0.712,0.084,23.5
