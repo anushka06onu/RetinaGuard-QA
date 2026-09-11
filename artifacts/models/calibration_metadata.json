@@ -1,4 +1,7 @@
 {
+  "status": "preliminary_obsolete_architecture",
+  "head_type": "deepdrid_overall_3class",
+  "eligible_as_final_result": false,
   "temperature": 1.2438,
   "uncertainty_threshold": 1.3474,
   "uncertainty_unit": "bits",

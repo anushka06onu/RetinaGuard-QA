@@ -340,15 +340,15 @@ def run_leakage_and_duplicate_audit(
 
 ## Summary
 - **Schema Version:** 1.0
-- **Generated At UTC:** {audit_summary['generated_at_utc']}
+- **Generated At UTC:** {audit_summary["generated_at_utc"]}
 - **Git Commit:** `{git_commit}`
 - **Audit Script SHA-256:** `{script_sha}`
 - **Mapping Schema SHA-256:** `{mapping_sha}`
-- **Cross-Split Isolation:** {'✅ PASSED (Zero Leakage)' if cross_split_isolation_passed else '❌ FAILED (Leakage Detected)'}
-- **Intra-Split Uniqueness:** {'✅ PASSED (No Duplicates)' if intra_split_uniqueness_passed else '❌ FAILED (Duplicates Detected)'}
-- **Image Integrity:** {'✅ PASSED (All Verified)' if image_integrity_passed else '❌ FAILED (Issues Detected)'}
-- **Overall Audit Status:** {'✅ PASSED' if overall_audit_passed else '❌ FAILED'}
-- **Splits Evaluated:** {', '.join(split_names)}
+- **Cross-Split Isolation:** {"✅ PASSED (Zero Leakage)" if cross_split_isolation_passed else "❌ FAILED (Leakage Detected)"}
+- **Intra-Split Uniqueness:** {"✅ PASSED (No Duplicates)" if intra_split_uniqueness_passed else "❌ FAILED (Duplicates Detected)"}
+- **Image Integrity:** {"✅ PASSED (All Verified)" if image_integrity_passed else "❌ FAILED (Issues Detected)"}
+- **Overall Audit Status:** {"✅ PASSED" if overall_audit_passed else "❌ FAILED"}
+- **Splits Evaluated:** {", ".join(split_names)}
 
 ## Partition Summary & Cryptographic Hashes
 | Split | Split File SHA-256 | Images | Unique Patients | Unique Hashes | Intra-Split Dups |

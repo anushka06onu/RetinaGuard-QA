@@ -1,4 +1,7 @@
 {
+  "status": "preliminary_obsolete_architecture",
+  "head_type": "deepdrid_overall_3class",
+  "eligible_as_final_result": false,
   "gaussian_blur": {
     "1": {
       "macro_f1": 0.7106,

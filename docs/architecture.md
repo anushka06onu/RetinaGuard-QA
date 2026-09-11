@@ -97,7 +97,7 @@ src/retinaguard/
 
 ## 2. Multi-Task Model & Head Dimensions
 
-The primary neural model (`RetinaGuardMultiTaskModel` in [src/retinaguard/models/multitask.py](file:///Users/fatehahossainanushka/RetinaGuard-QA/src/retinaguard/models/multitask.py)) extracts a 512-dimensional or 960-dimensional pooled embedding from a shared convolutional backbone (`mobilenetv3_large_100` or `efficientnet_b0`).
+The primary neural model (`RetinaGuardMultiTaskModel` in [src/retinaguard/models/multitask.py](../src/retinaguard/models/multitask.py)) extracts a 512-dimensional or 960-dimensional pooled embedding from a shared convolutional backbone (`mobilenetv3_large_100` or `efficientnet_b0`).
 
 The shared representation feeds five dedicated task heads:
 

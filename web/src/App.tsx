@@ -487,54 +487,54 @@ export default function App() {
                 <th className="py-3 px-4">Balanced Acc</th>
                 <th className="py-3 px-4">QWK</th>
                 <th className="py-3 px-4">ECE</th>
-                <th className="py-3 px-4">CPU p95</th>
+                <th className="py-3 px-4">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-mono text-xs">
-              <tr>
-                <td className="py-3 px-4 font-sans font-medium text-slate-900">Classical Features (RF)</td>
-                <td className="py-3 px-4 font-sans">EyeQ Internal</td>
-                <td className="py-3 px-4">0.718</td>
-                <td className="py-3 px-4">0.704</td>
-                <td className="py-3 px-4">0.651</td>
-                <td className="py-3 px-4">0.182</td>
-                <td className="py-3 px-4">12 ms</td>
+              <tr className="bg-slate-50/50">
+                <td className="py-3 px-4 font-sans font-medium text-slate-900">RetinaGuard Preliminary Run (3-Head)</td>
+                <td className="py-3 px-4 font-sans">DeepDRiD (N=400)</td>
+                <td className="py-3 px-4">0.697</td>
+                <td className="py-3 px-4">0.700</td>
+                <td className="py-3 px-4">0.395</td>
+                <td className="py-3 px-4">0.091</td>
+                <td className="py-3 px-4 font-sans text-slate-600">Preliminary Baseline</td>
               </tr>
               <tr>
-                <td className="py-3 px-4 font-sans font-medium text-slate-900">MobileNetV3-Small</td>
-                <td className="py-3 px-4 font-sans">EyeQ Internal</td>
-                <td className="py-3 px-4">0.841</td>
-                <td className="py-3 px-4">0.832</td>
-                <td className="py-3 px-4">0.805</td>
-                <td className="py-3 px-4">0.052</td>
-                <td className="py-3 px-4">24 ms</td>
+                <td className="py-3 px-4 font-sans font-medium text-slate-900">Classical Features (RF)</td>
+                <td className="py-3 px-4 font-sans">EyeQ Official Test</td>
+                <td className="py-3 px-4 text-slate-600">—</td>
+                <td className="py-3 px-4 text-slate-600">—</td>
+                <td className="py-3 px-4 text-slate-600">—</td>
+                <td className="py-3 px-4 text-slate-600">—</td>
+                <td className="py-3 px-4 font-sans text-amber-700">Pending Campaign Run</td>
+              </tr>
+              <tr>
+                <td className="py-3 px-4 font-sans font-medium text-slate-900">MobileNetV3-Large</td>
+                <td className="py-3 px-4 font-sans">EyeQ Official Test</td>
+                <td className="py-3 px-4 text-slate-600">—</td>
+                <td className="py-3 px-4 text-slate-600">—</td>
+                <td className="py-3 px-4 text-slate-600">—</td>
+                <td className="py-3 px-4 text-slate-600">—</td>
+                <td className="py-3 px-4 font-sans text-amber-700">Pending Campaign Run</td>
               </tr>
               <tr>
                 <td className="py-3 px-4 font-sans font-medium text-slate-900">EfficientNet-B0</td>
-                <td className="py-3 px-4 font-sans">EyeQ Internal</td>
-                <td className="py-3 px-4">0.852</td>
-                <td className="py-3 px-4">0.844</td>
-                <td className="py-3 px-4">0.819</td>
-                <td className="py-3 px-4">0.048</td>
-                <td className="py-3 px-4">38 ms</td>
+                <td className="py-3 px-4 font-sans">EyeQ Official Test</td>
+                <td className="py-3 px-4 text-slate-600">—</td>
+                <td className="py-3 px-4 text-slate-600">—</td>
+                <td className="py-3 px-4 text-slate-600">—</td>
+                <td className="py-3 px-4 text-slate-600">—</td>
+                <td className="py-3 px-4 font-sans text-amber-700">Pending Campaign Run</td>
               </tr>
               <tr className="bg-teal-50/50 font-semibold text-teal-900">
-                <td className="py-3 px-4 font-sans">RetinaGuard-QA (Multi-Task)</td>
-                <td className="py-3 px-4 font-sans">EyeQ Internal</td>
-                <td className="py-3 px-4">0.894</td>
-                <td className="py-3 px-4">0.887</td>
-                <td className="py-3 px-4">0.862</td>
-                <td className="py-3 px-4">0.038</td>
-                <td className="py-3 px-4">28 ms</td>
-              </tr>
-              <tr className="bg-teal-50/50 font-semibold text-teal-900">
-                <td className="py-3 px-4 font-sans">RetinaGuard-QA (Multi-Task)</td>
-                <td className="py-3 px-4 font-sans">DeepDRiD External</td>
-                <td className="py-3 px-4">0.812</td>
-                <td className="py-3 px-4">0.806</td>
-                <td className="py-3 px-4">0.778</td>
-                <td className="py-3 px-4">0.061</td>
-                <td className="py-3 px-4">28 ms</td>
+                <td className="py-3 px-4 font-sans">RetinaGuard-QA Multi-Task (Binary Head)</td>
+                <td className="py-3 px-4 font-sans">EyeQ + DeepDRiD External</td>
+                <td className="py-3 px-4 text-slate-600">—</td>
+                <td className="py-3 px-4 text-slate-600">—</td>
+                <td className="py-3 px-4 text-slate-600">—</td>
+                <td className="py-3 px-4 text-slate-600">—</td>
+                <td className="py-3 px-4 font-sans text-teal-800">Final Architecture Target</td>
               </tr>
             </tbody>
           </table>

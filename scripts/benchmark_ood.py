@@ -84,7 +84,7 @@ def main():
     parser.add_argument(
         "--include-synthetic-stress-test",
         action="store_true",
-        default=True,
+        default=False,
         help="Include synthetic corruption stress patterns (clearly labeled as synthetic)",
     )
     parser.add_argument(
@@ -119,21 +119,20 @@ def main():
 
     # Compute ID energy scores
     id_scores = []
-    validator = RetinalModalityValidator()
     id_modality_passes = 0
 
     with torch.no_grad():
         for _, img in id_records:
-            is_valid_modality, _ = validator.validate_image(img)
-            if is_valid_modality:
+            modality_res = RetinalModalityValidator.validate(img)
+            if modality_res.get("is_fundus", False):
                 id_modality_passes += 1
 
-            tensor = preprocess_image_canonical(img, image_size=384).unsqueeze(0)
+            tensor = preprocess_image_canonical(img, image_size=384)
             outputs = model(tensor)
             logits = outputs["quality_logits"].numpy()[0]
             # Higher energy score -> more in-distribution
             e_score = compute_energy_score(logits, temperature=1.0)
-            id_scores.append(e_score)
+            id_scores.append(float(e_score))
 
     id_scores_arr = np.array(id_scores)
     id_modality_frr = 1.0 - (id_modality_passes / len(id_records))
@@ -155,16 +154,12 @@ def main():
         )
         if near_records:
             near_scores = []
-            near_passes = 0
             with torch.no_grad():
                 for _, img in near_records:
-                    is_valid, _ = validator.validate_image(img)
-                    if is_valid:
-                        near_passes += 1
-                    tensor = preprocess_image_canonical(img, image_size=384).unsqueeze(0)
+                    tensor = preprocess_image_canonical(img, image_size=384)
                     outputs = model(tensor)
                     logits = outputs["quality_logits"].numpy()[0]
-                    near_scores.append(compute_energy_score(logits, temperature=1.0))
+                    near_scores.append(float(compute_energy_score(logits, temperature=1.0)))
 
             near_scores_arr = np.array(near_scores)
             y_true = np.concatenate([np.ones(len(id_scores_arr)), np.zeros(len(near_scores_arr))])
@@ -186,10 +181,10 @@ def main():
             far_scores = []
             with torch.no_grad():
                 for _, img in far_records:
-                    tensor = preprocess_image_canonical(img, image_size=384).unsqueeze(0)
+                    tensor = preprocess_image_canonical(img, image_size=384)
                     outputs = model(tensor)
                     logits = outputs["quality_logits"].numpy()[0]
-                    far_scores.append(compute_energy_score(logits, temperature=1.0))
+                    far_scores.append(float(compute_energy_score(logits, temperature=1.0)))
 
             far_scores_arr = np.array(far_scores)
             y_true = np.concatenate([np.ones(len(id_scores_arr)), np.zeros(len(far_scores_arr))])
@@ -209,11 +204,11 @@ def main():
         for _ in range(len(id_records)):
             arr = rng.randint(0, 256, (384, 384, 3), dtype=np.uint8)
             img = Image.fromarray(arr)
-            tensor = preprocess_image_canonical(img, image_size=384).unsqueeze(0)
+            tensor = preprocess_image_canonical(img, image_size=384)
             with torch.no_grad():
                 outputs = model(tensor)
                 logits = outputs["quality_logits"].numpy()[0]
-                synthetic_scores.append(compute_energy_score(logits, temperature=1.0))
+                synthetic_scores.append(float(compute_energy_score(logits, temperature=1.0)))
 
         syn_arr = np.array(synthetic_scores)
         y_true = np.concatenate([np.ones(len(id_scores_arr)), np.zeros(len(syn_arr))])

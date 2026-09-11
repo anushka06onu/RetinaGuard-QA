@@ -19,7 +19,7 @@ def generate_test_fixtures(output_dir: Path = Path("tests/fixtures")):
             {
                 "dataset": "eyeq",
                 "image_id": f"fixture_eyeq_{i:04d}",
-                "patient_id": f"P{i//2:03d}",
+                "patient_id": f"P{i // 2:03d}",
                 "eye": "left" if i % 2 == 0 else "right",
                 "path": f"tests/fixtures/images/eyeq_{i:04d}.jpg",
                 "width": 384,
@@ -48,7 +48,7 @@ def generate_test_fixtures(output_dir: Path = Path("tests/fixtures")):
             {
                 "dataset": "deepdrid",
                 "image_id": f"fixture_deepdrid_{i:04d}",
-                "patient_id": f"D{i//2:03d}",
+                "patient_id": f"D{i // 2:03d}",
                 "eye": "left" if i % 2 == 0 else "right",
                 "path": f"tests/fixtures/images/deepdrid_{i:04d}.jpg",
                 "width": 384,

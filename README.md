@@ -46,17 +46,17 @@ It outputs one of four deterministic operational decisions:
 
 ### A. Experimental Benchmark Design
 
-When executed across full cohorts, the experimental protocol evaluates models over patient-isolated splits:
+When executed across full cohorts, the experimental protocol evaluates models over verified test partitions:
 
 | Model / Comparison | Cohort / Split | Target Tasks | Status |
 | :--- | :--- | :--- | :---: |
-| **Majority Class Baseline** | EyeQ Test ($N=2,400$) | 3-class Quality | Planned |
-| **Classical Features (Random Forest / LR)** | EyeQ Test ($N=2,400$) | Texture & Contrast Features | Planned |
-| **MobileNetV3 Single-Task** | EyeQ Test ($N=2,400$) | Quality Grade | Planned |
-| **EfficientNet-B0 Single-Task** | EyeQ Test ($N=2,400$) | Quality Grade | Planned |
-| **RetinaGuard-QA Multi-Task (3 Seeds)** | EyeQ Test ($N=2,400$) | Quality + Acquisition Attributes | In Progress |
-| **DeepDRiD Held-Out Supervised** | DeepDRiD Test ($N=400$) | Overall Quality + 3 Ordinal Attributes | In Progress |
-| **DeepDRiD Zero-Shot External Transfer** | DeepDRiD External ($N=400$) | Binary Acceptable vs Reject | In Progress |
+| **Majority Class Baseline** | EyeQ Official Test — final valid count reported after ingestion audit | 3-class Quality | Planned |
+| **Classical Features (Random Forest / LR)** | EyeQ Official Test — final valid count reported after ingestion audit | Texture & Contrast Features | Planned |
+| **MobileNetV3 Single-Task** | EyeQ Official Test — final valid count reported after ingestion audit | Quality Grade | Planned |
+| **EfficientNet-B0 Single-Task** | EyeQ Official Test — final valid count reported after ingestion audit | Quality Grade | Planned |
+| **RetinaGuard-QA Multi-Task (3 Seeds)** | EyeQ Official Test — final valid count reported after ingestion audit | Quality + Acquisition Attributes | In Progress |
+| **DeepDRiD Held-Out Supervised** | DeepDRiD Test ($N=400$, 100 patients) | Overall Quality + 3 Ordinal Attributes | In Progress |
+| **DeepDRiD Zero-Shot External Transfer** | DeepDRiD External ($N=400$, 100 patients) | Binary Acceptable vs Reject | In Progress |
 
 ### B. Preliminary Engineering Execution on DeepDRiD
 
@@ -67,7 +67,7 @@ A preliminary multi-task training run was conducted on the 2,000 verified DeepDR
   - **Balanced Accuracy:** 0.6997
   - **Artifact Attribute Macro-F1:** 0.7377
   - *Note:* This preliminary run utilized the earlier 3-output head. The corrected binary overall-quality head (`0: Good`, `1: Poor/Reject`, `nn.Linear(512, 2)`) is now implemented for the final campaign.
-  - Full per-class records are documented in [artifacts/metrics/held_out_deepdrid.json](file:///Users/fatehahossainanushka/RetinaGuard-QA/artifacts/metrics/held_out_deepdrid.json).
+  - Full per-class records are documented in [Preliminary DeepDRiD metrics](artifacts/metrics/held_out_deepdrid.json).
 
 ---
 
@@ -81,8 +81,14 @@ pip install -e ".[dev]"
 cd web && npm install && npm run build && cd ..
 
 # 2. Data Manifest Preparation
-python scripts/prepare_deepdrid.py --data_dir data/raw/deepdrid
-python scripts/prepare_eyeq.py --data_dir data/raw/eyeq
+python scripts/prepare_deepdrid.py \
+  --external-root external/DeepDRiD/regular_fundus_images \
+  --output-csv data/manifests/deepdrid_manifest.csv
+
+python scripts/prepare_eyeq.py \
+  --labels-csv data/raw/eyeq/labels/Label_EyeQ_Train.csv \
+  --images-dir data/raw/eyeq/images \
+  --output-csv data/manifests/eyeq_manifest.csv
 
 # 3. Patient-Isolated Stratified Partitioning
 python scripts/create_splits.py \
@@ -92,7 +98,9 @@ python scripts/create_splits.py \
   --output-dir data/splits
 
 # 4. Leakage & Exact Duplicate Auditing
-python scripts/audit_dataset.py --splits_dir data/splits
+python scripts/audit_dataset.py \
+  --splits-dir data/splits \
+  --reports-dir artifacts/reports
 
 # 5. Multi-Task Training (or 3-Seed Campaign)
 python scripts/train.py --config configs/train_multitask.yaml
@@ -126,7 +134,7 @@ python scripts/benchmark_corruptions.py \
   --checkpoint artifacts/models/best.ckpt \
   --test-split data/splits/deepdrid_external_test.csv \
   --task deepdrid_overall \
-  --output-file artifacts/metrics/corruptions.json
+  --output-dir artifacts/metrics
 
 # 10. Generate Figures from Recorded Metrics
 python scripts/generate_figures.py \

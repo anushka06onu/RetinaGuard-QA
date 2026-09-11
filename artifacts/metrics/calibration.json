@@ -1,4 +1,7 @@
 {
+  "status": "preliminary_obsolete_architecture",
+  "head_type": "deepdrid_overall_3class",
+  "eligible_as_final_result": false,
   "checkpoint": "artifacts/models/best.ckpt",
   "checkpoint_sha256": "563db501aed717055360759b7483b155de1003fc82f55756d6d8ac4c8c24d91d",
   "validation_split": "data/splits/deepdrid_val.csv",

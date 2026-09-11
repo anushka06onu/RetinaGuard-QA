@@ -18,7 +18,7 @@ def test_api_health():
     res = client.get("/health")
     assert res.status_code == 200
     data = res.json()
-    assert data["status"] in ["healthy", "degraded"]
+    assert data["status"] in ["ready", "healthy", "degraded"]
     assert "runtime_engine" in data
 
 

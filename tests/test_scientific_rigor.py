@@ -32,18 +32,18 @@ def test_production_data_directory_isolation():
     for p in Path("data/manifests").glob("*.csv"):
         df = pd.read_csv(p)
         if "sha256" in df.columns:
-            assert "mock_sha" not in str(
-                df["sha256"].values
-            ), f"Mock hashes found in production manifest: {p}"
+            assert "mock_sha" not in str(df["sha256"].values), (
+                f"Mock hashes found in production manifest: {p}"
+            )
         if "is_fixture" in df.columns:
             assert not df["is_fixture"].any(), f"Fixture records found in production manifest: {p}"
 
     for p in Path("data/splits").glob("*.csv"):
         df = pd.read_csv(p)
         if "sha256" in df.columns:
-            assert "mock_sha" not in str(
-                df["sha256"].values
-            ), f"Mock hashes found in production split: {p}"
+            assert "mock_sha" not in str(df["sha256"].values), (
+                f"Mock hashes found in production split: {p}"
+            )
         if "is_fixture" in df.columns:
             assert not df["is_fixture"].any(), f"Fixture records found in production split: {p}"
 
@@ -67,17 +67,17 @@ def test_production_artifacts_contain_no_unsupported_metrics():
     metrics_files = [
         f for f in Path("artifacts/metrics").glob("*.json") if f.name not in allowed_metric_names
     ]
-    assert (
-        len(metrics_files) == 0
-    ), f"Unsupported metrics JSON files found in artifacts/metrics/: {metrics_files}"
+    assert len(metrics_files) == 0, (
+        f"Unsupported metrics JSON files found in artifacts/metrics/: {metrics_files}"
+    )
 
     allowed_report_names = {"cross_split_isolation_audit.json", "data_audit.json"}
     report_files = [
         f for f in Path("artifacts/reports").glob("*.json") if f.name not in allowed_report_names
     ]
-    assert (
-        len(report_files) == 0
-    ), f"Unsupported report JSON files found in artifacts/reports/: {report_files}"
+    assert len(report_files) == 0, (
+        f"Unsupported report JSON files found in artifacts/reports/: {report_files}"
+    )
 
 
 def test_fixture_directory_metadata():
@@ -88,12 +88,12 @@ def test_fixture_directory_metadata():
         df = pd.read_csv(p)
         assert "is_fixture" in df.columns, f"Missing is_fixture in {p}"
         assert df["is_fixture"].all(), f"is_fixture is not all True in {p}"
-        assert (
-            "eligible_for_scientific_analysis" in df.columns
-        ), f"Missing eligible_for_scientific_analysis in {p}"
-        assert not df[
-            "eligible_for_scientific_analysis"
-        ].any(), f"Fixture marked eligible for science in {p}"
+        assert "eligible_for_scientific_analysis" in df.columns, (
+            f"Missing eligible_for_scientific_analysis in {p}"
+        )
+        assert not df["eligible_for_scientific_analysis"].any(), (
+            f"Fixture marked eligible for science in {p}"
+        )
 
 
 def test_dataset_fail_fast_on_missing_images(tmp_path):
@@ -129,3 +129,79 @@ def test_energy_score_directionality():
 
     # In-distribution confident predictions must have higher energy score
     assert energy_id > energy_ood, f"Expected energy_id ({energy_id}) > energy_ood ({energy_ood})"
+
+
+def test_empirical_result_artifact_schema_and_integrity(tmp_path):
+    """Verify that all metric artifacts conform to rigorous evidence-status schema."""
+    from retinaguard.evaluation.provenance import validate_empirical_result
+
+    # 1. Verify all committed metrics files in artifacts/metrics/
+    metrics_files = list(Path("artifacts/metrics").glob("*.json"))
+    assert len(metrics_files) > 0, "Expected metrics files in artifacts/metrics/"
+    for mf in metrics_files:
+        res = validate_empirical_result(mf)
+        assert res["valid"] is True
+
+    # 2. Test rejection of unprovenanced mock result JSON
+    mock_bad_json = tmp_path / "mock_bad.json"
+    mock_bad_json.write_text(
+        json.dumps({"macro_f1": 0.95, "dataset": "Fabricated", "status": "completed"})
+    )
+    with pytest.raises(ValueError, match="missing required provenance keys"):
+        validate_empirical_result(mock_bad_json)
+
+    # 3. Test rejection of completed result marked ineligible for science
+    mock_ineligible = tmp_path / "ineligible.json"
+    mock_ineligible.write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "generated_by": "scripts/evaluate.py",
+                "git_commit": "abc1234",
+                "checkpoint_sha256": "fake_ckpt_sha",
+                "split_sha256": "fake_split_sha",
+                "num_samples": 100,
+                "created_at_utc": "2026-09-11T12:00:00Z",
+                "eligible_as_final_result": False,
+            }
+        )
+    )
+    with pytest.raises(
+        ValueError, match="Completed result cannot have eligible_as_final_result = False"
+    ):
+        validate_empirical_result(mock_ineligible)
+
+    # 4. Test rejection of preliminary artifact missing head_type
+    mock_bad_prelim = tmp_path / "bad_prelim.json"
+    mock_bad_prelim.write_text(
+        json.dumps(
+            {"status": "preliminary_obsolete_architecture", "eligible_as_final_result": False}
+        )
+    )
+    with pytest.raises(ValueError, match="Preliminary obsolete artifact must declare head_type"):
+        validate_empirical_result(mock_bad_prelim)
+
+    # 5. Test acceptance of fully provenanced completed result
+    dummy_split = tmp_path / "split.csv"
+    dummy_split.write_text("image_id,path\n1,img.png\n")
+    split_sha = compute_sha256(dummy_split)
+
+    valid_completed = tmp_path / "valid_completed.json"
+    valid_completed.write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "generated_by": "scripts/evaluate.py",
+                "git_commit": "abc1234",
+                "checkpoint_sha256": "ckpt_hash_123",
+                "split_path": str(dummy_split),
+                "split_sha256": split_sha,
+                "num_samples": 1,
+                "macro_f1": 0.85,
+                "created_at_utc": "2026-09-11T12:00:00Z",
+            }
+        )
+    )
+    valid_res = validate_empirical_result(valid_completed)
+    assert valid_res["valid"] is True
+    assert valid_res["type"] == "completed_final_result"

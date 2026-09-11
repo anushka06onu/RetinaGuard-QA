@@ -199,11 +199,34 @@ def main():
             f"Neither EyeQ split ({args.eyeq_split}) nor DeepDRiD split ({args.deepdrid_split}) was found."
         )
 
+    import datetime
+    import subprocess
+
+    from retinaguard.utils.hashing import compute_sha256
+
+    try:
+        git_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    except Exception:
+        git_commit = "unknown"
+
+    ckpt_sha = compute_sha256(ckpt_p)
+    created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
     # 1. Internal EyeQ Test Evaluation
     if has_eyeq:
         print(f"Loading EyeQ test split from {args.eyeq_split}...")
         eyeq_metrics = evaluate_dataset_partition(
             model, args.eyeq_split, "EyeQ (Internal Test)", is_deepdrid=False
+        )
+        eyeq_metrics.update(
+            {
+                "status": "completed",
+                "generated_by": "scripts/evaluate.py",
+                "git_commit": git_commit,
+                "checkpoint_sha256": ckpt_sha,
+                "split_sha256": compute_sha256(args.eyeq_split),
+                "created_at_utc": created_at,
+            }
         )
         with open(out_p / "eyeq_test.json", "w", encoding="utf-8") as f:
             json.dump(eyeq_metrics, f, indent=2)
@@ -229,6 +252,16 @@ def main():
                 is_deepdrid=True,
                 is_zero_shot=True,
             )
+            transfer_metrics.update(
+                {
+                    "status": "completed",
+                    "generated_by": "scripts/evaluate.py",
+                    "git_commit": git_commit,
+                    "checkpoint_sha256": ckpt_sha,
+                    "split_sha256": compute_sha256(args.deepdrid_split),
+                    "created_at_utc": created_at,
+                }
+            )
             with open(out_p / "zero_shot_transfer.json", "w", encoding="utf-8") as f:
                 json.dump(transfer_metrics, f, indent=2)
             print(
@@ -242,6 +275,16 @@ def main():
                 "DeepDRiD (Held-Out Supervised Evaluation)",
                 is_deepdrid=True,
                 is_zero_shot=False,
+            )
+            deepdrid_metrics.update(
+                {
+                    "status": "completed",
+                    "generated_by": "scripts/evaluate.py",
+                    "git_commit": git_commit,
+                    "checkpoint_sha256": ckpt_sha,
+                    "split_sha256": compute_sha256(args.deepdrid_split),
+                    "created_at_utc": created_at,
+                }
             )
             with open(out_p / "deepdrid_heldout.json", "w", encoding="utf-8") as f:
                 json.dump(deepdrid_metrics, f, indent=2)

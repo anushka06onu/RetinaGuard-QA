@@ -173,3 +173,74 @@ def test_evaluation_ignores_masked_placeholder_records(tmp_path):
     assert metrics["attribute_metrics"]["artifact"]["macro_f1"] == 1.0
     assert metrics["attribute_metrics"]["clarity"]["macro_f1"] == 1.0
     assert metrics["attribute_metrics"]["field_definition"]["macro_f1"] == 1.0
+
+
+def test_benchmark_ood_script_end_to_end(tmp_path, monkeypatch):
+    """Verify scripts/benchmark_ood.py executes end-to-end without runtime/dimension errors."""
+    import json
+    import sys
+
+    import pandas as pd
+    import torch
+    from PIL import Image
+
+    from retinaguard.models.multitask import RetinaGuardMultiTaskModel
+    from scripts.benchmark_ood import main as ood_main
+
+    # 1. Create a dummy model checkpoint
+    model = RetinaGuardMultiTaskModel(pretrained=False)
+    model.eval()
+    ckpt_path = tmp_path / "test_model.ckpt"
+    torch.save({"state_dict": model.state_dict()}, ckpt_path)
+
+    # 2. Create sample ID fundus image and manifest
+    id_img_path = tmp_path / "id_fundus.png"
+    Image.new("RGB", (100, 100), color=(190, 75, 25)).save(id_img_path)
+    id_csv = tmp_path / "id_split.csv"
+    pd.DataFrame([{"image_id": "id_001", "path": str(id_img_path)}]).to_csv(id_csv, index=False)
+
+    # 3. Create Near-OOD and Far-OOD images and manifests
+    near_img_path = tmp_path / "near_ood.png"
+    Image.new("RGB", (100, 100), color=(180, 70, 20)).save(near_img_path)
+    near_csv = tmp_path / "near_split.csv"
+    pd.DataFrame([{"image_id": "near_001", "path": str(near_img_path)}]).to_csv(
+        near_csv, index=False
+    )
+
+    far_img_path = tmp_path / "far_ood.png"
+    Image.new("RGB", (100, 100), color=(20, 120, 220)).save(far_img_path)
+    far_csv = tmp_path / "far_split.csv"
+    pd.DataFrame([{"image_id": "far_001", "path": str(far_img_path)}]).to_csv(far_csv, index=False)
+
+    out_json = tmp_path / "ood_results.json"
+
+    test_args = [
+        "benchmark_ood.py",
+        "--checkpoint",
+        str(ckpt_path),
+        "--id-test-split",
+        str(id_csv),
+        "--near-ood-manifest",
+        str(near_csv),
+        "--far-ood-manifest",
+        str(far_csv),
+        "--include-synthetic-stress-test",
+        "--output-file",
+        str(out_json),
+        "--max-samples",
+        "5",
+    ]
+    monkeypatch.setattr(sys, "argv", test_args)
+
+    ood_main()
+
+    assert out_json.is_file()
+    with open(out_json, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    assert "in_distribution" in data
+    assert data["in_distribution"]["num_samples"] == 1
+    assert "near_ood_manifest" in data
+    assert "far_ood_manifest" in data
+    assert "synthetic_noise_stress_test" in data
+    assert data["synthetic_noise_stress_test"]["auroc"] >= 0.0
