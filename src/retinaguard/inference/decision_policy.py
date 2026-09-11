@@ -78,7 +78,7 @@ class DecisionPolicyEngine:
         attributes_raw: Optional[Dict[str, int]] = None,
         latency_ms: Optional[float] = None,
     ) -> PredictionResponse:
-        pred_class = max(probs, key=probs.get)
+        pred_class = max(list(probs.keys()), key=lambda k: probs[k])
         cal_conf = probs[pred_class]
 
         attr_decodings = {
@@ -127,5 +127,6 @@ class DecisionPolicyEngine:
             decision=decision,
             quality_attributes=QualityAttributes(**attr_decodings),
             feedback=feedback,
+            disclaimer="Technical image-quality assessment only; not a clinical diagnosis or treatment recommendation.",
             latency_ms=round(latency_ms, 2) if latency_ms is not None else None,
         )

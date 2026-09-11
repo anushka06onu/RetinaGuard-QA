@@ -172,6 +172,8 @@ def test_predictor_production_mode_requirements(tmp_path, monkeypatch):
     cal_mismatch.write_text(
         json.dumps(
             {
+                "status": "completed",
+                "eligible_as_final_result": True,
                 "temperature": 1.0,
                 "uncertainty_threshold": 0.85,
                 "ood_energy_threshold": 1.0,

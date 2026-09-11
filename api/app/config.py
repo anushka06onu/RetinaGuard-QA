@@ -39,6 +39,10 @@ class Settings:
     def is_production(self) -> bool:
         return self.app_mode == "production" and not self.test_mode
 
+    @property
+    def is_test(self) -> bool:
+        return self.test_mode or self.app_mode != "production"
+
 
 def get_settings() -> Settings:
     return Settings()

@@ -28,7 +28,7 @@ class QualityAttributes(BaseModel):
 
 
 class PredictionResponse(BaseModel):
-    model_version: str = Field("1.0.0", description="Model architecture & checkpoint version")
+    model_version: str = Field("0.2.0", description="Model architecture & checkpoint version")
     quality: str = Field(
         ..., description="Predicted canonical quality: 'good', 'usable', or 'reject'"
     )

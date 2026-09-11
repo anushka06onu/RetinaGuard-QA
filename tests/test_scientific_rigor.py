@@ -32,18 +32,18 @@ def test_production_data_directory_isolation():
     for p in Path("data/manifests").glob("*.csv"):
         df = pd.read_csv(p)
         if "sha256" in df.columns:
-            assert "mock_sha" not in str(df["sha256"].values), (
-                f"Mock hashes found in production manifest: {p}"
-            )
+            assert "mock_sha" not in str(
+                df["sha256"].values
+            ), f"Mock hashes found in production manifest: {p}"
         if "is_fixture" in df.columns:
             assert not df["is_fixture"].any(), f"Fixture records found in production manifest: {p}"
 
     for p in Path("data/splits").glob("*.csv"):
         df = pd.read_csv(p)
         if "sha256" in df.columns:
-            assert "mock_sha" not in str(df["sha256"].values), (
-                f"Mock hashes found in production split: {p}"
-            )
+            assert "mock_sha" not in str(
+                df["sha256"].values
+            ), f"Mock hashes found in production split: {p}"
         if "is_fixture" in df.columns:
             assert not df["is_fixture"].any(), f"Fixture records found in production split: {p}"
 
@@ -67,17 +67,17 @@ def test_production_artifacts_contain_no_unsupported_metrics():
     metrics_files = [
         f for f in Path("artifacts/metrics").glob("*.json") if f.name not in allowed_metric_names
     ]
-    assert len(metrics_files) == 0, (
-        f"Unsupported metrics JSON files found in artifacts/metrics/: {metrics_files}"
-    )
+    assert (
+        len(metrics_files) == 0
+    ), f"Unsupported metrics JSON files found in artifacts/metrics/: {metrics_files}"
 
     allowed_report_names = {"cross_split_isolation_audit.json", "data_audit.json"}
     report_files = [
         f for f in Path("artifacts/reports").glob("*.json") if f.name not in allowed_report_names
     ]
-    assert len(report_files) == 0, (
-        f"Unsupported report JSON files found in artifacts/reports/: {report_files}"
-    )
+    assert (
+        len(report_files) == 0
+    ), f"Unsupported report JSON files found in artifacts/reports/: {report_files}"
 
 
 def test_fixture_directory_metadata():
@@ -88,12 +88,12 @@ def test_fixture_directory_metadata():
         df = pd.read_csv(p)
         assert "is_fixture" in df.columns, f"Missing is_fixture in {p}"
         assert df["is_fixture"].all(), f"is_fixture is not all True in {p}"
-        assert "eligible_for_scientific_analysis" in df.columns, (
-            f"Missing eligible_for_scientific_analysis in {p}"
-        )
-        assert not df["eligible_for_scientific_analysis"].any(), (
-            f"Fixture marked eligible for science in {p}"
-        )
+        assert (
+            "eligible_for_scientific_analysis" in df.columns
+        ), f"Missing eligible_for_scientific_analysis in {p}"
+        assert not df[
+            "eligible_for_scientific_analysis"
+        ].any(), f"Fixture marked eligible for science in {p}"
 
 
 def test_dataset_fail_fast_on_missing_images(tmp_path):
@@ -158,8 +158,12 @@ def test_empirical_result_artifact_schema_and_integrity(tmp_path):
                 "status": "completed",
                 "generated_by": "scripts/evaluate.py",
                 "git_commit": "abc1234",
+                "checkpoint_path": "fake.ckpt",
                 "checkpoint_sha256": "fake_ckpt_sha",
+                "split_path": "fake.csv",
                 "split_sha256": "fake_split_sha",
+                "prediction_file": "fake_preds.csv",
+                "prediction_file_sha256": "fake_pred_sha",
                 "num_samples": 100,
                 "created_at_utc": "2026-09-11T12:00:00Z",
                 "eligible_as_final_result": False,
@@ -186,18 +190,33 @@ def test_empirical_result_artifact_schema_and_integrity(tmp_path):
     dummy_split.write_text("image_id,path\n1,img.png\n")
     split_sha = compute_sha256(dummy_split)
 
+    dummy_pred = tmp_path / "predictions.csv"
+    dummy_pred.write_text(
+        "image_id,patient_id,dataset,split,target,prediction\n1,p1,test,split.csv,0,0\n"
+    )
+    pred_sha = compute_sha256(dummy_pred)
+
+    dummy_ckpt = tmp_path / "model.ckpt"
+    dummy_ckpt.write_text("dummy_ckpt_bytes")
+    ckpt_sha = compute_sha256(dummy_ckpt)
+
     valid_completed = tmp_path / "valid_completed.json"
     valid_completed.write_text(
         json.dumps(
             {
                 "status": "completed",
+                "eligible_as_final_result": True,
                 "generated_by": "scripts/evaluate.py",
                 "git_commit": "abc1234",
-                "checkpoint_sha256": "ckpt_hash_123",
+                "checkpoint_path": str(dummy_ckpt),
+                "checkpoint_sha256": ckpt_sha,
                 "split_path": str(dummy_split),
                 "split_sha256": split_sha,
+                "prediction_file": str(dummy_pred),
+                "prediction_file_sha256": pred_sha,
                 "num_samples": 1,
-                "macro_f1": 0.85,
+                "accuracy": 1.0,
+                "macro_f1": 1.0,
                 "created_at_utc": "2026-09-11T12:00:00Z",
             }
         )

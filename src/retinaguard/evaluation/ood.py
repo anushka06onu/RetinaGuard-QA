@@ -50,9 +50,10 @@ class MahalanobisOOD:
             diff = c_feats - mean_c
             total_cov += np.dot(diff.T, diff)
 
-        total_cov = total_cov / max(1, len(features))
-        total_cov += np.eye(self.feature_dim, dtype=np.float32) * 1e-4
-        self.precision = np.linalg.pinv(total_cov)
+        cov_scaled = total_cov / max(1, len(features)) + (
+            np.eye(self.feature_dim, dtype=np.float32) * 1e-4
+        )
+        self.precision = np.linalg.pinv(cov_scaled)
         self.is_fitted = True
 
     def compute_distance(self, features: np.ndarray) -> np.ndarray:

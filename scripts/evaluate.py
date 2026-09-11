@@ -1,9 +1,11 @@
 """Evaluation runner script reporting internal EyeQ, held-out DeepDRiD, and zero-shot transfer metrics."""
 
 import argparse
+import datetime
 import json
+import subprocess
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -17,6 +19,7 @@ from retinaguard.evaluation.metrics import (
     compute_quality_metrics,
 )
 from retinaguard.models.multitask import RetinaGuardMultiTaskModel
+from retinaguard.utils.hashing import compute_sha256
 
 
 def evaluate_dataset_partition(
@@ -27,7 +30,7 @@ def evaluate_dataset_partition(
     is_zero_shot: bool = False,
     device: str = "cpu",
     fail_on_empty: bool = True,
-) -> Dict[str, Any]:
+) -> Tuple[Dict[str, Any], pd.DataFrame]:
     """Evaluate model on a dataset partition with strict label masking and structured return."""
     p = Path(csv_path)
     if not p.is_file():
@@ -44,12 +47,12 @@ def evaluate_dataset_partition(
             "reason": "empty_manifest",
             "num_samples": 0,
             "metrics": None,
-        }
+        }, pd.DataFrame()
 
     ds = RetinalQualityDataset(df, allow_synthetic_fallback=False)
     loader = torch.utils.data.DataLoader(ds, batch_size=16, shuffle=False)
 
-    all_logits, all_y, all_masks, all_p = [], [], [], []
+    all_logits, all_y, all_masks, all_p, all_ids = [], [], [], [], []
     attr_data = {
         "artifact": {"preds": [], "targets": [], "masks": []},
         "clarity": {"preds": [], "targets": [], "masks": []},
@@ -60,7 +63,7 @@ def evaluate_dataset_partition(
         for b in loader:
             out = model(b["image"].to(device))
             if is_zero_shot:
-                # In Zero-Shot transfer from EyeQ to DeepDRiD (Item 6):
+                # In Zero-Shot transfer from EyeQ to DeepDRiD:
                 # Model outputs 3-class EyeQ logits: 0=good, 1=usable, 2=reject.
                 # Pre-declared binary mapping: Acceptable (Good+Usable) -> 0, Reject -> 1.
                 q3_logits = out["quality_logits"].cpu().numpy()
@@ -91,13 +94,15 @@ def evaluate_dataset_partition(
             all_y.append(targets)
             all_masks.append(masks)
             all_p.extend(b["patient_id"])
+            all_ids.extend(b["image_id"])
 
     logits_arr = np.concatenate(all_logits, axis=0)
     y_arr = np.concatenate(all_y, axis=0)
     masks_arr = np.concatenate(all_masks, axis=0)
     patients_arr = np.array(all_p)
+    ids_arr = np.array(all_ids)
 
-    # Filter strictly by valid mask (> 0.5) (Item 4 & 11)
+    # Filter strictly by valid mask (> 0.5)
     valid_idx = masks_arr > 0.5
     valid_count = int(np.sum(valid_idx))
 
@@ -111,11 +116,12 @@ def evaluate_dataset_partition(
             "reason": "no_valid_labels",
             "num_samples": 0,
             "metrics": None,
-        }
+        }, pd.DataFrame()
 
     valid_logits = logits_arr[valid_idx]
     valid_y = y_arr[valid_idx]
     valid_patients = patients_arr[valid_idx]
+    valid_ids = ids_arr[valid_idx]
 
     class_names = (
         ["good", "poor_reject"] if (is_deepdrid or is_zero_shot) else ["good", "usable", "reject"]
@@ -136,23 +142,47 @@ def evaluate_dataset_partition(
     metrics["total_records_in_split"] = len(y_arr)
     metrics["status"] = "evaluated"
 
+    # Compute per-sample predictions DataFrame
+    valid_probs = softmax(valid_logits, axis=-1)
+    preds = np.argmax(valid_logits, axis=-1)
+    confs = np.max(valid_probs, axis=-1)
+    eps = 1e-12
+    entropies = -np.sum(valid_probs * np.log2(np.clip(valid_probs, eps, 1.0)), axis=-1)
+    energy_scores = -np.log(np.sum(np.exp(valid_logits), axis=-1))
+
+    df_preds = pd.DataFrame(
+        {
+            "image_id": valid_ids,
+            "patient_id": valid_patients,
+            "dataset": dataset_name,
+            "split": Path(csv_path).name,
+            "target": valid_y,
+            "prediction": preds,
+            "confidence": np.round(confs, 6),
+            "entropy": np.round(entropies, 6),
+            "energy_score": np.round(energy_scores, 6),
+        }
+    )
+
     if is_deepdrid and not is_zero_shot:
         filtered_preds = {}
         filtered_targets = {}
         for attr_name, data in attr_data.items():
             if data["preds"] and data["targets"]:
-                p_arr = np.concatenate(data["preds"], axis=0)
-                t_arr = np.concatenate(data["targets"], axis=0)
-                m_arr = np.concatenate(data["masks"], axis=0)
+                p_arr = np.concatenate(data["preds"], axis=0)[valid_idx]
+                t_arr = np.concatenate(data["targets"], axis=0)[valid_idx]
+                m_arr = np.concatenate(data["masks"], axis=0)[valid_idx]
                 v_attr = m_arr > 0.5
                 if np.any(v_attr):
                     filtered_preds[attr_name] = p_arr[v_attr]
                     filtered_targets[attr_name] = t_arr[v_attr]
+                df_preds[f"{attr_name}_target"] = t_arr
+                df_preds[f"{attr_name}_prediction"] = p_arr
 
         attr_metrics = compute_attribute_metrics(filtered_preds, filtered_targets)
         metrics["attribute_metrics"] = attr_metrics
 
-    return metrics
+    return metrics, df_preds
 
 
 def main():
@@ -182,14 +212,30 @@ def main():
 
     out_p = Path(args.output_dir)
     out_p.mkdir(parents=True, exist_ok=True)
+    preds_dir = out_p.parent / "predictions" if out_p.name == "metrics" else out_p / "predictions"
+    preds_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"=== Evaluating RetinaGuard Checkpoint: {ckpt_p} ===")
-    model = RetinaGuardMultiTaskModel(pretrained=False)
     state = torch.load(ckpt_p, map_location="cpu")
     metadata = state.get("metadata", {})
     training_datasets = metadata.get("training_datasets", [])
-    model.load_state_dict(state.get("state_dict", state))
+
+    model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_p)
     model.eval()
+
+    # Zero-shot verification guard (Item 6)
+    if args.zero_shot:
+        if training_datasets != ["EyeQ"]:
+            raise ValueError(
+                f"Zero-shot evaluation requires a checkpoint trained exclusively on EyeQ. "
+                f"Checkpoint metadata indicates training datasets: {training_datasets}"
+            )
+        if "deepdrid" in metadata.get("train_split_hashes", {}) or "deepdrid" in metadata.get(
+            "val_split_hashes", {}
+        ):
+            raise ValueError(
+                "Checkpoint contains DeepDRiD split provenance; cannot be used for genuine zero-shot evaluation."
+            )
 
     has_eyeq = Path(args.eyeq_split).is_file()
     has_deepdrid = Path(args.deepdrid_split).is_file()
@@ -198,11 +244,6 @@ def main():
         raise FileNotFoundError(
             f"Neither EyeQ split ({args.eyeq_split}) nor DeepDRiD split ({args.deepdrid_split}) was found."
         )
-
-    import datetime
-    import subprocess
-
-    from retinaguard.utils.hashing import compute_sha256
 
     try:
         git_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
@@ -213,18 +254,27 @@ def main():
     created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     # 1. Internal EyeQ Test Evaluation
-    if has_eyeq:
+    if has_eyeq and not args.zero_shot:
         print(f"Loading EyeQ test split from {args.eyeq_split}...")
-        eyeq_metrics = evaluate_dataset_partition(
+        eyeq_metrics, df_eyeq_preds = evaluate_dataset_partition(
             model, args.eyeq_split, "EyeQ (Internal Test)", is_deepdrid=False
         )
+        pred_file = preds_dir / "eyeq_test_predictions.csv"
+        df_eyeq_preds.to_csv(pred_file, index=False)
+        pred_sha = compute_sha256(pred_file)
+
         eyeq_metrics.update(
             {
                 "status": "completed",
+                "eligible_as_final_result": True,
                 "generated_by": "scripts/evaluate.py",
                 "git_commit": git_commit,
+                "checkpoint_path": str(ckpt_p),
                 "checkpoint_sha256": ckpt_sha,
+                "split_path": args.eyeq_split,
                 "split_sha256": compute_sha256(args.eyeq_split),
+                "prediction_file": str(pred_file),
+                "prediction_file_sha256": pred_sha,
                 "created_at_utc": created_at,
             }
         )
@@ -245,20 +295,29 @@ def main():
                 f"Running Zero-Shot External Transfer on DeepDRiD ({args.deepdrid_split}) "
                 f"[Model Provenance: {training_datasets}]..."
             )
-            transfer_metrics = evaluate_dataset_partition(
+            transfer_metrics, df_zs_preds = evaluate_dataset_partition(
                 model,
                 args.deepdrid_split,
                 "DeepDRiD (Zero-Shot External Transfer)",
                 is_deepdrid=True,
                 is_zero_shot=True,
             )
+            pred_file = preds_dir / "zero_shot_transfer_predictions.csv"
+            df_zs_preds.to_csv(pred_file, index=False)
+            pred_sha = compute_sha256(pred_file)
+
             transfer_metrics.update(
                 {
                     "status": "completed",
+                    "eligible_as_final_result": True,
                     "generated_by": "scripts/evaluate.py",
                     "git_commit": git_commit,
+                    "checkpoint_path": str(ckpt_p),
                     "checkpoint_sha256": ckpt_sha,
+                    "split_path": args.deepdrid_split,
                     "split_sha256": compute_sha256(args.deepdrid_split),
+                    "prediction_file": str(pred_file),
+                    "prediction_file_sha256": pred_sha,
                     "created_at_utc": created_at,
                 }
             )
@@ -269,20 +328,29 @@ def main():
             )
         else:
             print(f"Running DeepDRiD Held-Out Supervised Evaluation ({args.deepdrid_split})...")
-            deepdrid_metrics = evaluate_dataset_partition(
+            deepdrid_metrics, df_dd_preds = evaluate_dataset_partition(
                 model,
                 args.deepdrid_split,
                 "DeepDRiD (Held-Out Supervised Evaluation)",
                 is_deepdrid=True,
                 is_zero_shot=False,
             )
+            pred_file = preds_dir / "deepdrid_heldout_predictions.csv"
+            df_dd_preds.to_csv(pred_file, index=False)
+            pred_sha = compute_sha256(pred_file)
+
             deepdrid_metrics.update(
                 {
                     "status": "completed",
+                    "eligible_as_final_result": True,
                     "generated_by": "scripts/evaluate.py",
                     "git_commit": git_commit,
+                    "checkpoint_path": str(ckpt_p),
                     "checkpoint_sha256": ckpt_sha,
+                    "split_path": args.deepdrid_split,
                     "split_sha256": compute_sha256(args.deepdrid_split),
+                    "prediction_file": str(pred_file),
+                    "prediction_file_sha256": pred_sha,
                     "created_at_utc": created_at,
                 }
             )

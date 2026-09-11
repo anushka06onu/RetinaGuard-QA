@@ -1,6 +1,6 @@
 """Probability calibration, Expected Calibration Error (ECE), and Brier score."""
 
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 import numpy as np
 import torch
@@ -84,8 +84,11 @@ def compute_ece(probs: np.ndarray, labels: np.ndarray, num_bins: int = 15) -> Di
     }
 
 
-def compute_brier_score(probs: np.ndarray, labels: np.ndarray, num_classes: int = 3) -> float:
-    """Compute multi-class Brier score."""
-    one_hot = np.zeros((len(labels), num_classes), dtype=np.float64)
+def compute_brier_score(
+    probs: np.ndarray, labels: np.ndarray, num_classes: Optional[int] = None
+) -> float:
+    """Compute multi-class or binary Brier score."""
+    n_cls = num_classes if num_classes is not None else (probs.shape[1] if probs.ndim > 1 else 2)
+    one_hot = np.zeros((len(labels), n_cls), dtype=np.float64)
     one_hot[np.arange(len(labels)), labels] = 1.0
     return round(float(np.mean(np.sum((probs - one_hot) ** 2, axis=1))), 4)

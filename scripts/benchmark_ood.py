@@ -5,7 +5,9 @@ Requires genuine In-Distribution (ID) fundus images. Fails fast if ID images are
 """
 
 import argparse
+import datetime
 import json
+import subprocess
 from pathlib import Path
 from typing import List, Tuple
 
@@ -21,6 +23,7 @@ from retinaguard.evaluation.ood import (
     compute_energy_score,
 )
 from retinaguard.models.multitask import RetinaGuardMultiTaskModel
+from retinaguard.utils.hashing import compute_sha256
 
 
 def compute_fpr_at_95_tpr(labels: np.ndarray, scores: np.ndarray) -> float:
@@ -64,6 +67,13 @@ def main():
         "--checkpoint", type=str, required=True, help="Path to trained PyTorch checkpoint (.ckpt)"
     )
     parser.add_argument(
+        "--task",
+        type=str,
+        choices=["eyeq_quality", "deepdrid_overall"],
+        default="eyeq_quality",
+        help="Evaluation task head to extract logits for OOD energy scoring",
+    )
+    parser.add_argument(
         "--id-test-split",
         type=str,
         default="data/splits/deepdrid_external_test.csv",
@@ -91,7 +101,7 @@ def main():
         "--calibration-meta",
         type=str,
         default="artifacts/models/calibration_metadata.json",
-        help="Path to calibration metadata containing validation-fitted OOD threshold",
+        help="Path to calibration metadata containing validation-fitted OOD threshold and temperature",
     )
     parser.add_argument("--output-file", type=str, default="artifacts/metrics/ood.json")
     parser.add_argument("--max-samples", type=int, default=300)
@@ -102,10 +112,23 @@ def main():
         raise FileNotFoundError(f"Checkpoint not found at {args.checkpoint}")
 
     print("=== Running OOD Detection & Modality Gate Benchmark ===")
-    model = RetinaGuardMultiTaskModel(pretrained=False)
-    state = torch.load(ckpt_p, map_location="cpu")
-    model.load_state_dict(state.get("state_dict", state))
+    model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_p)
     model.eval()
+
+    logits_key = "overall_quality_logits" if args.task == "deepdrid_overall" else "quality_logits"
+
+    # Read fitted temperature and threshold if available
+    temperature = 1.0
+    calib_threshold = None
+    calib_p = Path(args.calibration_meta)
+    if calib_p.is_file():
+        try:
+            with open(calib_p, "r", encoding="utf-8") as f:
+                calib_data = json.load(f)
+                temperature = float(calib_data.get("temperature", 1.0))
+                calib_threshold = calib_data.get("ood_energy_threshold", None)
+        except Exception:
+            pass
 
     # 1. Load In-Distribution (ID) fundus images
     id_records = load_images_from_manifest(Path(args.id_test_split), max_samples=args.max_samples)
@@ -115,7 +138,9 @@ def main():
             "A valid ID dataset is strictly required."
         )
 
-    print(f"Loaded {len(id_records)} genuine In-Distribution (ID) images.")
+    print(
+        f"Loaded {len(id_records)} genuine In-Distribution (ID) images using task head: {args.task}."
+    )
 
     # Compute ID energy scores
     id_scores = []
@@ -129,22 +154,41 @@ def main():
 
             tensor = preprocess_image_canonical(img, image_size=384)
             outputs = model(tensor)
-            logits = outputs["quality_logits"].numpy()[0]
+            logits = outputs[logits_key].numpy()[0]
             # Higher energy score -> more in-distribution
-            e_score = compute_energy_score(logits, temperature=1.0)
+            e_score = compute_energy_score(logits, temperature=temperature)
             id_scores.append(float(e_score))
 
     id_scores_arr = np.array(id_scores)
     id_modality_frr = 1.0 - (id_modality_passes / len(id_records))
 
+    try:
+        git_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    except Exception:
+        git_commit = "unknown"
+
     benchmarks = {
+        "metadata": {
+            "score_equation": f"E(x; T) = -T * log(sum(exp(logits / T))) [T={temperature}]",
+            "direction": "higher_is_id / lower_is_ood",
+            "temperature": temperature,
+            "task_head": args.task,
+            "logits_key": logits_key,
+            "threshold_source": str(calib_p) if calib_p.is_file() else "uncalibrated_default",
+            "fitted_energy_threshold": calib_threshold,
+            "checkpoint_sha256": compute_sha256(ckpt_p),
+            "git_commit": git_commit,
+            "created_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        },
         "in_distribution": {
             "dataset_split": args.id_test_split,
             "num_samples": len(id_records),
             "mean_energy_score": float(np.mean(id_scores_arr)),
-            "std_energy_score": float(np.std(id_scores_arr)),
+            "std_energy_score": float(
+                np.std(id_scores_arr, ddof=1) if len(id_scores_arr) > 1 else 0.0
+            ),
             "modality_false_reject_rate": float(id_modality_frr),
-        }
+        },
     }
 
     # 2. Near-OOD evaluation if manifest provided
@@ -158,8 +202,8 @@ def main():
                 for _, img in near_records:
                     tensor = preprocess_image_canonical(img, image_size=384)
                     outputs = model(tensor)
-                    logits = outputs["quality_logits"].numpy()[0]
-                    near_scores.append(float(compute_energy_score(logits, temperature=1.0)))
+                    logits = outputs[logits_key].numpy()[0]
+                    near_scores.append(float(compute_energy_score(logits, temperature=temperature)))
 
             near_scores_arr = np.array(near_scores)
             y_true = np.concatenate([np.ones(len(id_scores_arr)), np.zeros(len(near_scores_arr))])
@@ -183,8 +227,8 @@ def main():
                 for _, img in far_records:
                     tensor = preprocess_image_canonical(img, image_size=384)
                     outputs = model(tensor)
-                    logits = outputs["quality_logits"].numpy()[0]
-                    far_scores.append(float(compute_energy_score(logits, temperature=1.0)))
+                    logits = outputs[logits_key].numpy()[0]
+                    far_scores.append(float(compute_energy_score(logits, temperature=temperature)))
 
             far_scores_arr = np.array(far_scores)
             y_true = np.concatenate([np.ones(len(id_scores_arr)), np.zeros(len(far_scores_arr))])
@@ -207,8 +251,10 @@ def main():
             tensor = preprocess_image_canonical(img, image_size=384)
             with torch.no_grad():
                 outputs = model(tensor)
-                logits = outputs["quality_logits"].numpy()[0]
-                synthetic_scores.append(float(compute_energy_score(logits, temperature=1.0)))
+                logits = outputs[logits_key].numpy()[0]
+                synthetic_scores.append(
+                    float(compute_energy_score(logits, temperature=temperature))
+                )
 
         syn_arr = np.array(synthetic_scores)
         y_true = np.concatenate([np.ones(len(id_scores_arr)), np.zeros(len(syn_arr))])

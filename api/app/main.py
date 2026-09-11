@@ -54,6 +54,27 @@ async def lifespan(app: FastAPI):
             logger.critical(err)
             raise RuntimeError(err)
 
+        import json
+
+        with open(calib_path, "r", encoding="utf-8") as f:
+            calib_meta = json.load(f)
+
+        if calib_meta.get("status") != "completed":
+            err = (
+                f"Production startup halted: Calibration metadata status is '{calib_meta.get('status')}'. "
+                "Production requires completed final model metadata (status='completed')."
+            )
+            logger.critical(err)
+            raise RuntimeError(err)
+
+        if calib_meta.get("eligible_as_final_result") is not True:
+            err = (
+                "Production startup halted: Model metadata is marked not eligible for production inference "
+                "(eligible_as_final_result != True)."
+            )
+            logger.critical(err)
+            raise RuntimeError(err)
+
         service = get_service()
         if service.predictor.ort_session is None and service.predictor.pt_model is None:
             raise RuntimeError(
@@ -62,7 +83,7 @@ async def lifespan(app: FastAPI):
         logger.info("RetinaGuard-QA API production verification passed.")
     elif settings.app_mode == "development":
         logger.info(
-            "RetinaGuard-QA API running in development mode (un-trained fallback enabled if models missing)."
+            "Development mode: model artifact unavailable; inference endpoints will remain unavailable."
         )
 
     yield
@@ -70,8 +91,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="RetinaGuard-QA API",
-    description="Uncertainty-aware and device-robust quality control for retinal fundus images (Research Prototype).",
-    version="0.1.0",
+    description="Retinal image-quality research prototype with planned cross-domain robustness evaluation.",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -89,47 +110,55 @@ app.add_middleware(
 @app.get("/health/live")
 def liveness_check() -> Dict[str, Any]:
     """Basic liveness probe confirming server process is running."""
-    return {"status": "live", "service": "RetinaGuard-QA API", "version": "1.0.0"}
+    return {"status": "live", "service": "RetinaGuard-QA API", "version": "0.2.0"}
 
 
 @app.get("/health/ready")
 def readiness_check(
     response: Response, service: QualityAssessmentService = Depends(get_service)
 ) -> Dict[str, Any]:
-    """Readiness probe verifying model session, preprocessing, and calibration metadata."""
-    model_loaded = bool(
-        service.predictor.ort_session is not None or service.predictor.pt_model is not None
-    )
-    preproc_loaded = bool(getattr(service.predictor, "image_size", 0) > 0)
-    calib_loaded = bool(getattr(service.predictor, "temperature", 0) > 0)
+    """Readiness probe verifying model session, preprocessing, calibration, and artifact status."""
+    p = service.predictor
+    model_loaded = bool(p.ort_session is not None or p.pt_model is not None)
+    preproc_loaded = bool(p.preprocessing_metadata_loaded)
+    calib_loaded = bool(p.calibration_metadata_loaded)
+    status_valid = bool(p.artifact_status_valid)
+    hash_verified = bool(p.model_hash_verified or not settings.is_production)
+    arch_compatible = bool(p.model_architecture_compatible)
 
-    all_ready = model_loaded and preproc_loaded and calib_loaded
+    all_ready = (
+        model_loaded
+        and preproc_loaded
+        and calib_loaded
+        and status_valid
+        and hash_verified
+        and arch_compatible
+    )
+
+    checks = {
+        "model_loaded": model_loaded,
+        "preprocessing_metadata_loaded": preproc_loaded,
+        "calibration_metadata_loaded": calib_loaded,
+        "model_hash_verified": hash_verified,
+        "artifact_status_valid": status_valid,
+        "model_architecture_compatible": arch_compatible,
+    }
 
     if not all_ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return {
             "status": "not_ready",
-            "checks": {
-                "model_loaded": model_loaded,
-                "preprocessing_loaded": preproc_loaded,
-                "calibration_loaded": calib_loaded,
-            },
-            "version": "1.0.0",
+            "checks": checks,
+            "version": "0.2.0",
         }
 
     return {
         "status": "ready",
-        "checks": {
-            "model_loaded": model_loaded,
-            "preprocessing_loaded": preproc_loaded,
-            "calibration_loaded": calib_loaded,
-        },
+        "checks": checks,
         "runtime_engine": (
-            "onnxruntime_cpu"
-            if service.predictor.ort_session
-            else ("pytorch_cpu" if service.predictor.pt_model else "none")
+            "onnxruntime_cpu" if p.ort_session else ("pytorch_cpu" if p.pt_model else "none")
         ),
-        "version": "1.0.0",
+        "version": "0.2.0",
     }
 
 
@@ -146,7 +175,7 @@ def model_info() -> Dict[str, Any]:
     """System metadata, intended input, quality classes, and clinical boundaries."""
     return {
         "system_name": "RetinaGuard-QA",
-        "version": "1.0.0",
+        "version": "0.2.0",
         "status": "Research Prototype",
         "intended_input": "Color Retinal Fundus Photograph (Standard 45/50 degree FOV)",
         "supported_formats": ["JPEG", "PNG"],
@@ -190,7 +219,7 @@ async def _process_image_upload(
     try:
         raw_img = Image.open(io.BytesIO(contents))
         fmt = raw_img.format
-        if fmt not in ["JPEG", "PNG", "MPO"]:
+        if fmt not in ["JPEG", "PNG"]:
             raise HTTPException(
                 status_code=400, detail=f"Unsupported format: {fmt}. Please provide JPEG or PNG."
             )

@@ -27,9 +27,9 @@ def create_grouped_train_val_split(
     df_train = df.iloc[train_idx].reset_index(drop=True)
     df_val = df.iloc[val_idx].reset_index(drop=True)
 
-    assert len(df_train) + len(df_val) == len(df), (
-        f"Split size mismatch: {len(df_train)} + {len(df_val)} != {len(df)}"
-    )
+    assert len(df_train) + len(df_val) == len(
+        df
+    ), f"Split size mismatch: {len(df_train)} + {len(df_val)} != {len(df)}"
     return {"train": df_train, "val": df_val}
 
 

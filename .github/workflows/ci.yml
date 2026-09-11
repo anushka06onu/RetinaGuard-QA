@@ -52,7 +52,7 @@ jobs:
       run: black --check src/ api/ scripts/ tests/
 
     - name: Type Check with Mypy
-      run: mypy src/ api/ --ignore-missing-imports
+      run: mypy --explicit-package-bases src/ api/ --ignore-missing-imports
 
   frontend-build-and-test:
     runs-on: ubuntu-latest

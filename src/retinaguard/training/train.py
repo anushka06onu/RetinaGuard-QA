@@ -44,8 +44,14 @@ def run_training_experiment(
     output_dir: Optional[Union[str, Path]] = None,
 ) -> Dict[str, Any]:
     """Execute training experiment defined by YAML config with strict data checks and rich provenance."""
+    from retinaguard.training.config_schema import validate_training_config
+
     with open(config_path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
+
+    if not fixture_mode:
+        # Strict validation of configuration schema
+        validate_training_config(cfg)
 
     seed = (
         override_seed if override_seed is not None else cfg.get("experiment", {}).get("seed", 2026)
@@ -98,10 +104,14 @@ def run_training_experiment(
         )
         save_dir = Path(output_dir) if output_dir else Path("artifacts/models")
         history_path = (
-            Path("artifacts/metrics") / f"train_history_seed_{seed}.json"
+            save_dir / "train_history.json"
             if output_dir
             else Path("artifacts/metrics/train_history.json")
         )
+
+    save_dir.mkdir(parents=True, exist_ok=True)
+    with open(save_dir / "resolved_config.yaml", "w", encoding="utf-8") as f:
+        yaml.safe_dump(cfg, f)
 
     has_eyeq_train = eyeq_enabled and eyeq_train_p.is_file()
     has_dd_train = deepdrid_enabled and deepdrid_train_p.is_file()
@@ -188,9 +198,11 @@ def run_training_experiment(
         weights_eyeq = [0.5 / max(1, n_eyeq)] * n_eyeq
         weights_dd = [0.5 / max(1, n_dd)] * n_dd
         combined_weights = torch.tensor(weights_eyeq + weights_dd, dtype=torch.float32)
-        combined_train_ds = ConcatDataset([train_datasets[0][1], train_datasets[1][1]])
+        combined_train_ds: torch.utils.data.Dataset = ConcatDataset(
+            [train_datasets[0][1], train_datasets[1][1]]
+        )
         sampler = torch.utils.data.WeightedRandomSampler(
-            weights=combined_weights, num_samples=len(combined_weights), replacement=True
+            weights=combined_weights.tolist(), num_samples=len(combined_weights), replacement=True
         )
         train_loader = DataLoader(
             combined_train_ds,
@@ -262,6 +274,7 @@ def run_training_experiment(
     lr = train_cfg.get("learning_rate", 3e-4)
     weight_decay = train_cfg.get("weight_decay", 1e-4)
 
+    optimizer: torch.optim.Optimizer
     if opt_name == "adam":
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     elif opt_name == "sgd":
@@ -328,7 +341,7 @@ def run_training_experiment(
 
         is_best = early_stopping(val_score)
         if is_best:
-            best_val_score = val_score
+            best_val_score = float(val_score or 0.0)
 
             # Rich Checkpoint Provenance (Item 12)
             checkpoint_metadata = {

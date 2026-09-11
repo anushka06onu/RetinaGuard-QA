@@ -4,7 +4,7 @@ authors:
   - family-names: "Anushka"
     given-names: "Fateha Hossain"
 title: "RetinaGuard-QA: An Uncertainty-Aware, Device-Robust Quality Assurance and Capture-Feedback System for Retinal Fundus Imaging"
-version: 1.0.0
+version: 0.2.0
 date-released: 2026-09-11
 url: "https://github.com/anushka06onu/RetinaGuard-QA"
 keywords:

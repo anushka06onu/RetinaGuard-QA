@@ -23,11 +23,13 @@ def compute_perceptual_hash(
 ) -> imagehash.ImageHash:
     """Compute perceptual hash (dHash/pHash) for an image."""
     if isinstance(image, (str, Path)):
-        with Image.open(image) as img:
-            img = img.convert("RGB")
-            return imagehash.dhash(img) if hash_type == "dhash" else imagehash.phash(img)
-    img = image.convert("RGB")
-    return imagehash.dhash(img) if hash_type == "dhash" else imagehash.phash(img)
+        with Image.open(image) as opened_img:
+            rgb_img = opened_img.convert("RGB")
+            return imagehash.dhash(rgb_img) if hash_type == "dhash" else imagehash.phash(rgb_img)
+    converted_img = image.convert("RGB")
+    return (
+        imagehash.dhash(converted_img) if hash_type == "dhash" else imagehash.phash(converted_img)
+    )
 
 
 def inspect_image_file(file_path: Union[str, Path]) -> Dict[str, Any]:
@@ -373,8 +375,10 @@ def run_leakage_and_duplicate_audit(
         md_content += "- ✅ **Zero Image Leakage:** No duplicate files or identical images cross partition boundaries.\n"
 
     md_content += "\n## Comparisons Performed\n"
-    for c in audit_summary["comparisons_performed"]:
-        md_content += f"- `{c}`\n"
+    comps = audit_summary.get("comparisons_performed", [])
+    if isinstance(comps, list):
+        for c in comps:
+            md_content += f"- `{c}`\n"
 
     for name in ["cross_split_isolation_audit.md", "data_audit.md"]:
         with open(reports_p / name, "w", encoding="utf-8") as f:

@@ -1,7 +1,7 @@
 # Authoritative Model Architecture Configuration
 model:
   name: "RetinaGuardMultiTaskModel"
-  version: "1.0.0"
+  version: "0.2.0"
   backbone: "mobilenetv3_large_100" # options: "mobilenetv3_large_100", "efficientnet_b0", "convnext_tiny"
   pretrained: true
   dropout_rate: 0.2
@@ -12,27 +12,22 @@ model:
       name: "eyeq_quality"
       num_classes: 3
       classes: ["good", "usable", "reject"]
-      loss_weight: 1.0
     overall_quality_head:
       name: "deepdrid_overall"
       num_classes: 2
       classes: ["good", "reject"]
-      loss_weight: 0.5
     artifact_head:
       name: "deepdrid_artifact"
       num_classes: 3
       classes: ["level_0", "level_1", "level_2"]
-      loss_weight: 0.2
     clarity_head:
       name: "deepdrid_clarity"
       num_classes: 3
       classes: ["level_0", "level_1", "level_2"]
-      loss_weight: 0.2
     field_def_head:
       name: "deepdrid_field_definition"
       num_classes: 3
       classes: ["level_0", "level_1", "level_2"]
-      loss_weight: 0.2
     latent_projection:
       dim: 128
       enabled: true

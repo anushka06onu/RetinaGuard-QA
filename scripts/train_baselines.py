@@ -3,7 +3,7 @@
 import argparse
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -11,6 +11,7 @@ from PIL import Image
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, cohen_kappa_score, f1_score
+from sklearn.model_selection import train_test_split
 
 from retinaguard.models.baselines import ClassicalQualityFeatureExtractor
 
@@ -18,7 +19,7 @@ from retinaguard.models.baselines import ClassicalQualityFeatureExtractor
 def run_majority_class_baseline(
     train_csv: str, test_csv: str, task: str = "eyeq_quality"
 ) -> Dict[str, Any]:
-    """Majority class heuristic baseline."""
+    """Majority class heuristic baseline on full dataset."""
     df_train = pd.read_csv(train_csv)
     df_test = pd.read_csv(test_csv)
 
@@ -56,12 +57,19 @@ def run_majority_class_baseline(
         "balanced_accuracy": round(bal_acc, 4),
         "accuracy": round(acc, 4),
         "quadratic_weighted_kappa": round(qwk if not np.isnan(qwk) else 0.0, 4),
-        "num_samples": len(test_labels),
+        "num_train": len(train_labels),
+        "num_test": len(test_labels),
+        "subset_experiment": False,
     }
 
 
 def run_classical_feature_baseline(
-    train_csv: str, test_csv: str, model_type: str = "random_forest", task: str = "eyeq_quality"
+    train_csv: str,
+    test_csv: str,
+    model_type: str = "random_forest",
+    task: str = "eyeq_quality",
+    max_train_samples: Optional[int] = None,
+    max_test_samples: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Classical texture, contrast, and sharpness handcrafted features with RF / Logistic Regression."""
     df_train = pd.read_csv(train_csv)
@@ -74,11 +82,17 @@ def run_classical_feature_baseline(
         else {"good": 0, "reject": 1, "poor": 1, 0: 0, 1: 1}
     )
 
-    def extract_set(df, max_n=300):
+    def extract_set(df: pd.DataFrame, max_n: Optional[int] = None):
+        valid_rows = [r for _, r in df.iterrows() if pd.notna(r.get(col)) and r[col] in q_map]
+        if max_n and 0 < max_n < len(valid_rows):
+            # Stratified sample if possible
+            labels = [q_map[r[col]] for r in valid_rows]
+            valid_rows, _ = train_test_split(
+                valid_rows, train_size=max_n, random_state=2026, stratify=labels
+            )
+
         X, y = [], []
-        for _, r in df.iterrows():
-            if pd.isna(r.get(col)) or r[col] not in q_map:
-                continue
+        for r in valid_rows:
             img_p = Path(str(r.get("path", "")))
             if not img_p.is_file():
                 continue
@@ -87,14 +101,16 @@ def run_classical_feature_baseline(
                     feats = ClassicalQualityFeatureExtractor.extract(img.convert("RGB"))
                     X.append(feats)
                     y.append(q_map[r[col]])
-                if len(X) >= max_n:
-                    break
             except Exception:
                 pass
         return np.array(X), np.array(y)
 
-    X_train, y_train = extract_set(df_train, max_n=500)
-    X_test, y_test = extract_set(df_test, max_n=300)
+    X_train, y_train = extract_set(df_train, max_n=max_train_samples)
+    X_test, y_test = extract_set(df_test, max_n=max_test_samples)
+
+    is_subset = bool(
+        (max_train_samples and max_train_samples > 0) or (max_test_samples and max_test_samples > 0)
+    )
 
     if len(X_train) == 0 or len(X_test) == 0:
         return {
@@ -104,6 +120,7 @@ def run_classical_feature_baseline(
             "accuracy": 0.0,
             "quadratic_weighted_kappa": 0.0,
             "status": "not_evaluable",
+            "subset_experiment": is_subset,
         }
 
     # Normalize features
@@ -137,6 +154,7 @@ def run_classical_feature_baseline(
         "quadratic_weighted_kappa": round(qwk if not np.isnan(qwk) else 0.0, 4),
         "num_train": len(X_train),
         "num_test": len(X_test),
+        "subset_experiment": is_subset,
     }
 
 
@@ -148,6 +166,18 @@ def main():
     parser.add_argument("--eyeq-test", type=str, default="data/splits/eyeq_test.csv")
     parser.add_argument(
         "--deepdrid-test", type=str, default="data/splits/deepdrid_external_test.csv"
+    )
+    parser.add_argument(
+        "--max-train-samples",
+        type=int,
+        default=None,
+        help="Optional limit on training samples for fast subset benchmarking (default: full dataset)",
+    )
+    parser.add_argument(
+        "--max-test-samples",
+        type=int,
+        default=None,
+        help="Optional limit on test samples for fast subset benchmarking (default: full dataset)",
     )
     parser.add_argument("--output-dir", type=str, default="artifacts/metrics")
     parser.add_argument("--smoke-test", action="store_true")
@@ -175,7 +205,11 @@ def main():
     if Path(args.eyeq_train).is_file() and Path(args.eyeq_test).is_file():
         print(">>> Evaluating Classical Features + Random Forest...")
         rf_res = run_classical_feature_baseline(
-            args.eyeq_train, args.eyeq_test, model_type="random_forest"
+            args.eyeq_train,
+            args.eyeq_test,
+            model_type="random_forest",
+            max_train_samples=args.max_train_samples,
+            max_test_samples=args.max_test_samples,
         )
         baseline_results.append(rf_res)
         print(
@@ -186,7 +220,11 @@ def main():
     if Path(args.eyeq_train).is_file() and Path(args.eyeq_test).is_file():
         print(">>> Evaluating Classical Features + Logistic Regression...")
         lr_res = run_classical_feature_baseline(
-            args.eyeq_train, args.eyeq_test, model_type="logistic_regression"
+            args.eyeq_train,
+            args.eyeq_test,
+            model_type="logistic_regression",
+            max_train_samples=args.max_train_samples,
+            max_test_samples=args.max_test_samples,
         )
         baseline_results.append(lr_res)
         print(

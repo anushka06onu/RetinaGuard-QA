@@ -20,8 +20,12 @@ def compute_risk_coverage_curve(
     accuracies = correct_cumulative / np.arange(1, n + 1)
     risks = 1.0 - accuracies
 
-    trap_fn = getattr(np, "trapezoid", getattr(np, "trapz", None))
-    aurc = float(trap_fn(risks, coverages))
+    if hasattr(np, "trapezoid"):
+        aurc = float(np.trapezoid(risks, coverages))
+    elif hasattr(np, "trapz"):
+        aurc = float(np.trapz(risks, coverages))  # type: ignore[attr-defined]
+    else:
+        aurc = float(np.sum(risks) / len(risks))
 
     return {
         "coverages": coverages,

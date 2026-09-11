@@ -29,6 +29,7 @@ class QualityAssessmentService:
                     preprocessing_config_path=self.settings.preprocessing_path,
                     calibration_config_path=self.settings.calibration_path,
                     image_size=image_size,
+                    allow_test_fallback=self.settings.is_test,
                 )
                 self.predictor.pt_model = model
             else:
@@ -37,6 +38,7 @@ class QualityAssessmentService:
                     preprocessing_config_path=self.settings.preprocessing_path,
                     calibration_config_path=self.settings.calibration_path,
                     image_size=image_size,
+                    allow_test_fallback=self.settings.is_test,
                 )
         else:
             self.predictor = RetinaGuardPredictor(
@@ -44,6 +46,7 @@ class QualityAssessmentService:
                 preprocessing_config_path=self.settings.preprocessing_path,
                 calibration_config_path=self.settings.calibration_path,
                 image_size=image_size,
+                allow_test_fallback=self.settings.is_test,
             )
 
     def analyze_image(self, image: Image.Image) -> PredictionResponse:

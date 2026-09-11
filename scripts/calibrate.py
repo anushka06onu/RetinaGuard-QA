@@ -70,9 +70,7 @@ def main():
     out_p.mkdir(parents=True, exist_ok=True)
 
     print(f"=== Running Probability Calibration [Task: {args.task}] on {val_p} with {ckpt_p} ===")
-    model = RetinaGuardMultiTaskModel(pretrained=False)
-    state = torch.load(ckpt_p, map_location="cpu")
-    model.load_state_dict(state.get("state_dict", state))
+    model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_p)
     model.eval()
 
     val_df = pd.read_csv(val_p)

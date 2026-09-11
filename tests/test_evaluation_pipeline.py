@@ -161,7 +161,7 @@ def test_evaluation_ignores_masked_placeholder_records(tmp_path):
             }
 
     model = DummyMultiTaskModel()
-    metrics = evaluate_dataset_partition(
+    metrics, _ = evaluate_dataset_partition(
         model, str(csv_file), dataset_name="DeepDRiD (Test)", is_deepdrid=True
     )
 

@@ -40,12 +40,20 @@ class RetinaGuardPredictor:
         ] = "artifacts/models/calibration_metadata.json",
         policy_engine: Optional[DecisionPolicyEngine] = None,
         image_size: int = 384,
+        allow_test_fallback: bool = False,
     ):
         self.image_size = image_size
         self.temperature = 1.0
         self.policy_engine = policy_engine or DecisionPolicyEngine()
         self.ort_session = None
         self.pt_model = None
+
+        # Explicit readiness tracking attributes (Phase 24 & Item 36)
+        self.preprocessing_metadata_loaded = False
+        self.calibration_metadata_loaded = False
+        self.model_hash_verified = False
+        self.artifact_status_valid = False
+        self.model_architecture_compatible = False
 
         # Load authoritative preprocessing config if present
         if preprocessing_config_path:
@@ -85,6 +93,7 @@ class RetinaGuardPredictor:
                         raise ValueError(
                             f"Invalid class_order in {preprocessing_config_path}: {cfg['class_order']}. Expected ['good', 'usable', 'reject']."
                         )
+                self.preprocessing_metadata_loaded = True
 
         # Load authoritative calibration temperature and decision thresholds if present
         if calibration_config_path:
@@ -93,13 +102,19 @@ class RetinaGuardPredictor:
                 with open(cal_path, "r", encoding="utf-8") as f:
                     cal_cfg = json.load(f)
 
-                # In production mode outside test suite, enforce complete schema and model hash verification
+                # In production mode outside test suite, enforce complete schema, valid status, and model hash verification
                 import os
 
                 is_prod = (
                     os.environ.get("APP_MODE", "development").lower() == "production"
                     and os.environ.get("TEST_MODE", "0") != "1"
                 )
+                if (
+                    cal_cfg.get("status") == "completed"
+                    and cal_cfg.get("eligible_as_final_result") is True
+                ):
+                    self.artifact_status_valid = True
+
                 if is_prod:
                     required_fields = [
                         "temperature",
@@ -117,6 +132,16 @@ class RetinaGuardPredictor:
                         raise ValueError(
                             f"Production calibration metadata missing required fields: {missing}"
                         )
+                    if cal_cfg.get("status") != "completed":
+                        raise ValueError(
+                            f"Production requires completed final model metadata (status='completed'), found status='{cal_cfg.get('status')}'"
+                        )
+                    if cal_cfg.get("eligible_as_final_result") is not True:
+                        raise ValueError(
+                            "Production mode requires model metadata with 'eligible_as_final_result': true"
+                        )
+
+                self.calibration_metadata_loaded = True
 
                 temp_val = cal_cfg.get("temperature", cal_cfg.get("optimal_temperature", 1.0))
                 try:
@@ -198,6 +223,14 @@ class RetinaGuardPredictor:
                         raise ValueError(
                             f"Model hash mismatch in production mode: loaded {model_path} ({actual_sha}) != metadata expected ({expected_sha})"
                         )
+                    self.model_hash_verified = True
+
+        if allow_test_fallback:
+            self.artifact_status_valid = True
+            self.calibration_metadata_loaded = True
+            self.preprocessing_metadata_loaded = True
+            self.model_hash_verified = True
+            self.model_architecture_compatible = True
 
         if model_path is not None and Path(model_path).is_file():
             self.load_model(model_path)
@@ -215,11 +248,16 @@ class RetinaGuardPredictor:
             self.ort_session = ort.InferenceSession(
                 str(path), sess_options=opts, providers=["CPUExecutionProvider"]
             )
+            self.model_architecture_compatible = True
         else:
             from retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
-            model = RetinaGuardMultiTaskModel(pretrained=False)
             state = torch.load(str(path), map_location="cpu")
+            metadata = state.get("metadata", {}) if isinstance(state, dict) else {}
+            if metadata:
+                model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(metadata)
+            else:
+                model = RetinaGuardMultiTaskModel(pretrained=False)
             if isinstance(state, dict) and "state_dict" in state:
                 model.load_state_dict(state["state_dict"])
             elif isinstance(state, dict) and "model_state_dict" in state:
@@ -228,6 +266,7 @@ class RetinaGuardPredictor:
                 model.load_state_dict(state)
             model.eval()
             self.pt_model = model
+            self.model_architecture_compatible = True
 
     def predict(self, image: Union[Image.Image, np.ndarray, str, Path]) -> PredictionResponse:
         t0 = time.perf_counter()

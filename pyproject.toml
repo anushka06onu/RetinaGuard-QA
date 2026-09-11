@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "retinaguard-qa"
-version = "1.0.0"
+version = "0.2.0"
 description = "An uncertainty-aware, device-robust quality assurance and capture-feedback system for retinal fundus imaging"
 authors = [{ name = "Fateha Hossain Anushka" }]
 readme = "README.md"

@@ -125,31 +125,31 @@ def prepare_deepdrid(
                     eval_exp = {"images": eval_exp}
 
             if "images" in train_exp and train_exp["images"] is not None:
-                assert len(df_train) == train_exp["images"], (
-                    f"Expected {train_exp['images']} training images, found {len(df_train)}"
-                )
+                assert (
+                    len(df_train) == train_exp["images"]
+                ), f"Expected {train_exp['images']} training images, found {len(df_train)}"
             if "patients" in train_exp and train_exp["patients"] is not None:
-                assert df_train["patient_id"].nunique() == train_exp["patients"], (
-                    f"Expected {train_exp['patients']} training patients, found {df_train['patient_id'].nunique()}"
-                )
+                assert (
+                    df_train["patient_id"].nunique() == train_exp["patients"]
+                ), f"Expected {train_exp['patients']} training patients, found {df_train['patient_id'].nunique()}"
 
             if "images" in val_exp and val_exp["images"] is not None:
-                assert len(df_val) == val_exp["images"], (
-                    f"Expected {val_exp['images']} validation images, found {len(df_val)}"
-                )
+                assert (
+                    len(df_val) == val_exp["images"]
+                ), f"Expected {val_exp['images']} validation images, found {len(df_val)}"
             if "patients" in val_exp and val_exp["patients"] is not None:
-                assert df_val["patient_id"].nunique() == val_exp["patients"], (
-                    f"Expected {val_exp['patients']} validation patients, found {df_val['patient_id'].nunique()}"
-                )
+                assert (
+                    df_val["patient_id"].nunique() == val_exp["patients"]
+                ), f"Expected {val_exp['patients']} validation patients, found {df_val['patient_id'].nunique()}"
 
             if "images" in eval_exp and eval_exp["images"] is not None:
-                assert len(df_eval) == eval_exp["images"], (
-                    f"Expected {eval_exp['images']} evaluation images, found {len(df_eval)}"
-                )
+                assert (
+                    len(df_eval) == eval_exp["images"]
+                ), f"Expected {eval_exp['images']} evaluation images, found {len(df_eval)}"
             if "patients" in eval_exp and eval_exp["patients"] is not None:
-                assert df_eval["patient_id"].nunique() == eval_exp["patients"], (
-                    f"Expected {eval_exp['patients']} evaluation patients, found {df_eval['patient_id'].nunique()}"
-                )
+                assert (
+                    df_eval["patient_id"].nunique() == eval_exp["patients"]
+                ), f"Expected {eval_exp['patients']} evaluation patients, found {df_eval['patient_id'].nunique()}"
 
         finally:
             safe_save_exclusions()

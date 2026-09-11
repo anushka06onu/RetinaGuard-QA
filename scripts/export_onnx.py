@@ -57,9 +57,7 @@ def main():
     out_p.parent.mkdir(parents=True, exist_ok=True)
 
     print(f"=== Exporting Trained RetinaGuard Checkpoint ({ckpt_p}) to ONNX ({out_p}) ===")
-    model = RetinaGuardMultiTaskModel(pretrained=False)
-    state = torch.load(ckpt_p, map_location="cpu")
-    model.load_state_dict(state.get("state_dict", state))
+    model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_p)
     model.eval()
 
     wrapper = OnnxMultiTaskWrapper(model)

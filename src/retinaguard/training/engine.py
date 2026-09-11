@@ -1,6 +1,6 @@
 """Training and validation epoch execution loops."""
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -69,7 +69,7 @@ def evaluate_epoch(
     n_batches = max(1, len(dataloader))
 
     # Collectors for multi-head metrics
-    collectors = {
+    collectors: Dict[str, Dict[str, List[Any]]] = {
         "quality": {"logits": [], "targets": [], "masks": []},
         "overall_quality": {"logits": [], "targets": [], "masks": []},
         "artifact": {"logits": [], "targets": [], "masks": []},

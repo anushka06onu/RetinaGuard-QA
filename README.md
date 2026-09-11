@@ -13,7 +13,7 @@
 
 > [!IMPORTANT]
 > **Engineering Pipeline Verification Stage:**
-> The software architecture, data ingestion, split auditing, multi-task model heads, probability calibration, selective prediction, OOD gating, and deployment stack are fully implemented and verified with automated test suites.
+> The software architecture, data ingestion, split auditing, multi-task model heads, probability calibration, selective prediction, OOD gating, and deployment stack are implemented and covered by automated test suites; final-model deployment validation remains pending conclusion of full-scale dataset training.
 >
 > **Experimental Status:**
 > Preliminary multi-task engineering runs have been executed on the verified DeepDRiD dataset partitions. Full multi-seed campaigns across EyeQ, three independent training seeds, zero-shot transfer, real-image baseline comparisons, and exhaustive OOD benchmarks are currently in progress on authorized datasets.
@@ -49,7 +49,7 @@ It outputs one of four deterministic operational decisions:
 When executed across full cohorts, the experimental protocol evaluates models over verified test partitions:
 
 | Model / Comparison | Cohort / Split | Target Tasks | Status |
-| :--- | :--- | :--- | :---: |
+| :--- | :--- | :--- | :--- |
 | **Majority Class Baseline** | EyeQ Official Test — final valid count reported after ingestion audit | 3-class Quality | Planned |
 | **Classical Features (Random Forest / LR)** | EyeQ Official Test — final valid count reported after ingestion audit | Texture & Contrast Features | Planned |
 | **MobileNetV3 Single-Task** | EyeQ Official Test — final valid count reported after ingestion audit | Quality Grade | Planned |
@@ -67,7 +67,7 @@ A preliminary multi-task training run was conducted on the 2,000 verified DeepDR
   - **Balanced Accuracy:** 0.6997
   - **Artifact Attribute Macro-F1:** 0.7377
   - *Note:* This preliminary run utilized the earlier 3-output head. The corrected binary overall-quality head (`0: Good`, `1: Poor/Reject`, `nn.Linear(512, 2)`) is now implemented for the final campaign.
-  - Full per-class records are documented in [Preliminary DeepDRiD metrics](artifacts/metrics/held_out_deepdrid.json).
+  - Full per-class records are documented in [Preliminary DeepDRiD metrics](artifacts/metrics/held_out_deepdrid.json). Committed preliminary figures in `artifacts/figures/` reflect this preliminary engineering exploration.
 
 ---
 
@@ -165,18 +165,16 @@ retinaguard-qa/
 │   ├── provenance/      # Automated environment.txt and SHA256SUMS
 │   └── reports/         # Audited data integrity and isolation reports
 ├── docs/                # Architecture, data card, methodology, limitations, user guide
-└── tests/               # 39 unit, API integration, and scientific rigor tests (pytest)
+└── tests/               # Python unit, integration, and scientific-integrity tests (pytest)
 ```
 
 ---
 
-## 5. Artifact Policy & Checkpoint Availability
+## 5. Artifact Policy & Reproducibility
 
-- Large binary checkpoints (`.ckpt`, `.pt`) are excluded from Git history per repository data policy.
-- Checkpoint releases and exported ONNX models are hosted externally via GitHub Releases:
-  - **Release Repository:** `https://github.com/anushka06onu/RetinaGuard-QA/releases`
-  - **Exported ONNX Model:** `model.onnx` (SHA-256: `cb9d189f92091f916d91657cd6fd23279261c65f83db5dd235639c03a7f8388c`)
-  - **Source PyTorch Checkpoint:** `best.ckpt` (SHA-256: `563db501aed717055360759b7483b155de1003fc82f55756d6d8ac4c8c24d91d`)
+- Large binary checkpoints (`.ckpt`, `.pt`) are excluded from Git tracking.
+- Model artifacts are generated locally via the reproduction pipeline (`scripts/train.py`, `scripts/export_onnx.py`).
+- Preprocessing configurations, calibration parameters, and dataset split manifests are tracked directly in the repository with SHA-256 provenance.
 - To verify local artifact integrity:
   ```bash
   sha256sum -c artifacts/provenance/SHA256SUMS
@@ -201,7 +199,7 @@ retinaguard-qa/
   author = {Fateha Hossain Anushka},
   title = {RetinaGuard-QA: An Uncertainty-Aware, Multi-Task Quality Assurance and Capture-Feedback System for Retinal Fundus Imaging},
   year = {2026},
-  version = {1.0.0},
+  version = {0.2.0},
   url = {https://github.com/anushka06onu/RetinaGuard-QA}
 }
 ```

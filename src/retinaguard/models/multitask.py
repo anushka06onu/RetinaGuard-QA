@@ -1,6 +1,5 @@
-"""Multi-task neural network architecture per Phase 8 of blueprint."""
-
-from typing import Dict
+from pathlib import Path
+from typing import Any, Dict
 
 import timm
 import torch
@@ -24,19 +23,36 @@ class RetinaGuardMultiTaskModel(nn.Module):
         pretrained: bool = True,
         dropout: float = 0.2,
         latent_dim: int = 128,
+        allow_random_initialization: bool = False,
     ):
         super().__init__()
         self.backbone_name = backbone_name
         self.latent_dim = latent_dim
+        self.dropout = dropout
+        self.pretrained = pretrained
+        self.initialization_source = "random"
 
-        try:
-            self.backbone = timm.create_model(
-                backbone_name, pretrained=pretrained, num_classes=0, drop_rate=dropout
-            )
-        except Exception:
+        if pretrained:
+            try:
+                self.backbone = timm.create_model(
+                    backbone_name, pretrained=True, num_classes=0, drop_rate=dropout
+                )
+                self.initialization_source = f"timm_pretrained_{backbone_name}"
+            except Exception as e:
+                if not allow_random_initialization:
+                    raise RuntimeError(
+                        f"Failed to load pretrained weights for '{backbone_name}': {e}. "
+                        "To allow offline random initialization, pass allow_random_initialization=True."
+                    ) from e
+                self.backbone = timm.create_model(
+                    backbone_name, pretrained=False, num_classes=0, drop_rate=dropout
+                )
+                self.initialization_source = "random_offline_fallback"
+        else:
             self.backbone = timm.create_model(
                 backbone_name, pretrained=False, num_classes=0, drop_rate=dropout
             )
+            self.initialization_source = "random_unpretrained"
 
         with torch.no_grad():
             dummy = torch.randn(1, 3, 224, 224)
@@ -60,6 +76,36 @@ class RetinaGuardMultiTaskModel(nn.Module):
 
         # 4. Latent Projection for OOD
         self.projection_head = nn.Sequential(nn.Linear(512, latent_dim), nn.BatchNorm1d(latent_dim))
+
+    @classmethod
+    def from_checkpoint_metadata(
+        cls, metadata_or_path: Dict[str, Any] | str | Path
+    ) -> "RetinaGuardMultiTaskModel":
+        """Reconstruct model architecture exactly matching recorded checkpoint metadata."""
+        if isinstance(metadata_or_path, (str, Path)):
+            state = torch.load(metadata_or_path, map_location="cpu")
+            metadata = state.get("metadata", {}) if isinstance(state, dict) else {}
+            state_dict = state.get("state_dict", state) if isinstance(state, dict) else state
+        else:
+            metadata = metadata_or_path
+            state_dict = None
+
+        backbone = metadata.get("backbone", "mobilenetv3_large_100")
+        latent_dim = metadata.get("latent_dim", 128)
+        if not latent_dim and "head_dimensions" in metadata:
+            latent_dim = metadata["head_dimensions"].get("projection_head", 128)
+        dropout = metadata.get("dropout", 0.2)
+
+        model = cls(
+            backbone_name=backbone,
+            pretrained=False,
+            dropout=dropout,
+            latent_dim=latent_dim,
+            allow_random_initialization=True,
+        )
+        if state_dict is not None and isinstance(state_dict, dict):
+            model.load_state_dict(state_dict)
+        return model
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         features = self.backbone(x)

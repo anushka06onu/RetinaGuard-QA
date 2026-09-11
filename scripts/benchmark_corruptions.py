@@ -63,9 +63,7 @@ def main():
     print(
         f"=== Running Optical Corruption Robustness Benchmark [Task: {args.task}] on {test_p} ==="
     )
-    model = RetinaGuardMultiTaskModel(pretrained=False)
-    state = torch.load(ckpt_p, map_location="cpu")
-    model.load_state_dict(state.get("state_dict", state))
+    model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_p)
     model.eval()
 
     test_df = pd.read_csv(test_p)
