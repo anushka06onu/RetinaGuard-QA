@@ -224,3 +224,89 @@ def test_empirical_result_artifact_schema_and_integrity(tmp_path):
     valid_res = validate_empirical_result(valid_completed)
     assert valid_res["valid"] is True
     assert valid_res["type"] == "completed_final_result"
+
+    # 6. Test missing checkpoint file raises FileNotFoundError
+    bad_ckpt_json = tmp_path / "bad_ckpt.json"
+    bad_ckpt_json.write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "eligible_as_final_result": True,
+                "generated_by": "scripts/evaluate.py",
+                "git_commit": "abc1234",
+                "checkpoint_path": str(tmp_path / "nonexistent.ckpt"),
+                "checkpoint_sha256": "fake_sha",
+                "split_path": str(dummy_split),
+                "split_sha256": split_sha,
+                "prediction_file": str(dummy_pred),
+                "prediction_file_sha256": pred_sha,
+                "num_samples": 1,
+                "accuracy": 1.0,
+                "macro_f1": 1.0,
+                "created_at_utc": "2026-09-11T12:00:00Z",
+            }
+        )
+    )
+    with pytest.raises(FileNotFoundError, match="Referenced checkpoint file not found"):
+        validate_empirical_result(bad_ckpt_json)
+
+    # 7. Test prediction IDs mismatch with split IDs raises ValueError
+    mismatch_pred = tmp_path / "mismatch_preds.csv"
+    mismatch_pred.write_text(
+        "image_id,patient_id,dataset,split,target,prediction\n999,p1,test,split.csv,0,0\n"
+    )
+    mismatch_pred_sha = compute_sha256(mismatch_pred)
+    mismatch_json = tmp_path / "mismatch.json"
+    mismatch_json.write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "eligible_as_final_result": True,
+                "generated_by": "scripts/evaluate.py",
+                "git_commit": "abc1234",
+                "checkpoint_path": str(dummy_ckpt),
+                "checkpoint_sha256": ckpt_sha,
+                "split_path": str(dummy_split),
+                "split_sha256": split_sha,
+                "prediction_file": str(mismatch_pred),
+                "prediction_file_sha256": mismatch_pred_sha,
+                "num_samples": 1,
+                "accuracy": 1.0,
+                "macro_f1": 1.0,
+                "created_at_utc": "2026-09-11T12:00:00Z",
+            }
+        )
+    )
+    with pytest.raises(ValueError, match="Prediction image IDs do not exactly equal"):
+        validate_empirical_result(mismatch_json)
+
+    # 8. Test duplicate image_id in predictions raises ValueError
+    dup_pred = tmp_path / "dup_preds.csv"
+    dup_pred.write_text(
+        "image_id,patient_id,dataset,split,target,prediction\n1,p1,test,split.csv,0,0\n1,p1,test,split.csv,0,0\n"
+    )
+    dup_pred_sha = compute_sha256(dup_pred)
+    dup_json = tmp_path / "dup.json"
+    dup_json.write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "eligible_as_final_result": True,
+                "generated_by": "scripts/evaluate.py",
+                "git_commit": "abc1234",
+                "checkpoint_path": str(dummy_ckpt),
+                "checkpoint_sha256": ckpt_sha,
+                "split_path": str(dummy_split),
+                "split_sha256": split_sha,
+                "prediction_file": str(dup_pred),
+                "prediction_file_sha256": dup_pred_sha,
+                "num_samples": 2,
+                "accuracy": 1.0,
+                "macro_f1": 1.0,
+                "created_at_utc": "2026-09-11T12:00:00Z",
+            }
+        )
+    )
+    with pytest.raises(ValueError, match="Duplicate image_id entries found in prediction file"):
+        validate_empirical_result(dup_json)
+
