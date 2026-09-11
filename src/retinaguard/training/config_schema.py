@@ -1,6 +1,6 @@
 """Typed Pydantic configuration schemas for RetinaGuard training."""
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -17,8 +17,15 @@ class DatasetSplitConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = True
-    train_split: str
-    val_split: str
+    train_split: Optional[str] = None
+    val_split: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_splits_when_enabled(self) -> "DatasetSplitConfig":
+        if self.enabled:
+            if not self.train_split or not self.val_split:
+                raise ValueError("Enabled dataset must specify non-empty train_split and val_split paths.")
+        return self
 
 
 class DataConfig(BaseModel):
@@ -50,7 +57,7 @@ class ModelConfig(BaseModel):
     pretrained: bool = True
     dropout: float = Field(ge=0.0, le=0.9, default=0.2)
     latent_dim: int = Field(gt=0, default=128)
-    heads: Dict[str, HeadConfig]
+    heads: Dict[str, HeadConfig] = Field(default_factory=dict)
 
     @field_validator("heads")
     @classmethod
@@ -80,7 +87,11 @@ class TrainingConfig(BaseModel):
     mixed_precision: bool = True
     early_stopping_patience: int = Field(gt=0, default=7)
     selection_metric: Literal[
-        "primary_macro_f1", "val_loss", "val_macro_f1", "val_deepdrid_overall_macro_f1"
+        "primary_macro_f1",
+        "val_loss",
+        "val_macro_f1",
+        "quality_macro_f1",
+        "val_deepdrid_overall_macro_f1",
     ] = "primary_macro_f1"
 
 

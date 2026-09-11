@@ -16,9 +16,12 @@ data:
 model:
   backbone: "mobilenetv3_large_100" # options: "mobilenetv3_large_100", "efficientnet_b0"
   pretrained: true
-  num_classes: 3
   dropout: 0.2
   latent_dim: 128
+  heads:
+    quality:
+      num_classes: 3
+      weight: 1.0
 
 training:
   image_size: 384
@@ -34,6 +37,6 @@ training:
   selection_metric: "quality_macro_f1"
 
 loss:
-  type: "cross_entropy"
+  quality_loss: "cross_entropy"
+  attribute_loss: "ordinal_or_ce"
   label_smoothing: 0.05
-

@@ -51,7 +51,8 @@ def run_training_experiment(
 
     if not fixture_mode:
         # Strict validation of configuration schema
-        validate_training_config(cfg)
+        validated = validate_training_config(cfg)
+        cfg = validated.model_dump()
 
     seed = (
         override_seed if override_seed is not None else cfg.get("experiment", {}).get("seed", 2026)
@@ -85,22 +86,26 @@ def run_training_experiment(
             datasets_cfg.get("eyeq", {}).get(
                 "train_split", data_cfg.get("train_eyeq_split", "data/splits/eyeq_train.csv")
             )
+            or "data/splits/eyeq_train.csv"
         )
         eyeq_val_p = Path(
             datasets_cfg.get("eyeq", {}).get(
                 "val_split", data_cfg.get("val_eyeq_split", "data/splits/eyeq_val.csv")
             )
+            or "data/splits/eyeq_val.csv"
         )
         deepdrid_train_p = Path(
             datasets_cfg.get("deepdrid", {}).get(
                 "train_split",
                 data_cfg.get("train_deepdrid_split", "data/splits/deepdrid_train.csv"),
             )
+            or "data/splits/deepdrid_train.csv"
         )
         deepdrid_val_p = Path(
             datasets_cfg.get("deepdrid", {}).get(
                 "val_split", data_cfg.get("val_deepdrid_split", "data/splits/deepdrid_val.csv")
             )
+            or "data/splits/deepdrid_val.csv"
         )
         save_dir = Path(output_dir) if output_dir else Path("artifacts/models")
         history_path = (
@@ -156,6 +161,8 @@ def run_training_experiment(
     img_size = train_cfg.get("image_size", 384)
     num_workers = 0 if fixture_mode else train_cfg.get("num_workers", 2)
     use_amp = train_cfg.get("mixed_precision", False) and device.type == "cuda"
+    selection_metric = train_cfg.get("selection_metric", "primary_macro_f1")
+    selection_mode = "min" if selection_metric == "val_loss" else "max"
 
     # Build Training Dataset & Loader
     train_datasets = []
@@ -292,21 +299,31 @@ def run_training_experiment(
         )
     elif sched_name == "step":
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
+    elif sched_name == "reduce_on_plateau":
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode=selection_mode,
+            patience=max(1, train_cfg.get("early_stopping_patience", 7) // 2),
+            factor=0.5,
+        )
     else:
         scheduler = None
 
     scaler = torch.amp.GradScaler("cuda") if use_amp else None
 
-    early_stopping = EarlyStopping(patience=train_cfg.get("early_stopping_patience", 7))
+    early_stopping = EarlyStopping(
+        patience=train_cfg.get("early_stopping_patience", 7), mode=selection_mode
+    )
     checkpoint_saver = ModelCheckpointSaver(save_dir=save_dir, filename="best.ckpt")
     history_logger = MetricHistoryLogger(output_path=history_path)
 
-    best_val_score = 0.0
+    best_val_score = float("inf") if selection_mode == "min" else -float("inf")
     git_commit = get_git_commit()
 
     print(
         f"=== Starting Training [{cfg.get('experiment', {}).get('name', 'experiment')}] "
-        f"Seed: {seed} | Backbone: {backbone_name} | Datasets: {training_dataset_names} ==="
+        f"Seed: {seed} | Backbone: {backbone_name} | Datasets: {training_dataset_names} | "
+        f"Selection Metric: {selection_metric} ({selection_mode}) ==="
     )
 
     for epoch in range(1, epochs + 1):
@@ -315,14 +332,27 @@ def run_training_experiment(
         )
         val_loss, val_metrics, _, _ = evaluate_epoch(model, val_loader, criterion, device)
 
-        if scheduler is not None:
-            scheduler.step()
+        # Extract objective score according to selection_metric
+        if selection_metric == "val_loss":
+            val_score = float(val_loss)
+        elif selection_metric == "quality_macro_f1":
+            val_score = float(val_metrics.get("quality_macro_f1", 0.0))
+        elif selection_metric in ["val_deepdrid_overall_macro_f1", "overall_quality_macro_f1"]:
+            val_score = float(val_metrics.get("overall_quality_macro_f1", 0.0))
+        elif selection_metric == "val_macro_f1":
+            val_score = float(
+                val_metrics.get("primary_macro_f1", val_metrics.get("quality_macro_f1", 0.0))
+            )
+        else:  # primary_macro_f1
+            val_score = float(
+                val_metrics.get("primary_macro_f1", val_metrics.get("quality_macro_f1", 0.0))
+            )
 
-        val_score = (
-            val_metrics.get("primary_macro_f1", val_metrics.get("quality_macro_f1", 0.0))
-            if isinstance(val_metrics, dict)
-            else float(val_metrics)
-        )
+        if scheduler is not None:
+            if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                scheduler.step(val_score)
+            else:
+                scheduler.step()
 
         history_logger.log(epoch, train_loss, val_loss, val_metrics)
 

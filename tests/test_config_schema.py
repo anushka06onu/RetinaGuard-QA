@@ -179,3 +179,57 @@ def test_extra_unknown_fields_rejected():
     }
     with pytest.raises(ValidationError):
         validate_training_config(invalid_dict)
+
+
+def test_all_training_yamls_pass_validation():
+    from pathlib import Path
+    import yaml
+
+    config_dir = Path("configs")
+    train_yamls = list(config_dir.glob("train_*.yaml"))
+    assert len(train_yamls) >= 2, f"Expected at least 2 training configs, found {train_yamls}"
+
+    for yaml_path in train_yamls:
+        with open(yaml_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+        validated = validate_training_config(cfg)
+        assert validated is not None
+        assert validated.training.batch_size > 0
+
+
+def test_disabled_dataset_without_splits_is_valid():
+    config_dict = {
+        "data": {
+            "datasets": {
+                "eyeq": {
+                    "enabled": True,
+                    "train_split": "data/splits/eyeq_train.csv",
+                    "val_split": "data/splits/eyeq_val.csv",
+                },
+                "deepdrid": {
+                    "enabled": False,
+                },
+            }
+        },
+        "model": {
+            "backbone": "mobilenetv3_large_100",
+            "heads": {
+                "quality": {"num_classes": 3, "weight": 1.0},
+            },
+        },
+        "training": {
+            "image_size": 384,
+            "epochs": 10,
+            "batch_size": 16,
+            "scheduler": "reduce_on_plateau",
+            "selection_metric": "quality_macro_f1",
+        },
+        "loss": {
+            "quality_loss": "cross_entropy",
+            "attribute_loss": "ordinal_or_ce",
+        },
+    }
+    validated = validate_training_config(config_dict)
+    assert validated.training.scheduler == "reduce_on_plateau"
+    assert validated.training.selection_metric == "quality_macro_f1"
+
