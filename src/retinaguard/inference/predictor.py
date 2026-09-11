@@ -252,7 +252,10 @@ class RetinaGuardPredictor:
         else:
             from retinaguard.models.multitask import RetinaGuardMultiTaskModel
 
-            state = torch.load(str(path), map_location="cpu")
+            try:
+                state = torch.load(str(path), map_location="cpu", weights_only=False)
+            except TypeError:
+                state = torch.load(str(path), map_location="cpu")
             metadata = state.get("metadata", {}) if isinstance(state, dict) else {}
             if metadata:
                 model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(metadata)

@@ -141,6 +141,29 @@ def verify_existing_seed_run(
     return True, manifest, "Verified"
 
 
+def verify_campaign_archive(archive_dir: Path) -> Tuple[bool, str]:
+    """Independently verify a self-contained campaign archive directory."""
+    manifest_file = archive_dir / "campaign_manifest.json"
+    if not manifest_file.is_file():
+        return False, "Missing campaign_manifest.json"
+
+    sums_file = archive_dir / "SHA256SUMS"
+    if not sums_file.is_file():
+        return False, "Missing top-level SHA256SUMS"
+
+    # Validate all metric JSON files in all archived seeds
+    for seed_metrics_dir in sorted(archive_dir.glob("seed_*/metrics")):
+        for m_file in sorted(seed_metrics_dir.glob("*.json")):
+            try:
+                res = validate_empirical_result(m_file)
+                if not res.get("valid"):
+                    return False, f"Invalid metric result in archive: {m_file}"
+            except Exception as e:
+                return False, f"Archive metric validation error for {m_file}: {e}"
+
+    return True, "Archive verified successfully"
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Run 3-seed training and evaluation campaign with per-seed output isolation."
@@ -201,15 +224,15 @@ def main():
     if args.zero_shot and args.config == "configs/train_multitask.yaml":
         args.config = "configs/train_eyeq.yaml"
 
-    runs_base_dir = Path(args.output_runs_dir)
+    mode_name = "zero_shot" if args.zero_shot else "multitask"
+    mode_str = "Zero-Shot Transfer Campaign" if args.zero_shot else "Supervised Multi-Task Campaign"
+
+    runs_base_dir = Path(args.output_runs_dir) / mode_name
     runs_base_dir.mkdir(parents=True, exist_ok=True)
     metrics_dir = Path(args.output_metrics_dir)
     metrics_dir.mkdir(parents=True, exist_ok=True)
     campaigns_dir = Path(args.output_campaigns_dir)
     campaigns_dir.mkdir(parents=True, exist_ok=True)
-
-    mode_name = "zero_shot" if args.zero_shot else "multitask"
-    mode_str = "Zero-Shot Transfer Campaign" if args.zero_shot else "Supervised Multi-Task Campaign"
     print("===========================================================")
     print(f"=== Starting 3-Seed {mode_str} across Seeds: {args.seeds} ===")
     print(f"=== Config: {args.config} | Runs Dir: {runs_base_dir} ===")
@@ -276,7 +299,10 @@ def main():
                 raise ValueError(
                     f"Zero-shot campaign requires training exclusively on EyeQ, got {train_res.get('training_datasets')}"
                 )
-            ckpt_state = torch.load(ckpt_path, map_location="cpu")
+            try:
+                ckpt_state = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+            except TypeError:
+                ckpt_state = torch.load(ckpt_path, map_location="cpu")
             ckpt_meta = ckpt_state.get("metadata", {})
             if (
                 "deepdrid" in ckpt_meta.get("train_split_hashes", {})
@@ -489,7 +515,15 @@ def main():
     campaign_archive_dir = campaigns_dir / f"{mode_name}_{timestamp_str}"
     campaign_archive_dir.mkdir(parents=True, exist_ok=True)
 
-    # Copy full per-seed directories into self-contained campaign archive
+    # Copy evaluated split manifests into campaign archive
+    splits_archive_dir = campaign_archive_dir / "splits"
+    splits_archive_dir.mkdir(parents=True, exist_ok=True)
+    if Path(args.eyeq_split).is_file():
+        shutil.copy2(args.eyeq_split, splits_archive_dir / Path(args.eyeq_split).name)
+    if Path(args.deepdrid_split).is_file():
+        shutil.copy2(args.deepdrid_split, splits_archive_dir / Path(args.deepdrid_split).name)
+
+    # Copy full per-seed directories into self-contained campaign archive and make paths relative
     archived_seeds = []
     for seed in args.seeds:
         src_seed = runs_base_dir / f"seed_{seed}"
@@ -499,6 +533,28 @@ def main():
                 shutil.rmtree(dst_seed)
             shutil.copytree(src_seed, dst_seed)
             archived_seeds.append(f"seed_{seed}")
+
+            # Rewrite metric JSON files with relative paths for complete portability
+            archived_metrics_dir = dst_seed / "metrics"
+            if archived_metrics_dir.is_dir():
+                for m_file in archived_metrics_dir.glob("*.json"):
+                    with open(m_file, "r", encoding="utf-8") as f:
+                        m_data = json.load(f)
+
+                    if "checkpoint_path" in m_data:
+                        m_data["checkpoint_path"] = "../" + Path(m_data["checkpoint_path"]).name
+                    if "prediction_file" in m_data:
+                        m_data["prediction_file"] = (
+                            "../predictions/" + Path(m_data["prediction_file"]).name
+                        )
+                    if "split_path" in m_data:
+                        m_data["split_path"] = "../../splits/" + Path(m_data["split_path"]).name
+
+                    with open(m_file, "w", encoding="utf-8") as f:
+                        json.dump(m_data, f, indent=2)
+
+            # Regenerate per-seed checksums inside the archived copy
+            generate_seed_checksums(dst_seed)
 
     df_seeds.to_csv(campaign_archive_dir / csv_name, index=False)
     df_summary.to_csv(campaign_archive_dir / summary_name, index=False)
@@ -513,6 +569,7 @@ def main():
         "git_commit": git_commit,
         "created_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "archived_seed_directories": archived_seeds,
+        "splits_directory": "splits",
         "per_seed_csv": csv_name,
         "summary_csv": summary_name,
     }
@@ -520,8 +577,14 @@ def main():
         json.dump(campaign_manifest, f, indent=2)
 
     generate_seed_checksums(campaign_archive_dir)
+
+    # Independently verify campaign archive
+    is_valid_archive, arch_msg = verify_campaign_archive(campaign_archive_dir)
+    if not is_valid_archive:
+        raise RuntimeError(f"Campaign archive verification failed: {arch_msg}")
+
     print(
-        f"Archived self-contained campaign evidence package and checksums to {campaign_archive_dir}"
+        f"Archived and verified self-contained campaign evidence package at {campaign_archive_dir}"
     )
 
     print(f"\n=== 3-Seed {mode_str} Summary (Sample SD ddof=1) ===")

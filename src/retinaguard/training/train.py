@@ -377,6 +377,8 @@ def run_training_experiment(
             checkpoint_metadata = {
                 "architecture": "RetinaGuardMultiTaskModel",
                 "backbone": backbone_name,
+                "latent_dim": latent_dim,
+                "dropout": dropout,
                 "head_dimensions": {
                     "quality_head": 3,
                     "overall_quality_head": 2,

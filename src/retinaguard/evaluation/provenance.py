@@ -211,11 +211,15 @@ def validate_empirical_result(data_or_path: Union[str, Path, Dict[str, Any]]) ->
                 f"Recomputed balanced accuracy ({recomputed_bal_acc:.4f}) diverges from reported ({data['balanced_accuracy']:.4f})"
             )
 
-        recomputed_cm = confusion_matrix(df_preds["target"], df_preds["prediction"]).tolist()
-        if "confusion_matrix" in data and data["confusion_matrix"] != recomputed_cm:
-            raise ValueError(
-                f"Recomputed confusion matrix diverges from reported: {recomputed_cm} != {data['confusion_matrix']}"
-            )
+        if "confusion_matrix" in data and len(data["confusion_matrix"]) > 0:
+            labels = list(range(len(data["confusion_matrix"])))
+            recomputed_cm = confusion_matrix(
+                df_preds["target"], df_preds["prediction"], labels=labels
+            ).tolist()
+            if data["confusion_matrix"] != recomputed_cm:
+                raise ValueError(
+                    f"Recomputed confusion matrix diverges from reported: {recomputed_cm} != {data['confusion_matrix']}"
+                )
 
         return {"valid": True, "type": "completed_final_result"}
 
@@ -330,8 +334,12 @@ def validate_baseline_result(data_or_path: Union[str, Path, Dict[str, Any]]) -> 
     if abs(recomputed_bal_acc - float(data["balanced_accuracy"])) > 1e-3:
         raise ValueError("Baseline recomputed balanced accuracy mismatch.")
 
-    recomputed_cm = confusion_matrix(df_preds["target"], df_preds["prediction"]).tolist()
-    if "confusion_matrix" in data and data["confusion_matrix"] != recomputed_cm:
-        raise ValueError("Baseline recomputed confusion matrix mismatch.")
+    if "confusion_matrix" in data and len(data["confusion_matrix"]) > 0:
+        labels = list(range(len(data["confusion_matrix"])))
+        recomputed_cm = confusion_matrix(
+            df_preds["target"], df_preds["prediction"], labels=labels
+        ).tolist()
+        if data["confusion_matrix"] != recomputed_cm:
+            raise ValueError("Baseline recomputed confusion matrix mismatch.")
 
     return {"valid": True, "type": "completed_baseline_result"}

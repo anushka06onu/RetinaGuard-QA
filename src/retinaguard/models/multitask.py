@@ -83,7 +83,10 @@ class RetinaGuardMultiTaskModel(nn.Module):
     ) -> "RetinaGuardMultiTaskModel":
         """Reconstruct model architecture exactly matching recorded checkpoint metadata."""
         if isinstance(metadata_or_path, (str, Path)):
-            state = torch.load(metadata_or_path, map_location="cpu")
+            try:
+                state = torch.load(metadata_or_path, map_location="cpu", weights_only=False)
+            except TypeError:
+                state = torch.load(metadata_or_path, map_location="cpu")
             metadata = state.get("metadata", {}) if isinstance(state, dict) else {}
             state_dict = state.get("state_dict", state) if isinstance(state, dict) else state
         else:
@@ -91,9 +94,11 @@ class RetinaGuardMultiTaskModel(nn.Module):
             state_dict = None
 
         backbone = metadata.get("backbone", "mobilenetv3_large_100")
-        latent_dim = metadata.get("latent_dim", 128)
-        if not latent_dim and "head_dimensions" in metadata:
+        latent_dim = metadata.get("latent_dim")
+        if latent_dim is None and "head_dimensions" in metadata:
             latent_dim = metadata["head_dimensions"].get("projection_head", 128)
+        if latent_dim is None:
+            latent_dim = 128
         dropout = metadata.get("dropout", 0.2)
 
         model = cls(

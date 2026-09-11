@@ -24,6 +24,7 @@ def run_ablation_experiment(
     output_dir: Path,
     eyeq_split: str,
     deepdrid_split: str,
+    seed: int = 42,
     smoke_test: bool = False,
 ) -> Dict[str, Any]:
     """Execute a single ablation variant, evaluate on test sets, and record full provenance."""
@@ -47,6 +48,7 @@ def run_ablation_experiment(
         config_path=ablation_config_p,
         smoke_test=smoke_test,
         fixture_mode=False,
+        override_seed=seed,
         output_dir=output_dir,
     )
 
@@ -68,6 +70,7 @@ def run_ablation_experiment(
     created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
     record: Dict[str, Any] = {
         "ablation_name": name,
+        "seed": seed,
         "checkpoint_path": str(ckpt_path),
         "checkpoint_sha256": ckpt_sha,
         "best_val_macro_f1": train_res["best_val_macro_f1"],
@@ -86,6 +89,7 @@ def run_ablation_experiment(
                 "eligible_as_final_result": True,
                 "generated_by": "scripts/run_ablations.py",
                 "git_commit": git_commit,
+                "seed": seed,
                 "checkpoint_path": str(ckpt_path),
                 "checkpoint_sha256": ckpt_sha,
                 "split_path": eyeq_split,
@@ -119,6 +123,7 @@ def run_ablation_experiment(
                 "eligible_as_final_result": True,
                 "generated_by": "scripts/run_ablations.py",
                 "git_commit": git_commit,
+                "seed": seed,
                 "checkpoint_path": str(ckpt_path),
                 "checkpoint_sha256": ckpt_sha,
                 "split_path": deepdrid_split,
@@ -201,18 +206,15 @@ def main():
         for seed in args.seeds:
             print(f"\n>>> Running Ablation Variant: {name} (Seed {seed})...")
             seed_dir = variant_dir / f"seed_{seed}"
-            seed_overrides = dict(overrides)
-            if "training" not in seed_overrides:
-                seed_overrides["training"] = {}
-            seed_overrides["training"]["seed"] = seed
 
             res = run_ablation_experiment(
                 name=f"{name}_seed_{seed}",
                 base_config_path=cfg_path,
-                overrides=seed_overrides,
+                overrides=overrides,
                 output_dir=seed_dir,
                 eyeq_split=args.eyeq_split,
                 deepdrid_split=args.deepdrid_split,
+                seed=seed,
                 smoke_test=args.smoke_test,
             )
             res["variant"] = name

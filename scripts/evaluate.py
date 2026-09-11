@@ -215,8 +215,10 @@ def main():
     preds_dir = out_p.parent / "predictions" if out_p.name == "metrics" else out_p / "predictions"
     preds_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"=== Evaluating RetinaGuard Checkpoint: {ckpt_p} ===")
-    state = torch.load(ckpt_p, map_location="cpu")
+    try:
+        state = torch.load(ckpt_p, map_location="cpu", weights_only=False)
+    except TypeError:
+        state = torch.load(ckpt_p, map_location="cpu")
     metadata = state.get("metadata", {})
     training_datasets = metadata.get("training_datasets", [])
 

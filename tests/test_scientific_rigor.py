@@ -472,3 +472,174 @@ def test_verify_existing_seed_run_bidirectional(tmp_path):
     )
     assert valid is False
     assert "Invalid SHA-256 hash" in reason
+
+
+def test_verify_campaign_archive_portable_independence(tmp_path):
+    """Test that a campaign archive can be verified completely independently in a new location."""
+    import shutil
+
+    from scripts.run_campaign import generate_seed_checksums, verify_campaign_archive
+
+    archive_dir = tmp_path / "multitask_campaign"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. Create splits dir
+    splits_dir = archive_dir / "splits"
+    splits_dir.mkdir(parents=True, exist_ok=True)
+    split_file = splits_dir / "eyeq_test.csv"
+    split_file.write_text("image_id,path\nimg1,test.png\n")
+    split_sha = compute_sha256(split_file)
+
+    # 2. Create seed dir
+    seed_dir = archive_dir / "seed_2026"
+    seed_dir.mkdir(parents=True, exist_ok=True)
+    preds_dir = seed_dir / "predictions"
+    preds_dir.mkdir(parents=True, exist_ok=True)
+    metrics_dir = seed_dir / "metrics"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+
+    ckpt_file = seed_dir / "best.ckpt"
+    ckpt_file.write_text("ckpt_binary_data")
+    ckpt_sha = compute_sha256(ckpt_file)
+
+    pred_file = preds_dir / "eyeq_test_predictions.csv"
+    pred_file.write_text(
+        "image_id,patient_id,dataset,split,target,prediction\nimg1,p1,eyeq,test,0,0\n"
+    )
+    pred_sha = compute_sha256(pred_file)
+
+    # Relative paths inside metric JSON
+    metric_file = metrics_dir / "eyeq_test.json"
+    metric_payload = {
+        "status": "completed",
+        "eligible_as_final_result": True,
+        "generated_by": "scripts/run_campaign.py",
+        "git_commit": "abc1234",
+        "checkpoint_path": "../best.ckpt",
+        "checkpoint_sha256": ckpt_sha,
+        "split_path": "../../splits/eyeq_test.csv",
+        "split_sha256": split_sha,
+        "prediction_file": "../predictions/eyeq_test_predictions.csv",
+        "prediction_file_sha256": pred_sha,
+        "num_samples": 1,
+        "accuracy": 1.0,
+        "macro_f1": 1.0,
+        "balanced_accuracy": 1.0,
+        "confusion_matrix": [[1]],
+        "created_at_utc": "2026-09-11T12:00:00Z",
+    }
+    metric_file.write_text(json.dumps(metric_payload, indent=2))
+
+    generate_seed_checksums(seed_dir)
+
+    # Manifest and top-level sums
+    manifest_file = archive_dir / "campaign_manifest.json"
+    manifest_file.write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "campaign_mode": "multitask",
+                "seeds": [2026],
+                "archived_seed_directories": ["seed_2026"],
+            },
+            indent=2,
+        )
+    )
+    generate_seed_checksums(archive_dir)
+
+    # Verify original archive
+    is_valid, msg = verify_campaign_archive(archive_dir)
+    assert is_valid is True
+    assert msg == "Archive verified successfully"
+
+    # Move archive to completely different isolated folder and test again
+    new_loc = tmp_path / "transferred_campaign"
+    shutil.copytree(archive_dir, new_loc)
+    is_valid_transferred, msg_transferred = verify_campaign_archive(new_loc)
+    assert is_valid_transferred is True
+    assert msg_transferred == "Archive verified successfully"
+
+
+def test_ablation_script_configuration_and_execution_smoke(tmp_path):
+    """Test ablation study variant configs and execution smoke run."""
+    import yaml
+    from PIL import Image
+
+    from scripts.run_ablations import run_ablation_experiment
+
+    # Create dummy image on disk
+    dummy_img = tmp_path / "dummy.png"
+    Image.new("RGB", (32, 32), color=(200, 100, 50)).save(dummy_img)
+
+    # Create dummy split files
+    eyeq_split = tmp_path / "eyeq_test.csv"
+    eyeq_split.write_text(f"image_id,patient_id,path,dataset,quality\ne1,p1,{dummy_img},EyeQ,0\n")
+    dd_split = tmp_path / "dd_test.csv"
+    dd_split.write_text(
+        f"image_id,patient_id,path,dataset,overall_quality,artifact,clarity,field_definition\nd1,p1,{dummy_img},DeepDRiD,0,0,0,0\n"
+    )
+
+    # Create minimal base config
+    base_cfg = {
+        "experiment": {"name": "test_ablation", "seed": 42},
+        "data": {
+            "datasets": {
+                "eyeq": {
+                    "enabled": True,
+                    "train_split": str(eyeq_split),
+                    "val_split": str(eyeq_split),
+                },
+                "deepdrid": {
+                    "enabled": True,
+                    "train_split": str(dd_split),
+                    "val_split": str(dd_split),
+                },
+            },
+        },
+        "model": {
+            "backbone": "mobilenetv3_large_100",
+            "pretrained": False,
+            "dropout": 0.1,
+            "latent_dim": 64,
+            "heads": {
+                "quality": {"num_classes": 3, "weight": 1.0},
+                "overall_quality": {"num_classes": 2, "weight": 1.0},
+                "artifact": {"num_classes": 3, "weight": 0.0},
+                "clarity": {"num_classes": 3, "weight": 0.0},
+                "field_definition": {"num_classes": 3, "weight": 0.0},
+            },
+        },
+        "training": {
+            "optimizer": "adamw",
+            "learning_rate": 0.001,
+            "weight_decay": 0.0001,
+            "scheduler": "cosine",
+            "epochs": 1,
+            "batch_size": 2,
+            "early_stopping_patience": 3,
+            "selection_metric": "primary_macro_f1",
+            "mixed_precision": False,
+            "image_size": 64,
+            "num_workers": 0,
+        },
+        "loss": {"label_smoothing": 0.0},
+    }
+    cfg_p = tmp_path / "base_config.yaml"
+    with open(cfg_p, "w", encoding="utf-8") as f:
+        yaml.safe_dump(base_cfg, f)
+
+    # Run smoke ablation
+    out_dir = tmp_path / "ablation_out"
+    res = run_ablation_experiment(
+        name="test_no_attr",
+        base_config_path=str(cfg_p),
+        overrides={},
+        output_dir=out_dir,
+        eyeq_split=str(eyeq_split),
+        deepdrid_split=str(dd_split),
+        seed=2026,
+        smoke_test=True,
+    )
+    assert res["seed"] == 2026
+    assert res["ablation_name"] == "test_no_attr"
+    assert "best_val_macro_f1" in res

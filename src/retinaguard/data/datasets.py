@@ -95,7 +95,7 @@ class RetinalQualityDataset(Dataset):
                 "overall_quality_canonical" in row and pd.notna(row["overall_quality_canonical"])
             )
         ):
-            q_label = row.get("quality_canonical", row.get("quality_raw", None))
+            q_label = row.get("quality_canonical", row.get("quality_raw", row.get("quality", None)))
             if pd.notna(q_label) and q_label in self.QUALITY_MAP:
                 quality_target = torch.tensor(self.QUALITY_MAP[q_label], dtype=torch.long)
                 quality_mask = torch.tensor(1.0, dtype=torch.float32)
