@@ -57,7 +57,7 @@ export default function App() {
   // Revoke object URL on unmount
   useEffect(() => {
     return () => {
-      if (previewUrl) {
+      if (previewUrl && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
         URL.revokeObjectURL(previewUrl);
       }
     };
@@ -68,7 +68,7 @@ export default function App() {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    if (previewUrl) {
+    if (previewUrl && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
       URL.revokeObjectURL(previewUrl);
     }
     setSelectedFile(null);
@@ -87,7 +87,7 @@ export default function App() {
   };
 
   const processFile = (file: File) => {
-    if (previewUrl) {
+    if (previewUrl && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
       URL.revokeObjectURL(previewUrl);
     }
 
@@ -370,7 +370,7 @@ export default function App() {
                 />
                 {previewUrl ? (
                   <div className="space-y-3">
-                    <img src={previewUrl} alt="Retinal fundus upload preview" className="max-h-48 rounded-lg object-contain mx-auto" />
+                    <img src={previewUrl} alt="Preview" className="max-h-48 rounded-lg object-contain mx-auto" />
                     {selectedFile && (
                       <div className="text-xs text-slate-600 font-medium flex items-center justify-center gap-2">
                         <span>{selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)</span>
