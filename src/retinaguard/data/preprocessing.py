@@ -35,13 +35,13 @@ def crop_retinal_fov(
     cmin, cmax = np.where(cols)[0][[0, -1]]
 
     h, w, _ = np_img.shape
-    margin_h = int((rmax - rmin) * margin_ratio)
-    margin_w = int((cmax - cmin) * margin_ratio)
+    margin_h = int((rmax - rmin + 1) * margin_ratio)
+    margin_w = int((cmax - cmin + 1) * margin_ratio)
 
     rmin = max(0, rmin - margin_h)
-    rmax = min(h, rmax + margin_h)
+    rmax = min(h, rmax + 1 + margin_h)
     cmin = max(0, cmin - margin_w)
-    cmax = min(w, cmax + margin_w)
+    cmax = min(w, cmax + 1 + margin_w)
 
     cropped = np_img[rmin:rmax, cmin:cmax]
 
@@ -70,7 +70,11 @@ class CanonicalRetinalTransform:
 
 
 def get_train_transforms(image_size: Union[int, list, tuple] = 384) -> T.Compose:
-    """Training augmentations preserving retinal diagnostic fidelity without altering quality classes."""
+    """Training augmentations preserving retinal diagnostic fidelity without altering quality classes.
+
+    Uses strictly label-preserving spatial transforms (flips and bounded rotation)
+    rather than ColorJitter, which directly modifies quality characteristics.
+    """
     size_tuple = (
         (image_size[0], image_size[1])
         if isinstance(image_size, (list, tuple))
@@ -82,14 +86,19 @@ def get_train_transforms(image_size: Union[int, list, tuple] = 384) -> T.Compose
             T.Resize(size_tuple, interpolation=T.InterpolationMode.BILINEAR),
             T.RandomHorizontalFlip(p=0.5),
             T.RandomRotation(degrees=10),
-            T.ColorJitter(brightness=0.10, contrast=0.10, saturation=0.08, hue=0.04),
             T.ToTensor(),
             T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ]
     )
 
 
-def get_val_transforms(image_size: Union[int, list, tuple] = 384) -> T.Compose:
+def get_val_transforms(
+    image_size: Union[int, list, tuple] = 384,
+    fov_threshold: int = 15,
+    margin_ratio: float = 0.02,
+    mean: list = [0.485, 0.456, 0.406],
+    std: list = [0.229, 0.224, 0.225],
+) -> T.Compose:
     """Deterministic validation, test, and production deployment transform."""
     size_tuple = (
         (image_size[0], image_size[1])
@@ -98,10 +107,40 @@ def get_val_transforms(image_size: Union[int, list, tuple] = 384) -> T.Compose:
     )
     return T.Compose(
         [
-            CanonicalRetinalTransform(),
+            CanonicalRetinalTransform(threshold=fov_threshold, margin_ratio=margin_ratio),
             T.Resize(size_tuple, interpolation=T.InterpolationMode.BILINEAR),
             T.ToTensor(),
-            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            T.Normalize(mean=mean, std=std),
+        ]
+    )
+
+
+def get_transform_from_metadata(metadata: Dict[str, Any]) -> T.Compose:
+    """Build preprocessing pipeline strictly from validated preprocessing metadata."""
+    img_size = metadata.get("image_size", [384, 384])
+    fov_th = metadata.get("fov_threshold", 15)
+    margin_r = metadata.get("margin_ratio", 0.02)
+    norm = metadata.get("normalization", {})
+    mean = norm.get("mean", [0.485, 0.456, 0.406])
+    std = norm.get("std", [0.229, 0.224, 0.225])
+
+    interp_name = metadata.get("interpolation", "bilinear").lower()
+    interp_mode = (
+        T.InterpolationMode.NEAREST if interp_name == "nearest" else T.InterpolationMode.BILINEAR
+    )
+
+    size_tuple = (
+        (img_size[0], img_size[1])
+        if isinstance(img_size, (list, tuple))
+        else (int(img_size), int(img_size))
+    )
+
+    return T.Compose(
+        [
+            CanonicalRetinalTransform(threshold=fov_th, margin_ratio=margin_r),
+            T.Resize(size_tuple, interpolation=interp_mode),
+            T.ToTensor(),
+            T.Normalize(mean=mean, std=std),
         ]
     )
 
@@ -118,21 +157,29 @@ def preprocess_image_canonical(
 
 
 def export_preprocessing_metadata(
-    output_path: Union[str, Path] = "artifacts/models/preprocessing.json", image_size: int = 384
+    output_path: Union[str, Path] = "artifacts/models/preprocessing.json",
+    image_size: int = 384,
+    source_checkpoint_sha256: str = "unknown",
+    status: str = "completed",
 ) -> Dict[str, Any]:
-    """Export canonical preprocessing metadata so API reads from versioned artifact."""
+    """Export canonical preprocessing metadata so API and inference read from versioned artifact."""
     out_p = Path(output_path)
     out_p.parent.mkdir(parents=True, exist_ok=True)
 
     metadata = {
+        "schema_version": "1.0.0",
         "version": "1.0.0",
+        "class_order": ["good", "usable", "reject"],
         "image_size": [image_size, image_size],
         "crop_method": "canonical_fov_intensity_mask",
         "fov_threshold": 15,
         "margin_ratio": 0.02,
+        "interpolation": "bilinear",
         "padding": "square_pad_preserve_aspect",
         "normalization": {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]},
         "color_space": "RGB",
+        "source_checkpoint_sha256": source_checkpoint_sha256,
+        "status": status,
     }
 
     with open(out_p, "w", encoding="utf-8") as f:

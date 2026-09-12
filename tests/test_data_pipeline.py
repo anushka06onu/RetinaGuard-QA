@@ -47,12 +47,41 @@ def test_patient_grouped_splitting(tmp_path):
 
 
 def test_canonical_fov_crop():
+    # 1. Circular centered foreground in square image
     arr = np.zeros((300, 300, 3), dtype=np.uint8)
     arr[50:250, 50:250, 0] = 200
     img = Image.fromarray(arr)
     cropped = crop_retinal_fov(img)
     w, h = cropped.size
     assert w == h
+
+    # 2. Full-image foreground (no black borders)
+    full_arr = np.ones((100, 100, 3), dtype=np.uint8) * 200
+    cropped_full = crop_retinal_fov(Image.fromarray(full_arr))
+    assert cropped_full.size == (100, 100)
+
+    # 3. Single-pixel boundary foreground
+    single_pixel_arr = np.zeros((50, 50, 3), dtype=np.uint8)
+    single_pixel_arr[25, 25, 0] = 100
+    cropped_single = crop_retinal_fov(Image.fromarray(single_pixel_arr), margin_ratio=0.0)
+    assert cropped_single.size == (1, 1)
+
+    # 4. Rectangular non-square FOV
+    rect_arr = np.zeros((100, 200, 3), dtype=np.uint8)
+    rect_arr[20:80, 50:150, 1] = 150
+    cropped_rect = crop_retinal_fov(Image.fromarray(rect_arr))
+    rw, rh = cropped_rect.size
+    assert rw == rh  # Should be square-padded
+
+    # 5. All-black input (no foreground above threshold)
+    black_arr = np.zeros((80, 80, 3), dtype=np.uint8)
+    cropped_black = crop_retinal_fov(Image.fromarray(black_arr))
+    assert cropped_black.size == (80, 80)
+
+    # 6. Margin behavior
+    crop_no_margin = crop_retinal_fov(Image.fromarray(arr), margin_ratio=0.0)
+    crop_with_margin = crop_retinal_fov(Image.fromarray(arr), margin_ratio=0.1)
+    assert crop_with_margin.size[0] >= crop_no_margin.size[0]
 
 
 def test_dataset_loader(tmp_path):
