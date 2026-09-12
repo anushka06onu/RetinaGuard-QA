@@ -530,6 +530,21 @@ def test_verify_campaign_archive_portable_independence(tmp_path):
     }
     metric_file.write_text(json.dumps(metric_payload, indent=2))
 
+    # Seed run manifest
+    seed_manifest = seed_dir / "run_manifest.json"
+    seed_manifest.write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "campaign_mode": "multitask",
+                "seed": 2026,
+                "config_path": "../config.yaml",
+                "git_commit": "abc1234",
+            },
+            indent=2,
+        )
+    )
+
     generate_seed_checksums(seed_dir)
 
     # Manifest and top-level sums
