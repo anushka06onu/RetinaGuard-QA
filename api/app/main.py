@@ -171,28 +171,45 @@ def health_check_legacy(
 
 
 @app.get("/model-info")
-def model_info() -> Dict[str, Any]:
-    """System metadata, intended input, quality classes, and clinical boundaries."""
+def model_info(service: QualityAssessmentService = Depends(get_service)) -> Dict[str, Any]:
+    """Artifact-driven system metadata, intended input, quality classes, and clinical boundaries."""
+    p = service.predictor
+    model_loaded = bool(p.ort_session is not None or p.pt_model is not None)
+    
     return {
         "system_name": "RetinaGuard-QA",
-        "version": "0.2.0",
+        "version": getattr(p, "policy_engine", None).model_version if getattr(p, "policy_engine", None) else "0.2.0",
         "status": "Research Prototype",
-        "intended_input": "Color Retinal Fundus Photograph (Standard 45/50 degree FOV)",
-        "supported_formats": ["JPEG", "PNG"],
+        "readiness_status": "ready" if model_loaded and p.artifact_status_valid else "development/pending",
+        "model_loaded": model_loaded,
+        "runtime_engine": "onnxruntime_cpu" if p.ort_session else ("pytorch_cpu" if p.pt_model else "none"),
+        "trained_heads": getattr(p, "supported_heads", ["quality_logits"]),
         "quality_classes": ["good", "usable", "reject"],
         "quality_attributes": ["artifact", "clarity", "field_definition"],
         "triage_decisions": ["accept", "recapture", "manual_review", "unsupported_input"],
+        "calibration_status": "loaded" if p.calibration_metadata_loaded else "uncalibrated",
+        "temperature": p.temperature,
+        "uncertainty_threshold": p.policy_engine.uncertainty_threshold,
+        "ood_direction": p.policy_engine.ood_direction,
+        "intended_input": "Color Retinal Fundus Photograph (Standard 45/50 degree FOV)",
+        "supported_formats": ["JPEG", "PNG"],
         "clinical_disclaimer": (
             "Model-assessed technical quality for research purposes only. "
             "Not clinically validated. Not intended for direct diagnostic disease grading."
         ),
+        "limitations": [
+            "No prospective clinical validation.",
+            "Potential domain shift across camera manufacturers and acquisition protocols.",
+            "Heuristic retinal modality gating; not a replacement for clinical examination.",
+            "Recapture thresholds must be calibrated for target clinical screening workflow.",
+        ],
     }
 
 
 async def _process_image_upload(
     file: UploadFile, service: QualityAssessmentService
 ) -> PredictionResponse:
-    """Internal handler for processing uploaded fundus image."""
+    """Internal handler for processing uploaded fundus image with streaming size limits."""
     req_id = str(uuid.uuid4())[:8]
 
     # 1. Check content-type header if present
@@ -202,20 +219,26 @@ async def _process_image_upload(
             detail=f"Unsupported media type: {file.content_type}. Please provide an image (JPEG or PNG).",
         )
 
-    # 2. Read buffer with size safeguard & reject empty uploads (Item 40)
-    contents = await file.read()
+    # 2. Stream read buffer with bounded chunks and strict size limit (Item 30)
+    contents = bytearray()
+    chunk_size = 64 * 1024  # 64 KB chunks
+    while True:
+        chunk = await file.read(chunk_size)
+        if not chunk:
+            break
+        contents.extend(chunk)
+        if len(contents) > MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=413, detail="File too large. Maximum permitted size is 15MB."
+            )
+
     if len(contents) == 0:
         raise HTTPException(
             status_code=400,
             detail="Empty upload received. Please provide a valid JPEG or PNG image file.",
         )
 
-    if len(contents) > MAX_UPLOAD_SIZE:
-        raise HTTPException(
-            status_code=413, detail="File too large. Maximum permitted size is 15MB."
-        )
-
-    # 2. Content decoding and image validation
+    # 3. Content decoding and image validation
     try:
         raw_img = Image.open(io.BytesIO(contents))
         fmt = raw_img.format
@@ -244,7 +267,7 @@ async def _process_image_upload(
         logger.warning(f"[{req_id}] Image verification failure: {e}")
         raise HTTPException(status_code=400, detail="Invalid or unreadable image file.")
 
-    # 3. Execute transient analysis without persisting uploaded bytes
+    # 4. Execute transient analysis without persisting uploaded bytes
     try:
         return service.analyze_image(pil_img)
     except Exception as e:
@@ -255,11 +278,11 @@ async def _process_image_upload(
         )
 
 
-@app.post("/predict", response_model=PredictionResponse)
-async def predict_quality(
+@app.post("/api/v1/predict", response_model=PredictionResponse)
+async def api_v1_predict_quality(
     file: UploadFile = File(...), service: QualityAssessmentService = Depends(get_service)
 ) -> PredictionResponse:
-    """Analyze single uploaded fundus photograph."""
+    """Analyze single uploaded fundus photograph (canonical API v1 route)."""
     return await _process_image_upload(file, service)
 
 
@@ -267,5 +290,13 @@ async def predict_quality(
 async def api_predict_quality(
     file: UploadFile = File(...), service: QualityAssessmentService = Depends(get_service)
 ) -> PredictionResponse:
-    """Analyze single uploaded fundus photograph (canonical proxy route)."""
+    """Analyze single uploaded fundus photograph (compatibility alias)."""
+    return await _process_image_upload(file, service)
+
+
+@app.post("/predict", response_model=PredictionResponse)
+async def predict_quality(
+    file: UploadFile = File(...), service: QualityAssessmentService = Depends(get_service)
+) -> PredictionResponse:
+    """Analyze single uploaded fundus photograph (legacy alias)."""
     return await _process_image_upload(file, service)
