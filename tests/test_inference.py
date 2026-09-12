@@ -190,3 +190,66 @@ def test_predictor_production_mode_requirements(tmp_path, monkeypatch):
 
     with pytest.raises(ValueError, match="Model hash mismatch in production mode"):
         RetinaGuardPredictor(calibration_config_path=cal_mismatch, model_path=dummy_model)
+
+
+def test_decision_engine_ood_directions():
+    # Test lower_is_ood (default)
+    engine_lower = DecisionPolicyEngine(
+        uncertainty_threshold=0.85,
+        ood_energy_threshold=1.0,
+        ood_direction="lower_is_ood",
+    )
+    # ood_score 0.5 < 1.0 -> should trigger MANUAL_REVIEW (OOD)
+    res_ood_lower = engine_lower.evaluate(
+        probs={"good": 0.90, "usable": 0.08, "reject": 0.02},
+        uncertainty=0.35,
+        ood_score=0.5,
+    )
+    assert res_ood_lower.decision == DecisionAction.MANUAL_REVIEW
+
+    # ood_score 1.5 >= 1.0 -> should ACCEPT
+    res_in_lower = engine_lower.evaluate(
+        probs={"good": 0.90, "usable": 0.08, "reject": 0.02},
+        uncertainty=0.35,
+        ood_score=1.5,
+    )
+    assert res_in_lower.decision == DecisionAction.ACCEPT
+
+    # Test higher_is_ood
+    engine_higher = DecisionPolicyEngine(
+        uncertainty_threshold=0.85,
+        ood_energy_threshold=1.0,
+        ood_direction="higher_is_ood",
+    )
+    # ood_score 1.5 > 1.0 -> should trigger MANUAL_REVIEW (OOD)
+    res_ood_higher = engine_higher.evaluate(
+        probs={"good": 0.90, "usable": 0.08, "reject": 0.02},
+        uncertainty=0.35,
+        ood_score=1.5,
+    )
+    assert res_ood_higher.decision == DecisionAction.MANUAL_REVIEW
+
+    # ood_score 0.5 <= 1.0 -> should ACCEPT
+    res_in_higher = engine_higher.evaluate(
+        probs={"good": 0.90, "usable": 0.08, "reject": 0.02},
+        uncertainty=0.35,
+        ood_score=0.5,
+    )
+    assert res_in_higher.decision == DecisionAction.ACCEPT
+
+
+def test_decision_engine_unsupported_heads():
+    engine = DecisionPolicyEngine(supported_heads=["quality_logits"])
+    # If attribute heads are not present or None
+    res = engine.evaluate(
+        probs={"good": 0.90, "usable": 0.08, "reject": 0.02},
+        uncertainty=0.35,
+        ood_score=2.0,
+        attributes_raw={"artifact": None, "clarity": None, "field_definition": None},
+    )
+    assert res.quality_attributes.artifact is None
+    assert res.quality_attributes.clarity is None
+    assert res.quality_attributes.field_definition is None
+    # Ensure feedback doesn't include spurious attribute claims
+    assert not any("blur" in fb.lower() or "lens" in fb.lower() for fb in res.feedback)
+
