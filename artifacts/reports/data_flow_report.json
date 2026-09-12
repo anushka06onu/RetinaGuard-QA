@@ -2,14 +2,26 @@
   "schema_version": "1.0",
   "generated_at_utc": "2026-09-12T16:41:26.109320+00:00",
   "git_commit": "a8660114718c591c4e7eab6c81d6b3af2ff65dba",
-  "audit_script_sha256": "65eb8e8f94ca6c74a8f3491ebabd404fd414af430a0d6b6bf9a87553ea5d1c07",
-  "mapping_sha256": "73798da8cea7949158c54113ef5712f4af95c0e62d640d33f360febe2ec6dc03",
+  "overall_status": "passed",
+  "splits_audited": [
+    "deepdrid_train",
+    "deepdrid_external_test",
+    "deepdrid_val"
+  ],
+  "split_counts": {
+    "deepdrid_train": 1200,
+    "deepdrid_external_test": 400,
+    "deepdrid_val": 400
+  },
+  "patient_counts": {
+    "deepdrid_train": 300,
+    "deepdrid_external_test": 100,
+    "deepdrid_val": 100
+  },
   "cross_split_isolation_passed": true,
-  "intra_split_uniqueness_passed": true,
-  "image_integrity_passed": true,
-  "overall_audit_passed": true,
-  "isolation_passed": true,
-  "splits": {
+  "patient_leakages": {},
+  "sha256_leakages": {},
+  "splits_details": {
     "deepdrid_train": {
       "path": "data/splits/deepdrid_train.csv",
       "sha256": "d7d85b2b8a8ca99ecc2a45310b1068cd3fe332ed2aec5b346900e3d796a29d54",
@@ -121,24 +133,5 @@
         "mismatched_hashes": 0
       }
     }
-  },
-  "comparisons_performed": [
-    "patient_id_cross_split",
-    "sha256_cross_split",
-    "intra_split_duplicates",
-    "image_file_existence_and_hash_verification",
-    "label_distribution_verification"
-  ],
-  "patient_leakages": {},
-  "sha256_leakages": {},
-  "split_counts": {
-    "deepdrid_train": 1200,
-    "deepdrid_external_test": 400,
-    "deepdrid_val": 400
-  },
-  "patient_counts": {
-    "deepdrid_train": 300,
-    "deepdrid_external_test": 100,
-    "deepdrid_val": 100
   }
 }
