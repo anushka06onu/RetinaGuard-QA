@@ -426,7 +426,10 @@ def run_training_experiment(
             break
 
     return {
+        "best_validation_objective": best_val_score,
         "best_val_macro_f1": best_val_score,
+        "selection_metric": train_cfg.get("selection_metric", "primary_macro_f1"),
+        "selection_mode": train_cfg.get("selection_mode", "max"),
         "epochs_trained": epoch,
         "checkpoint_path": str(checkpoint_saver.filepath),
         "training_datasets": training_dataset_names,
