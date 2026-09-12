@@ -53,7 +53,7 @@ def test_valid_training_config():
         },
         "loss": {
             "quality_loss": "cross_entropy",
-            "attribute_loss": "ordinal_or_ce",
+            "attribute_loss": "cross_entropy",
             "label_smoothing": 0.05,
         },
     }
@@ -98,7 +98,7 @@ def test_invalid_optimizer_rejected():
         },
         "loss": {
             "quality_loss": "cross_entropy",
-            "attribute_loss": "ordinal_or_ce",
+            "attribute_loss": "cross_entropy",
             "label_smoothing": 0.05,
         },
     }
@@ -141,7 +141,7 @@ def test_invalid_head_classes_rejected():
         },
         "loss": {
             "quality_loss": "cross_entropy",
-            "attribute_loss": "ordinal_or_ce",
+            "attribute_loss": "cross_entropy",
             "label_smoothing": 0.05,
         },
     }
@@ -174,7 +174,7 @@ def test_extra_unknown_fields_rejected():
         },
         "loss": {
             "quality_loss": "cross_entropy",
-            "attribute_loss": "ordinal_or_ce",
+            "attribute_loss": "cross_entropy",
         },
     }
     with pytest.raises(ValidationError):
@@ -227,7 +227,7 @@ def test_disabled_dataset_without_splits_is_valid():
         },
         "loss": {
             "quality_loss": "cross_entropy",
-            "attribute_loss": "ordinal_or_ce",
+            "attribute_loss": "cross_entropy",
         },
     }
     validated = validate_training_config(config_dict)
@@ -260,7 +260,7 @@ def test_missing_required_head_for_enabled_dataset():
         },
         "loss": {
             "quality_loss": "cross_entropy",
-            "attribute_loss": "ordinal_or_ce",
+            "attribute_loss": "cross_entropy",
         },
     }
     with pytest.raises(
@@ -294,7 +294,7 @@ def test_unknown_head_name_rejected():
         },
         "loss": {
             "quality_loss": "cross_entropy",
-            "attribute_loss": "ordinal_or_ce",
+            "attribute_loss": "cross_entropy",
         },
     }
     with pytest.raises(ValidationError, match="Unknown model heads configured"):
@@ -325,7 +325,7 @@ def test_all_zero_head_weights_rejected():
         },
         "loss": {
             "quality_loss": "cross_entropy",
-            "attribute_loss": "ordinal_or_ce",
+            "attribute_loss": "cross_entropy",
         },
     }
     with pytest.raises(ValidationError, match="Every enabled dataset head has weight 0.0"):
