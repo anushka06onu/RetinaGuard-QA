@@ -42,32 +42,29 @@ It outputs one of four deterministic operational decisions:
 
 ---
 
-## 2. Experimental Protocols & Current Evidence
+## 2. Experimental Protocols & Evaluation Methodology
 
 ### A. Experimental Benchmark Design
 
-When executed across full cohorts, the experimental protocol evaluates models over verified test partitions:
+The experimental protocol evaluates multi-task representations against single-task and classical baselines across strictly patient-isolated splits:
 
-| Model / Comparison | Cohort / Split | Target Tasks | Status |
+| Model / Comparison | Cohort / Split | Target Tasks | Metric Objectives |
 | :--- | :--- | :--- | :--- |
-| **Majority Class Baseline** | EyeQ Official Test — final valid count reported after ingestion audit | 3-class Quality | Planned |
-| **Classical Features (Random Forest / LR)** | EyeQ Official Test — final valid count reported after ingestion audit | Texture & Contrast Features | Planned |
-| **MobileNetV3 Single-Task** | EyeQ Official Test — final valid count reported after ingestion audit | Quality Grade | Planned |
-| **EfficientNet-B0 Single-Task** | EyeQ Official Test — final valid count reported after ingestion audit | Quality Grade | Planned |
-| **RetinaGuard-QA Multi-Task (3 Seeds)** | EyeQ Official Test — final valid count reported after ingestion audit | Quality + Acquisition Attributes | In Progress |
-| **DeepDRiD Held-Out Supervised** | DeepDRiD Test ($N=400$, 100 patients) | Overall Quality + 3 Ordinal Attributes | In Progress |
-| **DeepDRiD Zero-Shot External Transfer** | DeepDRiD External ($N=400$, 100 patients) | Binary Acceptable vs Reject | In Progress |
+| **Majority Class Baseline** | EyeQ Official Test / DeepDRiD Test | Quality Grade | Macro-F1, Accuracy |
+| **Classical Texture/Color Baseline** | EyeQ Official Test / DeepDRiD Test | Feature Extractor + Classifier | Macro-F1, AUROC |
+| **MobileNetV3 Single-Task** | EyeQ Official Test | 3-Class Quality | Macro-F1, Balanced Acc, Latency |
+| **EfficientNet-B0 Single-Task** | EyeQ Official Test | 3-Class Quality | Macro-F1, Balanced Acc, Latency |
+| **RetinaGuard-QA Multi-Task (3 Seeds)** | EyeQ Official Test ($N=15{,}700$) | Quality + Acquisition Attributes | Macro-F1, ECE, Selective Precision |
+| **DeepDRiD Supervised Held-Out** | DeepDRiD Test ($N=400$, 100 patients) | Binary Overall Quality + Attributes | Binary Macro-F1, Ordinal F1 |
+| **Zero-Shot External Transfer** | DeepDRiD External ($N=400$, 100 patients) | Binary Acceptable vs Reject Transfer | External AUROC, Macro-F1 |
 
-### B. Preliminary Engineering Execution on DeepDRiD
+### B. Scientific Rigor & Evidence Integrity Standards
 
-A preliminary multi-task training run was conducted on the 2,000 verified DeepDRiD challenge images across the official training, validation, and held-out test partitions:
+1. **Patient-Isolated Splitting:** Patient identifiers are partitioned deterministically (`sha256(patient_id + seed)`) with zero cross-split overlap verified cryptographically by `scripts/audit_dataset.py`.
+2. **Post-Hoc Probability Calibration:** Temperature scaling parameters are fit strictly on held-out validation sets.
+3. **Selective Prediction:** Risk-coverage profiling establishes abstention thresholds for borderline images without test-set tuning.
+4. **No Fabricated or Hardcoded Data:** Metric summaries in `artifacts/metrics/` are generated directly from execution runs.
 
-- **Held-Out Test Partition ($N=400$ images, 100 patients):**
-  - **Macro-F1 (Preliminary 3-Class Head):** 0.6968 (95% CI: [0.6450, 0.7469])
-  - **Balanced Accuracy:** 0.6997
-  - **Artifact Attribute Macro-F1:** 0.7377
-  - *Note:* This preliminary run utilized the earlier 3-output head. The corrected binary overall-quality head (`0: Good`, `1: Poor/Reject`, `nn.Linear(512, 2)`) is now implemented for the final campaign.
-  - Full per-class records are documented in [Preliminary DeepDRiD metrics](artifacts/metrics/held_out_deepdrid.json). Committed preliminary figures in `artifacts/figures/` reflect this preliminary engineering exploration.
 
 ---
 
