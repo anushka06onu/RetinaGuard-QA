@@ -38,5 +38,5 @@ training:
 
 loss:
   quality_loss: "cross_entropy"
-  attribute_loss: "ordinal_or_ce"
+  attribute_loss: "cross_entropy"
   label_smoothing: 0.05
