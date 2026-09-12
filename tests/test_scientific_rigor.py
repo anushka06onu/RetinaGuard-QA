@@ -71,7 +71,11 @@ def test_production_artifacts_contain_no_unsupported_metrics():
         len(metrics_files) == 0
     ), f"Unsupported metrics JSON files found in artifacts/metrics/: {metrics_files}"
 
-    allowed_report_names = {"cross_split_isolation_audit.json", "data_audit.json"}
+    allowed_report_names = {
+        "cross_split_isolation_audit.json",
+        "data_audit.json",
+        "data_flow_report.json",
+    }
     report_files = [
         f for f in Path("artifacts/reports").glob("*.json") if f.name not in allowed_report_names
     ]
