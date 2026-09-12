@@ -13,6 +13,7 @@ import torch
 from scipy.special import softmax
 
 from retinaguard.data.datasets import RetinalQualityDataset
+from retinaguard.data.preprocessing import get_val_transforms
 from retinaguard.evaluation.bootstrap import compute_patient_bootstrap_ci
 from retinaguard.evaluation.metrics import (
     compute_attribute_metrics,
@@ -29,6 +30,7 @@ def evaluate_dataset_partition(
     is_deepdrid: bool = False,
     is_zero_shot: bool = False,
     device: str = "cpu",
+    image_size: int = 384,
     fail_on_empty: bool = True,
 ) -> Tuple[Dict[str, Any], pd.DataFrame]:
     """Evaluate model on a dataset partition with strict label masking and structured return."""
@@ -49,7 +51,8 @@ def evaluate_dataset_partition(
             "metrics": None,
         }, pd.DataFrame()
 
-    ds = RetinalQualityDataset(df, allow_synthetic_fallback=False)
+    val_transform = get_val_transforms(image_size=image_size)
+    ds = RetinalQualityDataset(df, transform=val_transform, allow_synthetic_fallback=False)
     loader = torch.utils.data.DataLoader(ds, batch_size=16, shuffle=False)
 
     all_logits, all_y, all_masks, all_p, all_ids = [], [], [], [], []
@@ -178,6 +181,7 @@ def evaluate_dataset_partition(
                     filtered_targets[attr_name] = t_arr[v_attr]
                 df_preds[f"{attr_name}_target"] = t_arr
                 df_preds[f"{attr_name}_prediction"] = p_arr
+                df_preds[f"{attr_name}_mask"] = m_arr
 
         attr_metrics = compute_attribute_metrics(filtered_preds, filtered_targets)
         metrics["attribute_metrics"] = attr_metrics
@@ -221,6 +225,7 @@ def main():
         state = torch.load(ckpt_p, map_location="cpu")
     metadata = state.get("metadata", {})
     training_datasets = metadata.get("training_datasets", [])
+    eval_img_size = metadata.get("resolved_config", {}).get("data", {}).get("image_size", 384)
 
     model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_p)
     model.eval()
@@ -259,7 +264,11 @@ def main():
     if has_eyeq and not args.zero_shot:
         print(f"Loading EyeQ test split from {args.eyeq_split}...")
         eyeq_metrics, df_eyeq_preds = evaluate_dataset_partition(
-            model, args.eyeq_split, "EyeQ (Internal Test)", is_deepdrid=False
+            model,
+            args.eyeq_split,
+            "EyeQ (Internal Test)",
+            is_deepdrid=False,
+            image_size=eval_img_size,
         )
         pred_file = preds_dir / "eyeq_test_predictions.csv"
         df_eyeq_preds.to_csv(pred_file, index=False)
@@ -300,9 +309,10 @@ def main():
             transfer_metrics, df_zs_preds = evaluate_dataset_partition(
                 model,
                 args.deepdrid_split,
-                "DeepDRiD (Zero-Shot External Transfer)",
+                "DeepDRiD (Zero-Shot Transfer)",
                 is_deepdrid=True,
                 is_zero_shot=True,
+                image_size=eval_img_size,
             )
             pred_file = preds_dir / "zero_shot_transfer_predictions.csv"
             df_zs_preds.to_csv(pred_file, index=False)
@@ -326,16 +336,18 @@ def main():
             with open(out_p / "zero_shot_transfer.json", "w", encoding="utf-8") as f:
                 json.dump(transfer_metrics, f, indent=2)
             print(
-                f"DeepDRiD Zero-Shot Macro-F1: {transfer_metrics['macro_f1']} (95% CI: [{transfer_metrics['macro_f1_95_ci']['ci_lower']}, {transfer_metrics['macro_f1_95_ci']['ci_upper']}])"
+                f"Zero-Shot DeepDRiD Binary Macro-F1: {transfer_metrics['macro_f1']} "
+                f"(95% CI: [{transfer_metrics['macro_f1_95_ci']['ci_lower']}, {transfer_metrics['macro_f1_95_ci']['ci_upper']}])"
             )
         else:
-            print(f"Running DeepDRiD Held-Out Supervised Evaluation ({args.deepdrid_split})...")
+            print(f"Running Supervised Evaluation on DeepDRiD ({args.deepdrid_split})...")
             deepdrid_metrics, df_dd_preds = evaluate_dataset_partition(
                 model,
                 args.deepdrid_split,
-                "DeepDRiD (Held-Out Supervised Evaluation)",
+                "DeepDRiD (Held-out Test)",
                 is_deepdrid=True,
                 is_zero_shot=False,
+                image_size=eval_img_size,
             )
             pred_file = preds_dir / "deepdrid_heldout_predictions.csv"
             df_dd_preds.to_csv(pred_file, index=False)
