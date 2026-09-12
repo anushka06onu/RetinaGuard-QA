@@ -17,11 +17,17 @@ class DecisionPolicyEngine:
         self,
         uncertainty_threshold: float = 0.85,  # bits
         ood_energy_threshold: float = 1.0,
-        model_version: str = "1.0.0",
+        ood_direction: str = "lower_is_ood",
+        model_version: str = "0.2.0",
+        supported_heads: Optional[List[str]] = None,
     ):
+        if ood_direction not in ["lower_is_ood", "higher_is_ood"]:
+            raise ValueError(f"Invalid ood_direction: {ood_direction}. Must be 'lower_is_ood' or 'higher_is_ood'.")
         self.uncertainty_threshold = uncertainty_threshold
         self.ood_energy_threshold = ood_energy_threshold
+        self.ood_direction = ood_direction
         self.model_version = model_version
+        self.supported_heads = supported_heads
 
     def formulate_feedback(
         self,
@@ -75,28 +81,33 @@ class DecisionPolicyEngine:
         uncertainty: float,
         ood_score: float,
         is_valid_modality: bool = True,
-        attributes_raw: Optional[Dict[str, int]] = None,
+        attributes_raw: Optional[Dict[str, Optional[int]]] = None,
         latency_ms: Optional[float] = None,
     ) -> PredictionResponse:
         pred_class = max(list(probs.keys()), key=lambda k: probs[k])
         cal_conf = probs[pred_class]
 
+        # Attribute decodings (only if supported and present)
+        artifact_code = attributes_raw.get("artifact") if attributes_raw else None
+        clarity_code = attributes_raw.get("clarity") if attributes_raw else None
+        field_def_code = attributes_raw.get("field_definition") if attributes_raw else None
+
         attr_decodings = {
-            "artifact": {0: "none", 1: "mild", 2: "severe"}.get(
-                attributes_raw.get("artifact", 0) if attributes_raw else 0, None
-            ),
-            "clarity": {0: "high", 1: "moderate", 2: "low"}.get(
-                attributes_raw.get("clarity", 0) if attributes_raw else 0, None
-            ),
-            "field_definition": {0: "adequate", 1: "incomplete", 2: "poor"}.get(
-                attributes_raw.get("field_definition", 0) if attributes_raw else 0, None
-            ),
+            "artifact": {0: "none", 1: "mild", 2: "severe"}.get(artifact_code) if artifact_code is not None else None,
+            "clarity": {0: "high", 1: "moderate", 2: "low"}.get(clarity_code) if clarity_code is not None else None,
+            "field_definition": {0: "adequate", 1: "incomplete", 2: "poor"}.get(field_def_code) if field_def_code is not None else None,
         }
+
+        # OOD determination based on direction
+        if self.ood_direction == "higher_is_ood":
+            is_ood = ood_score > self.ood_energy_threshold
+        else:
+            is_ood = ood_score < self.ood_energy_threshold
 
         # Blueprint decision hierarchy
         if not is_valid_modality:
             decision = DecisionAction.UNSUPPORTED_INPUT
-        elif ood_score < self.ood_energy_threshold or uncertainty > self.uncertainty_threshold:
+        elif is_ood or uncertainty > self.uncertainty_threshold:
             decision = DecisionAction.MANUAL_REVIEW
         elif pred_class == "reject":
             decision = DecisionAction.RECAPTURE
@@ -108,9 +119,9 @@ class DecisionPolicyEngine:
         feedback = self.formulate_feedback(
             decision,
             pred_class,
-            attributes_raw.get("clarity") if attributes_raw else None,
-            attributes_raw.get("artifact") if attributes_raw else None,
-            attributes_raw.get("field_definition") if attributes_raw else None,
+            clarity_code,
+            artifact_code,
+            field_def_code,
         )
 
         return PredictionResponse(
