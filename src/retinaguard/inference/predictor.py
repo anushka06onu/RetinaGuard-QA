@@ -194,6 +194,7 @@ class RetinaGuardPredictor:
                         raise ValueError(
                             f"Invalid ood_direction in {calibration_config_path}: {cal_cfg['ood_direction']}"
                         )
+                    self.policy_engine.ood_direction = cal_cfg["ood_direction"]
 
                 # Verify model hash parity if model file is specified (Item 13)
                 if is_prod and model_path and Path(model_path).is_file():
@@ -225,6 +226,8 @@ class RetinaGuardPredictor:
                         )
                     self.model_hash_verified = True
 
+        self.supported_heads = ["quality_logits", "overall_quality_logits", "artifact_logits", "clarity_logits", "field_definition_logits"]
+
         if allow_test_fallback:
             self.artifact_status_valid = True
             self.calibration_metadata_loaded = True
@@ -245,9 +248,40 @@ class RetinaGuardPredictor:
 
             opts = ort.SessionOptions()
             opts.intra_op_num_threads = 4
-            self.ort_session = ort.InferenceSession(
+            session = ort.InferenceSession(
                 str(path), sess_options=opts, providers=["CPUExecutionProvider"]
             )
+            
+            # Strict ONNX Contract Validation (Item 12)
+            inputs = session.get_inputs()
+            if len(inputs) != 1:
+                raise ValueError(f"ONNX model contract violation: expected exactly 1 input, got {len(inputs)}")
+            
+            inp = inputs[0]
+            inp_shape = inp.shape
+            if len(inp_shape) != 4:
+                raise ValueError(f"ONNX model contract violation: expected 4D input [N,C,H,W], got {inp_shape}")
+            if inp_shape[1] not in [3, "channel", "channels"]:
+                raise ValueError(f"ONNX model contract violation: expected 3-channel input, got shape {inp_shape}")
+            
+            outputs = session.get_outputs()
+            out_names = [o.name for o in outputs]
+            if "quality_logits" not in out_names and len(outputs) == 0:
+                raise ValueError("ONNX model contract violation: missing quality_logits output")
+            
+            # Check finite outputs parity on test tensor
+            dummy_test = np.zeros((1, 3, self.image_size, self.image_size), dtype=np.float32)
+            test_outs = session.run(None, {inp.name: dummy_test})
+            for out_name, out_val in zip(out_names, test_outs):
+                if not np.all(np.isfinite(out_val)):
+                    raise ValueError(f"ONNX model contract violation: non-finite values in output '{out_name}'")
+            
+            # Verify quality logit dimensions
+            q_idx = out_names.index("quality_logits") if "quality_logits" in out_names else 0
+            if test_outs[q_idx].shape[-1] != 3:
+                raise ValueError(f"ONNX quality_logits dimension violation: expected 3 classes, got shape {test_outs[q_idx].shape}")
+
+            self.ort_session = session
             self.model_architecture_compatible = True
         else:
             from retinaguard.models.multitask import RetinaGuardMultiTaskModel
@@ -259,6 +293,10 @@ class RetinaGuardPredictor:
             metadata = state.get("metadata", {}) if isinstance(state, dict) else {}
             if metadata:
                 model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(metadata)
+                if "trained_heads" in metadata:
+                    self.supported_heads = metadata["trained_heads"]
+                elif metadata.get("training_config", {}).get("datasets", {}).get("deepdrid", {}).get("enabled") is False:
+                    self.supported_heads = ["quality_logits"]
             else:
                 model = RetinaGuardMultiTaskModel(pretrained=False)
             if isinstance(state, dict) and "state_dict" in state:
@@ -293,28 +331,46 @@ class RetinaGuardPredictor:
         # 2. Canonical Preprocessing
         tensor = preprocess_image_canonical(pil_img, image_size=self.image_size)
 
-        # 3. Model Inference (Raw Logits Exported & Inferred - Item 15)
-        attributes_raw = {"artifact": 0, "clarity": 0, "field_definition": 0}
+        # 3. Model Inference (Named Outputs - Item 12 & 13)
+        attributes_raw = {"artifact": None, "clarity": None, "field_definition": None}
         if self.ort_session is not None:
             inp_name = self.ort_session.get_inputs()[0].name
+            out_meta = self.ort_session.get_outputs()
+            out_names = [o.name for o in out_meta]
             ort_outs = self.ort_session.run(None, {inp_name: tensor.numpy()})
-            # Outputs: [quality_logits, overall_quality, artifact, clarity, field_def, latent]
-            q_logits = ort_outs[0][0][:3]
-            if len(ort_outs) > 2:
+            out_dict = dict(zip(out_names, ort_outs))
+
+            if "quality_logits" in out_dict:
+                q_logits = out_dict["quality_logits"][0][:3]
+            else:
+                q_logits = ort_outs[0][0][:3]
+
+            if "artifact_logits" in out_dict and "artifact_logits" in self.supported_heads:
+                attributes_raw["artifact"] = int(np.argmax(out_dict["artifact_logits"][0]))
+            elif len(ort_outs) > 2 and "artifact_logits" in self.supported_heads:
                 attributes_raw["artifact"] = int(np.argmax(ort_outs[2][0]))
-            if len(ort_outs) > 3:
+
+            if "clarity_logits" in out_dict and "clarity_logits" in self.supported_heads:
+                attributes_raw["clarity"] = int(np.argmax(out_dict["clarity_logits"][0]))
+            elif len(ort_outs) > 3 and "clarity_logits" in self.supported_heads:
                 attributes_raw["clarity"] = int(np.argmax(ort_outs[3][0]))
-            if len(ort_outs) > 4:
+
+            if "field_definition_logits" in out_dict and "field_definition_logits" in self.supported_heads:
+                attributes_raw["field_definition"] = int(np.argmax(out_dict["field_definition_logits"][0]))
+            elif len(ort_outs) > 4 and "field_definition_logits" in self.supported_heads:
                 attributes_raw["field_definition"] = int(np.argmax(ort_outs[4][0]))
         else:
             with torch.no_grad():
                 out = self.pt_model(tensor)
                 q_logits = out["quality_logits"][0].cpu().numpy()
-                attributes_raw["artifact"] = int(torch.argmax(out["artifact_logits"][0]).item())
-                attributes_raw["clarity"] = int(torch.argmax(out["clarity_logits"][0]).item())
-                attributes_raw["field_definition"] = int(
-                    torch.argmax(out["field_definition_logits"][0]).item()
-                )
+                if "artifact_logits" in self.supported_heads:
+                    attributes_raw["artifact"] = int(torch.argmax(out["artifact_logits"][0]).item())
+                if "clarity_logits" in self.supported_heads:
+                    attributes_raw["clarity"] = int(torch.argmax(out["clarity_logits"][0]).item())
+                if "field_definition_logits" in self.supported_heads:
+                    attributes_raw["field_definition"] = int(
+                        torch.argmax(out["field_definition_logits"][0]).item()
+                    )
 
         # 4. Probabilities & Temperature Scaling (Applied Authoritatively ONCE)
         scaled_logits = q_logits / max(self.temperature, 1e-4)
