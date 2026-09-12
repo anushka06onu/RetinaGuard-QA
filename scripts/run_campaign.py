@@ -142,14 +142,61 @@ def verify_existing_seed_run(
 
 
 def verify_campaign_archive(archive_dir: Path) -> Tuple[bool, str]:
-    """Independently verify a self-contained campaign archive directory."""
+    """Independently verify a self-contained campaign archive directory with full cryptographic and structural integrity."""
     manifest_file = archive_dir / "campaign_manifest.json"
     if not manifest_file.is_file():
         return False, "Missing campaign_manifest.json"
 
+    try:
+        with open(manifest_file, "r", encoding="utf-8") as f:
+            c_manifest = json.load(f)
+    except Exception as e:
+        return False, f"Malformed campaign_manifest.json: {e}"
+
+    if c_manifest.get("status") != "completed":
+        return False, f"Campaign status not completed: {c_manifest.get('status')}"
+
     sums_file = archive_dir / "SHA256SUMS"
     if not sums_file.is_file():
         return False, "Missing top-level SHA256SUMS"
+
+    seen_rel_paths = set()
+    archive_dir_resolved = archive_dir.resolve()
+
+    with open(sums_file, "r", encoding="utf-8") as f:
+        for line_num, raw_line in enumerate(f, start=1):
+            line = raw_line.strip()
+            if not line:
+                continue
+            parts = line.split(maxsplit=1)
+            if len(parts) != 2:
+                return False, f"Malformed line {line_num} in campaign SHA256SUMS: {raw_line}"
+            expected_sha, rel_str = parts
+            if len(expected_sha) != 64 or not all(c in "0123456789abcdefABCDEF" for c in expected_sha):
+                return False, f"Invalid SHA-256 hash at line {line_num}: {expected_sha}"
+            if rel_str.startswith("/") or rel_str.startswith("\\"):
+                return False, f"Absolute path forbidden in SHA256SUMS: {rel_str}"
+            if ".." in rel_str.replace("\\", "/").split("/"):
+                return False, f"Path traversal forbidden in SHA256SUMS: {rel_str}"
+            if rel_str in seen_rel_paths:
+                return False, f"Duplicate entry in SHA256SUMS: {rel_str}"
+            seen_rel_paths.add(rel_str)
+
+            target_p = (archive_dir / rel_str).resolve()
+            if not target_p.is_relative_to(archive_dir_resolved):
+                return False, f"Path points outside campaign archive directory: {rel_str}"
+            if not target_p.is_file():
+                return False, f"Missing file listed in SHA256SUMS: {rel_str}"
+            actual_sha = compute_sha256(target_p)
+            if actual_sha.lower() != expected_sha.lower():
+                return False, f"Checksum mismatch for {rel_str}: {actual_sha} != {expected_sha}"
+
+    # Bidirectional: verify every file on disk is listed in SHA256SUMS
+    for disk_p in archive_dir.rglob("*"):
+        if disk_p.is_file() and disk_p.name != "SHA256SUMS":
+            rel_disk = str(disk_p.relative_to(archive_dir))
+            if rel_disk not in seen_rel_paths:
+                return False, f"Unlisted file on disk not recorded in campaign SHA256SUMS: {rel_disk}"
 
     # Validate all metric JSON files in all archived seeds
     for seed_metrics_dir in sorted(archive_dir.glob("seed_*/metrics")):
@@ -160,6 +207,20 @@ def verify_campaign_archive(archive_dir: Path) -> Tuple[bool, str]:
                     return False, f"Invalid metric result in archive: {m_file}"
             except Exception as e:
                 return False, f"Archive metric validation error for {m_file}: {e}"
+
+    # Validate run_manifest.json in each archived seed
+    for seed_dir in sorted(archive_dir.glob("seed_*")):
+        if seed_dir.is_dir():
+            s_manifest_p = seed_dir / "run_manifest.json"
+            if not s_manifest_p.is_file():
+                return False, f"Missing run_manifest.json in {seed_dir.name}"
+            try:
+                with open(s_manifest_p, "r", encoding="utf-8") as f:
+                    s_manifest = json.load(f)
+                if s_manifest.get("status") != "completed":
+                    return False, f"Seed run status not completed in {seed_dir.name}"
+            except Exception as e:
+                return False, f"Malformed run_manifest.json in {seed_dir.name}: {e}"
 
     return True, "Archive verified successfully"
 
@@ -440,12 +501,44 @@ def main():
             seed_entry[f"{prefix}_ci_lower"] = dd_eval["macro_f1_95_ci"]["ci_lower"]
             seed_entry[f"{prefix}_ci_upper"] = dd_eval["macro_f1_95_ci"]["ci_upper"]
 
-            if not is_zs and "attribute_metrics" in dd_eval:
-                for attr in ["artifact", "clarity", "field_definition"]:
-                    if attr in dd_eval["attribute_metrics"]:
-                        seed_entry[f"{attr}_qwk"] = dd_eval["attribute_metrics"][attr]["qwk"]
-                        seed_entry[f"{attr}_f1"] = dd_eval["attribute_metrics"][attr]["macro_f1"]
-                        seed_entry[f"{attr}_mae"] = dd_eval["attribute_metrics"][attr]["mae"]
+            eval_label = (
+                "Zero-Shot Transfer" if args.zero_shot else "Supervised Multi-Task Attribute"
+            )
+            print(
+                f"[Seed {seed}] Evaluating on DeepDRiD External ({eval_label}) Split ({args.deepdrid_split})..."
+            )
+            deepdrid_eval = evaluate_dataset_partition(
+                model_path=ckpt_path,
+                split_csv_path=args.deepdrid_split,
+                dataset_name="deepdrid",
+                output_metrics_dir=seed_dir / "metrics",
+                output_predictions_dir=seed_dir / "predictions",
+                experiment_type=f"{mode_name}_seed_{seed}",
+                git_commit=git_commit,
+                split_sha256=compute_sha256(args.deepdrid_split),
+                checkpoint_sha256=ckpt_sha256,
+                seed=seed,
+                config_path=args.config,
+                config_sha256=config_sha256,
+            )
+
+        seed_entry = {
+            "seed": seed,
+            "eyeq_macro_f1": eyeq_eval.get("macro_f1", None),
+            "eyeq_accuracy": eyeq_eval.get("accuracy", None),
+            "eyeq_quadratic_kappa": eyeq_eval.get("quadratic_weighted_kappa", None),
+            "eyeq_expected_calibration_error": eyeq_eval.get("expected_calibration_error", None),
+            "deepdrid_overall_macro_f1": deepdrid_eval.get("macro_f1", None),
+            "deepdrid_artifact_macro_f1": deepdrid_eval.get("artifact_macro_f1", None),
+            "deepdrid_clarity_macro_f1": deepdrid_eval.get("clarity_macro_f1", None),
+            "deepdrid_field_def_macro_f1": deepdrid_eval.get("field_definition_macro_f1", None),
+            "checkpoint_path": str(ckpt_path),
+            "checkpoint_sha256": ckpt_sha256,
+            "config_path": args.config,
+            "config_sha256": config_sha256,
+            "git_commit": git_commit,
+            "created_at_utc": created_at_utc,
+        }
 
         # Save Run Manifest with explicit completion status (Item 6)
         run_manifest = {
@@ -459,7 +552,9 @@ def main():
             "created_at_utc": created_at_utc,
             "summary_metrics": seed_entry,
             "training_result": {
-                "best_val_macro_f1": train_res["best_val_macro_f1"],
+                "best_validation_objective": train_res.get("best_validation_objective", train_res.get("best_val_macro_f1")),
+                "selection_metric": train_res.get("selection_metric", "primary_macro_f1"),
+                "selection_mode": train_res.get("selection_mode", "max"),
                 "epochs_trained": train_res["epochs_trained"],
             },
         }
@@ -515,6 +610,12 @@ def main():
     campaign_archive_dir = campaigns_dir / f"{mode_name}_{timestamp_str}"
     campaign_archive_dir.mkdir(parents=True, exist_ok=True)
 
+    # Copy resolved config into campaign archive
+    archived_config_p = campaign_archive_dir / "config.yaml"
+    if Path(args.config).is_file():
+        shutil.copy2(args.config, archived_config_p)
+    archived_config_sha256 = compute_sha256(archived_config_p) if archived_config_p.is_file() else config_sha256
+
     # Copy evaluated split manifests into campaign archive
     splits_archive_dir = campaign_archive_dir / "splits"
     splits_archive_dir.mkdir(parents=True, exist_ok=True)
@@ -553,6 +654,16 @@ def main():
                     with open(m_file, "w", encoding="utf-8") as f:
                         json.dump(m_data, f, indent=2)
 
+            # Rewrite run_manifest.json with relative config path
+            manifest_p = dst_seed / "run_manifest.json"
+            if manifest_p.is_file():
+                with open(manifest_p, "r", encoding="utf-8") as f:
+                    r_man = json.load(f)
+                r_man["config_path"] = "../config.yaml"
+                r_man["config_sha256"] = archived_config_sha256
+                with open(manifest_p, "w", encoding="utf-8") as f:
+                    json.dump(r_man, f, indent=2)
+
             # Regenerate per-seed checksums inside the archived copy
             generate_seed_checksums(dst_seed)
 
@@ -564,8 +675,8 @@ def main():
         "eligible_for_aggregation": True,
         "campaign_mode": mode_name,
         "seeds": args.seeds,
-        "config_path": args.config,
-        "config_sha256": config_sha256,
+        "config_path": "config.yaml",
+        "config_sha256": archived_config_sha256,
         "git_commit": git_commit,
         "created_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "archived_seed_directories": archived_seeds,
