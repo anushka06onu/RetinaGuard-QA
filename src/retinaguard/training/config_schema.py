@@ -100,8 +100,8 @@ class TrainingConfig(BaseModel):
 class LossConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    quality_loss: Literal["cross_entropy", "focal"] = "cross_entropy"
-    attribute_loss: Literal["ordinal_or_ce", "cross_entropy", "mse"] = "ordinal_or_ce"
+    quality_loss: Literal["cross_entropy"] = "cross_entropy"
+    attribute_loss: Literal["cross_entropy"] = "cross_entropy"
     label_smoothing: float = Field(ge=0.0, le=0.5, default=0.05)
 
 
