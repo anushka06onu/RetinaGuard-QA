@@ -53,17 +53,25 @@ def main():
             f"A trained checkpoint is required for ONNX export. Checkpoint not found: {args.checkpoint}"
         )
 
-    out_p = Path(args.output_onnx)
-    out_p.parent.mkdir(parents=True, exist_ok=True)
+    ckpt_sha = compute_sha256(ckpt_p)
 
-    print(f"=== Exporting Trained RetinaGuard Checkpoint ({ckpt_p}) to ONNX ({out_p}) ===")
+    try:
+        ckpt_state = torch.load(ckpt_p, map_location="cpu", weights_only=False)
+    except TypeError:
+        ckpt_state = torch.load(ckpt_p, map_location="cpu")
+    ckpt_meta = ckpt_state.get("metadata", {}) if isinstance(ckpt_state, dict) else {}
+    img_size = ckpt_meta.get("resolved_config", {}).get("training", {}).get("image_size", 384)
+    trained_heads = ckpt_meta.get("trained_heads", ["quality_logits"])
+    training_datasets = ckpt_meta.get("training_datasets", ["EyeQ"])
+
+    print(f"=== Exporting Trained RetinaGuard Checkpoint ({ckpt_p}) to ONNX ({out_p}) [Size: {img_size}x{img_size}] ===")
     model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_p)
     model.eval()
 
     wrapper = OnnxMultiTaskWrapper(model)
     wrapper.eval()
 
-    dummy_input = torch.randn(1, 3, 384, 384)
+    dummy_input = torch.randn(1, 3, img_size, img_size)
     input_names = ["input_image"]
     output_names = [
         "quality_logits",
@@ -122,8 +130,23 @@ def main():
             f"[{'PASS' if max_err <= args.parity_tolerance else 'FAIL'}]"
         )
 
-    ckpt_sha = compute_sha256(ckpt_p)
     onnx_sha = compute_sha256(out_p)
+
+    # Export sidecar manifest (Item 11 & Item 16)
+    sidecar_manifest = {
+        "source_checkpoint_path": str(ckpt_p),
+        "source_checkpoint_sha256": ckpt_sha,
+        "onnx_model_sha256": onnx_sha,
+        "image_size": [img_size, img_size],
+        "trained_heads": trained_heads,
+        "training_datasets": training_datasets,
+        "class_order": ["good", "usable", "reject"],
+        "created_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+    sidecar_path = out_p.parent / "onnx_manifest.json"
+    with open(sidecar_path, "w", encoding="utf-8") as f:
+        json.dump(sidecar_manifest, f, indent=2)
+    print(f"Exported ONNX manifest sidecar to {sidecar_path}")
 
     parity_report = {
         "overall_max_error": overall_max_error,
@@ -155,9 +178,15 @@ def main():
             f"exceeds tolerance ({args.parity_tolerance:.6e})."
         )
 
-    # Export canonical preprocessing metadata JSON
-    export_preprocessing_metadata(out_p.parent / "preprocessing.json", image_size=384)
+    # Export canonical preprocessing metadata JSON bound to checkpoint (Item 15)
+    export_preprocessing_metadata(
+        out_p.parent / "preprocessing.json",
+        image_size=img_size,
+        source_checkpoint_sha256=ckpt_sha,
+        status="completed",
+    )
     print("Exported preprocessing metadata to artifacts/models/preprocessing.json")
+
 
 
 if __name__ == "__main__":
