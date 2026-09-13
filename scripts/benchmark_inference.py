@@ -92,6 +92,12 @@ def main():
     parser.add_argument("--iterations", type=int, default=100)
     parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--threads", type=int, default=4)
+    parser.add_argument(
+        "--preprocessing-config",
+        type=str,
+        default="artifacts/models/preprocessing.json",
+        help="Path to authoritative preprocessing metadata JSON",
+    )
     parser.add_argument("--output-json", type=str, default="artifacts/metrics/latency.json")
     args = parser.parse_args()
 
@@ -118,7 +124,23 @@ def main():
     test_images = load_real_test_images(args.test_split, max_images=50)
     print(f"Loaded {len(test_images)} real/representative benchmark images.")
 
-    dummy_tensor = preprocess_image_canonical(test_images[0], image_size=384).numpy()
+    predictor = RetinaGuardPredictor(
+        model_path=str(model_p),
+        calibration_config_path=(
+            "artifacts/models/calibration_metadata.json"
+            if Path("artifacts/models/calibration_metadata.json").is_file()
+            else None
+        ),
+        preprocessing_config_path=(
+            args.preprocessing_config if Path(args.preprocessing_config).is_file() else None
+        ),
+    )
+
+    transform = predictor.preprocess_transform or (
+        lambda img: preprocess_image_canonical(img, image_size=384).squeeze(0)
+    )
+
+    dummy_tensor = transform(test_images[0]).unsqueeze(0).numpy()
 
     # Warm-up
     for i in range(args.warmup):
@@ -130,26 +152,12 @@ def main():
     postprocess_timings = []
     e2e_timings = []
 
-    predictor = RetinaGuardPredictor(
-        model_path=str(model_p),
-        calibration_config_path=(
-            "artifacts/models/calibration_metadata.json"
-            if Path("artifacts/models/calibration_metadata.json").is_file()
-            else None
-        ),
-        preprocessing_config_path=(
-            "artifacts/models/preprocessing.json"
-            if Path("artifacts/models/preprocessing.json").is_file()
-            else None
-        ),
-    )
-
     for i in range(args.iterations):
         raw_img = test_images[i % len(test_images)]
 
         # 1. Preprocessing stage
         t0 = time.perf_counter()
-        tensor = preprocess_image_canonical(raw_img, image_size=384)
+        tensor = transform(raw_img).unsqueeze(0)
         t_pre = time.perf_counter()
         preprocess_timings.append((t_pre - t0) * 1000.0)
 
