@@ -117,32 +117,93 @@ def get_val_transforms(
 
 def get_transform_from_metadata(metadata: Dict[str, Any]) -> T.Compose:
     """Build preprocessing pipeline strictly from validated preprocessing metadata."""
+    if not isinstance(metadata, dict):
+        raise ValueError(f"Preprocessing metadata must be a dictionary, got {type(metadata)}")
+
+    # Schema & status validation
+    if "schema_version" not in metadata and "version" not in metadata:
+        raise ValueError("Preprocessing metadata missing schema_version/version.")
+    if "status" not in metadata or not metadata["status"]:
+        raise ValueError("Preprocessing metadata missing status field.")
+
+    # Class order validation
+    class_order = metadata.get("class_order", ["good", "usable", "reject"])
+    if not isinstance(class_order, list) or len(class_order) < 2:
+        raise ValueError(f"Invalid class_order in metadata: {class_order}")
+
+    # Color space
+    color_space = metadata.get("color_space", "RGB")
+    if color_space != "RGB":
+        raise ValueError(f"Unsupported color_space: {color_space}. Expected 'RGB'.")
+
+    # Image size validation
     img_size = metadata.get("image_size", [384, 384])
+    if isinstance(img_size, int):
+        if img_size <= 0:
+            raise ValueError(f"image_size must be positive, got {img_size}")
+        size_tuple = (img_size, img_size)
+    elif isinstance(img_size, (list, tuple)) and len(img_size) == 2:
+        if not all(isinstance(x, int) and x > 0 for x in img_size):
+            raise ValueError(f"image_size elements must be positive integers, got {img_size}")
+        size_tuple = (int(img_size[0]), int(img_size[1]))
+    else:
+        raise ValueError(f"Invalid image_size specification: {img_size}")
+
+    # FOV threshold validation
     fov_th = metadata.get("fov_threshold", 15)
+    if not isinstance(fov_th, (int, float)) or fov_th < 0 or fov_th > 255:
+        raise ValueError(f"fov_threshold must be in range [0, 255], got {fov_th}")
+    fov_th = int(fov_th)
+
+    # Margin ratio validation
     margin_r = metadata.get("margin_ratio", 0.02)
+    if not isinstance(margin_r, (int, float)) or margin_r < 0.0 or margin_r > 0.5:
+        raise ValueError(f"margin_ratio must be in range [0.0, 0.5], got {margin_r}")
+    margin_r = float(margin_r)
+
+    # Normalization validation
     norm = metadata.get("normalization", {})
+    if not isinstance(norm, dict):
+        raise ValueError(f"normalization must be a dictionary, got {type(norm)}")
     mean = norm.get("mean", [0.485, 0.456, 0.406])
     std = norm.get("std", [0.229, 0.224, 0.225])
 
-    interp_name = metadata.get("interpolation", "bilinear").lower()
-    interp_mode = (
-        T.InterpolationMode.NEAREST if interp_name == "nearest" else T.InterpolationMode.BILINEAR
-    )
+    if (
+        not isinstance(mean, (list, tuple))
+        or len(mean) != 3
+        or not all(isinstance(x, (int, float)) and np.isfinite(x) for x in mean)
+    ):
+        raise ValueError(f"normalization mean must contain 3 finite floats, got {mean}")
 
-    size_tuple = (
-        (img_size[0], img_size[1])
-        if isinstance(img_size, (list, tuple))
-        else (int(img_size), int(img_size))
-    )
+    if (
+        not isinstance(std, (list, tuple))
+        or len(std) != 3
+        or not all(isinstance(x, (int, float)) and np.isfinite(x) and x > 0 for x in std)
+    ):
+        raise ValueError(f"normalization std must contain 3 positive finite floats, got {std}")
+
+    # Interpolation validation (strict enum)
+    interp_name = str(metadata.get("interpolation", "bilinear")).lower()
+    if interp_name == "bilinear":
+        interp_mode = T.InterpolationMode.BILINEAR
+    elif interp_name == "nearest":
+        interp_mode = T.InterpolationMode.NEAREST
+    elif interp_name in ["bicubic", "cubic"]:
+        interp_mode = T.InterpolationMode.BICUBIC
+    else:
+        raise ValueError(
+            f"Unsupported interpolation mode: '{interp_name}'. Allowed: 'bilinear', 'nearest', 'bicubic'."
+        )
 
     return T.Compose(
         [
             CanonicalRetinalTransform(threshold=fov_th, margin_ratio=margin_r),
             T.Resize(size_tuple, interpolation=interp_mode),
             T.ToTensor(),
-            T.Normalize(mean=mean, std=std),
+            T.Normalize(mean=list(mean), std=list(std)),
         ]
     )
+
 
 
 def preprocess_image_canonical(
