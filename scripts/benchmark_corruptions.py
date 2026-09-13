@@ -9,7 +9,11 @@ import pandas as pd
 import torch
 from PIL import Image
 
-from retinaguard.data.preprocessing import preprocess_image_canonical
+from retinaguard.data.preprocessing import (
+    get_transform_from_metadata,
+    get_val_transforms,
+    preprocess_image_canonical,
+)
 from retinaguard.evaluation.corruptions import SyntheticCorruptionSuite
 from retinaguard.evaluation.metrics import compute_quality_metrics
 from retinaguard.models.multitask import RetinaGuardMultiTaskModel
@@ -34,6 +38,12 @@ def main():
         default="eyeq_quality",
         choices=["eyeq_quality", "deepdrid_overall"],
         help="Task for evaluation: 'eyeq_quality' (3-class) or 'deepdrid_overall' (2-class)",
+    )
+    parser.add_argument(
+        "--preprocessing-config",
+        type=str,
+        default="artifacts/models/preprocessing.json",
+        help="Path to authoritative preprocessing metadata JSON",
     )
     parser.add_argument("--output-dir", type=str, default="artifacts/metrics")
     parser.add_argument(
@@ -61,10 +71,19 @@ def main():
     out_p.mkdir(parents=True, exist_ok=True)
 
     print(
-        f"=== Running Optical Corruption Robustness Benchmark [Task: {args.task}] on {test_p} ==="
+        f"=== Robustness Sweep: Evaluating Optical Corruptions on {test_p.name} [{args.task}] ==="
     )
     model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_p)
     model.eval()
+
+    # Authoritative preprocessing transformation
+    preproc_p = Path(args.preprocessing_config)
+    if preproc_p.is_file():
+        with open(preproc_p, "r", encoding="utf-8") as f:
+            preproc_cfg = json.load(f)
+        transform = get_transform_from_metadata(preproc_cfg)
+    else:
+        transform = get_val_transforms(384)
 
     test_df = pd.read_csv(test_p)
     if len(test_df) == 0:
@@ -128,7 +147,7 @@ def main():
     )
 
     # 1. Clean Baseline Evaluation (Item 5 & 28)
-    clean_tensors = [preprocess_image_canonical(img).squeeze(0) for img in clean_images]
+    clean_tensors = [transform(img) for img in clean_images]
     clean_batch = torch.stack(clean_tensors)
     with torch.no_grad():
         clean_logits = model(clean_batch)[head_key].cpu().numpy()
@@ -151,7 +170,7 @@ def main():
             tensors = []
             for img in clean_images:
                 c_img = SyntheticCorruptionSuite.apply(img, c_name, severity=sev)
-                t = preprocess_image_canonical(c_img).squeeze(0)
+                t = transform(c_img)
                 tensors.append(t)
             batch = torch.stack(tensors)
             with torch.no_grad():
