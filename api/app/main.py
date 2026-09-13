@@ -19,7 +19,6 @@ from .service import QualityAssessmentService, get_service
 logger = logging.getLogger("retinaguard.api")
 logging.basicConfig(level=logging.INFO)
 
-MAX_UPLOAD_SIZE = 15 * 1024 * 1024  # 15 MB
 MAX_DIMENSION = 8192
 MIN_DIMENSION = 32
 
