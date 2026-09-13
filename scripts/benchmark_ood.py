@@ -17,7 +17,11 @@ import torch
 from PIL import Image
 from sklearn.metrics import auc, precision_recall_curve, roc_auc_score, roc_curve
 
-from retinaguard.data.preprocessing import preprocess_image_canonical
+from retinaguard.data.preprocessing import (
+    get_transform_from_metadata,
+    get_val_transforms,
+    preprocess_image_canonical,
+)
 from retinaguard.evaluation.ood import (
     RetinalModalityValidator,
     compute_energy_score,
@@ -103,6 +107,12 @@ def main():
         default="artifacts/models/calibration_metadata.json",
         help="Path to calibration metadata containing validation-fitted OOD threshold and temperature",
     )
+    parser.add_argument(
+        "--preprocessing-config",
+        type=str,
+        default="artifacts/models/preprocessing.json",
+        help="Path to authoritative preprocessing metadata JSON",
+    )
     parser.add_argument("--output-file", type=str, default="artifacts/metrics/ood.json")
     parser.add_argument("--max-samples", type=int, default=300)
     args = parser.parse_args()
@@ -114,6 +124,15 @@ def main():
     print("=== Running OOD Detection & Modality Gate Benchmark ===")
     model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_p)
     model.eval()
+
+    # Authoritative preprocessing transformation
+    preproc_p = Path(args.preprocessing_config)
+    if preproc_p.is_file():
+        with open(preproc_p, "r", encoding="utf-8") as f:
+            preproc_cfg = json.load(f)
+        transform = get_transform_from_metadata(preproc_cfg)
+    else:
+        transform = get_val_transforms(384)
 
     logits_key = "overall_quality_logits" if args.task == "deepdrid_overall" else "quality_logits"
 
@@ -152,7 +171,7 @@ def main():
             if modality_res.get("is_fundus", False):
                 id_modality_passes += 1
 
-            tensor = preprocess_image_canonical(img, image_size=384)
+            tensor = transform(img).unsqueeze(0)
             outputs = model(tensor)
             logits = outputs[logits_key].numpy()[0]
             # Higher energy score -> more in-distribution
@@ -200,7 +219,7 @@ def main():
             near_scores = []
             with torch.no_grad():
                 for _, img in near_records:
-                    tensor = preprocess_image_canonical(img, image_size=384)
+                    tensor = transform(img).unsqueeze(0)
                     outputs = model(tensor)
                     logits = outputs[logits_key].numpy()[0]
                     near_scores.append(float(compute_energy_score(logits, temperature=temperature)))
@@ -225,7 +244,7 @@ def main():
             far_scores = []
             with torch.no_grad():
                 for _, img in far_records:
-                    tensor = preprocess_image_canonical(img, image_size=384)
+                    tensor = transform(img).unsqueeze(0)
                     outputs = model(tensor)
                     logits = outputs[logits_key].numpy()[0]
                     far_scores.append(float(compute_energy_score(logits, temperature=temperature)))
@@ -248,7 +267,7 @@ def main():
         for _ in range(len(id_records)):
             arr = rng.randint(0, 256, (384, 384, 3), dtype=np.uint8)
             img = Image.fromarray(arr)
-            tensor = preprocess_image_canonical(img, image_size=384)
+            tensor = transform(img).unsqueeze(0)
             with torch.no_grad():
                 outputs = model(tensor)
                 logits = outputs[logits_key].numpy()[0]
