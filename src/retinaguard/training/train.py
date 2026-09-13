@@ -373,7 +373,16 @@ def run_training_experiment(
         if is_best:
             best_val_score = float(val_score or 0.0)
 
-            # Rich Checkpoint Provenance (Item 12)
+            trained_heads = ["quality_logits"]
+            if "DeepDRiD" in training_dataset_names:
+                trained_heads += [
+                    "overall_quality_logits",
+                    "artifact_logits",
+                    "clarity_logits",
+                    "field_definition_logits",
+                ]
+
+            # Rich Checkpoint Provenance (Item 12 & Item 13)
             checkpoint_metadata = {
                 "architecture": "RetinaGuardMultiTaskModel",
                 "backbone": backbone_name,
@@ -395,9 +404,11 @@ def run_training_experiment(
                     "field_definition": [0, 1, 2],
                 },
                 "training_datasets": training_dataset_names,
+                "trained_heads": trained_heads,
                 "seed": seed,
                 "epoch": epoch,
                 "selection_metric": train_cfg.get("selection_metric", "primary_macro_f1"),
+                "selection_mode": selection_mode,
                 "best_val_metric": val_score,
                 "val_metrics": (
                     val_metrics if isinstance(val_metrics, dict) else {"val_score": val_score}
@@ -425,12 +436,23 @@ def run_training_experiment(
             print(f"Early stopping triggered at epoch {epoch}")
             break
 
+    trained_heads_final = ["quality_logits"]
+    if "DeepDRiD" in training_dataset_names:
+        trained_heads_final += [
+            "overall_quality_logits",
+            "artifact_logits",
+            "clarity_logits",
+            "field_definition_logits",
+        ]
+
     return {
         "best_validation_objective": best_val_score,
         "best_val_macro_f1": best_val_score,
         "selection_metric": train_cfg.get("selection_metric", "primary_macro_f1"),
-        "selection_mode": train_cfg.get("selection_mode", "max"),
+        "selection_mode": selection_mode,
         "epochs_trained": epoch,
         "checkpoint_path": str(checkpoint_saver.filepath),
         "training_datasets": training_dataset_names,
+        "trained_heads": trained_heads_final,
     }
+
