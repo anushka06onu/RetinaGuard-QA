@@ -13,7 +13,8 @@ import {
   ChevronRight,
   Info,
   X,
-  Clock
+  Clock,
+  Menu
 } from 'lucide-react';
 
 interface QualityProbabilities {
@@ -45,12 +46,69 @@ interface PredictionResponse {
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
+function validatePredictionResponse(raw: unknown): PredictionResponse {
+  if (typeof raw !== 'object' || raw === null) {
+    throw new Error('Malformed backend response: expected a JSON object.');
+  }
+  const data = raw as Record<string, unknown>;
+  const requiredFields = [
+    'model_version',
+    'quality',
+    'probabilities',
+    'calibrated_confidence',
+    'uncertainty',
+    'ood_score',
+    'decision',
+    'feedback',
+    'disclaimer',
+  ];
+  for (const f of requiredFields) {
+    if (!(f in data)) {
+      throw new Error(`Malformed backend response: missing required field "${f}".`);
+    }
+  }
+  const validQualities = ['good', 'usable', 'reject'];
+  if (!validQualities.includes(String(data.quality))) {
+    throw new Error(`Malformed backend response: invalid quality "${String(data.quality)}".`);
+  }
+  const validDecisions = ['accept', 'recapture', 'manual_review', 'unsupported_input'];
+  if (!validDecisions.includes(String(data.decision))) {
+    throw new Error(`Malformed backend response: invalid decision "${String(data.decision)}".`);
+  }
+  const probs = data.probabilities as Record<string, unknown>;
+  if (typeof probs !== 'object' || probs === null) {
+    throw new Error('Malformed backend response: probabilities must be an object.');
+  }
+  const good = Number(probs.good);
+  const usable = Number(probs.usable);
+  const reject = Number(probs.reject);
+  if (!Number.isFinite(good) || !Number.isFinite(usable) || !Number.isFinite(reject)) {
+    throw new Error('Malformed backend response: probabilities must be finite numbers.');
+  }
+  const probSum = good + usable + reject;
+  if (Math.abs(probSum - 1.0) > 1e-3) {
+    throw new Error(`Malformed backend response: probabilities sum (${probSum.toFixed(4)}) diverges from 1.0.`);
+  }
+  const confidence = Number(data.calibrated_confidence);
+  const uncertainty = Number(data.uncertainty);
+  const oodScore = Number(data.ood_score);
+  if (!Number.isFinite(confidence) || !Number.isFinite(uncertainty) || !Number.isFinite(oodScore)) {
+    throw new Error('Malformed backend response: numerical scores must be finite numbers.');
+  }
+  if (!Array.isArray(data.feedback)) {
+    throw new Error('Malformed backend response: feedback must be an array.');
+  }
+  return data as unknown as PredictionResponse;
+}
+
 export default function App() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
   const [result, setResult] = useState<PredictionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -112,6 +170,14 @@ export default function App() {
     setResult(null);
   };
 
+  const cancelPrediction = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+  };
+
   const runPrediction = async () => {
     if (!selectedFile) return;
     setLoading(true);
@@ -122,7 +188,7 @@ export default function App() {
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    let timeoutId: ReturnType<typeof setTimeout> | null = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
     try {
       const resp = await fetch(`${API_BASE}/api/v1/predict`, {
@@ -130,8 +196,6 @@ export default function App() {
         body: formData,
         signal: controller.signal,
       });
-
-      clearTimeout(timeoutId);
 
       if (!resp.ok) {
         if (resp.status === 503) {
@@ -141,15 +205,22 @@ export default function App() {
         throw new Error(errData.detail || `Server responded with error status ${resp.status}`);
       }
 
-      const data: PredictionResponse = await resp.json();
-      setResult(data);
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
+      const rawJson = await resp.json();
+      const validatedData = validatePredictionResponse(rawJson);
+      setResult(validatedData);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
         setError('Inference request timed out after 30 seconds or was cancelled.');
-      } else {
+      } else if (err instanceof Error) {
         setError(err.message || 'Inference error occurred. Please check backend connection.');
+      } else {
+        setError('Inference error occurred. Please check backend connection.');
       }
     } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
       setLoading(false);
       abortControllerRef.current = null;
     }
@@ -270,7 +341,7 @@ export default function App() {
               <span className="text-xs text-slate-500 ml-2 hidden sm:inline border-l border-slate-200 pl-2">Fundus Image QA (Research Prototype)</span>
             </div>
           </div>
-          <nav aria-label="Main Navigation" className="flex items-center gap-4 sm:gap-6 text-xs sm:text-sm font-medium text-slate-600">
+          <nav aria-label="Main Navigation" className="hidden md:flex items-center gap-4 sm:gap-6 text-xs sm:text-sm font-medium text-slate-600">
             <a href="#research" className="hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-teal-600 outline-none rounded p-1">Research</a>
             <a href="#demo" className="hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-teal-600 outline-none rounded p-1">Demo</a>
             <a href="#evidence" className="hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-teal-600 outline-none rounded p-1">Evidence</a>
@@ -279,7 +350,28 @@ export default function App() {
               GitHub <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </nav>
+          <div className="md:hidden flex items-center">
+            <button
+              type="button"
+              aria-label="Toggle Navigation Menu"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-teal-600 outline-none"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
+        {mobileMenuOpen && (
+          <nav aria-label="Mobile Navigation" className="md:hidden border-t border-slate-100 bg-white px-4 py-3 flex flex-col gap-2 text-sm font-medium text-slate-700">
+            <a href="#research" onClick={() => setMobileMenuOpen(false)} className="py-1.5 hover:text-teal-700">Research</a>
+            <a href="#demo" onClick={() => setMobileMenuOpen(false)} className="py-1.5 hover:text-teal-700">Demo</a>
+            <a href="#evidence" onClick={() => setMobileMenuOpen(false)} className="py-1.5 hover:text-teal-700">Evidence</a>
+            <a href="#limitations" onClick={() => setMobileMenuOpen(false)} className="py-1.5 hover:text-teal-700">Limitations</a>
+            <a href="https://github.com/anushka06onu/RetinaGuard-QA" target="_blank" rel="noreferrer" className="py-1.5 flex items-center gap-1 text-teal-800 font-semibold">
+              GitHub <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </nav>
+        )}
       </header>
 
       {/* 2. Hero */}
@@ -357,7 +449,26 @@ export default function App() {
                     fileInputRef.current?.click();
                   }
                 }}
-                className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer hover:border-teal-600 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-teal-600 outline-none transition flex flex-col items-center justify-center min-h-[200px]"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    processFile(e.dataTransfer.files[0]);
+                  }
+                }}
+                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center min-h-[200px] outline-none focus-visible:ring-2 focus-visible:ring-teal-600 ${
+                  isDragging
+                    ? 'border-teal-600 bg-teal-50/50'
+                    : 'border-slate-300 hover:border-teal-600 hover:bg-slate-50'
+                }`}
               >
                 <input 
                   id="file-upload"
@@ -380,7 +491,7 @@ export default function App() {
                 ) : (
                   <>
                     <Upload className="w-8 h-8 text-slate-400 mb-2" />
-                    <p className="text-sm font-semibold text-slate-700">Click or press Enter to upload fundus photo</p>
+                    <p className="text-sm font-semibold text-slate-700">Click, drag & drop, or press Enter to upload fundus photo</p>
                     <p className="text-xs text-slate-500 mt-1">JPEG or PNG up to 15MB</p>
                   </>
                 )}
@@ -419,16 +530,28 @@ export default function App() {
                 </div>
               </div>
 
-              <button
-                data-testid="predict-button"
-                type="button"
-                disabled={!selectedFile || loading}
-                onClick={runPrediction}
-                className="w-full py-3 px-4 rounded-lg bg-teal-700 text-white font-bold text-sm hover:bg-teal-800 disabled:opacity-50 transition shadow-sm flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-teal-600 outline-none"
-              >
-                {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                {loading ? 'Evaluating Quality Gate...' : 'Execute Quality Inspection'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  data-testid="predict-button"
+                  type="button"
+                  disabled={!selectedFile || loading}
+                  onClick={runPrediction}
+                  className="flex-1 py-3 px-4 rounded-lg bg-teal-700 text-white font-bold text-sm hover:bg-teal-800 disabled:opacity-50 transition shadow-sm flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-teal-600 outline-none"
+                >
+                  {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                  {loading ? 'Evaluating Quality Gate...' : 'Execute Quality Inspection'}
+                </button>
+                {loading && (
+                  <button
+                    data-testid="cancel-button"
+                    type="button"
+                    onClick={cancelPrediction}
+                    className="py-3 px-3 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-700 font-medium text-xs transition"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
 
               <p className="text-xs text-slate-500 text-center flex items-center justify-center gap-1">
                 <Info className="w-3.5 h-3.5" /> Transient in-memory processing. Zero server-side persistence.
@@ -598,7 +721,7 @@ export default function App() {
             <Info className="w-4 h-4" /> Multi-Dataset Evaluation Protocol
           </div>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-            Final empirical evaluation encompasses a 3-seed campaign with patient-isolated splits across EyeQ (3-class) and DeepDRiD (binary + attributes), baseline comparisons (Single-Task MobileNetV3, EfficientNet-B0), core architectural ablations, temperature scaling calibration, and selective prediction curves.
+            The planned final empirical evaluation will encompass a 3-seed campaign with patient-isolated splits across EyeQ (3-class) and DeepDRiD (binary + attributes), baseline comparisons (Single-Task MobileNetV3, EfficientNet-B0), core architectural ablations, temperature scaling calibration, and selective prediction curves.
           </p>
           <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-600 space-y-2">
             <div className="font-semibold text-slate-800">Evaluation Categories:</div>

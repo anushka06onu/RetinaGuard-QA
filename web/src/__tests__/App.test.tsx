@@ -160,5 +160,51 @@ describe('RetinaGuard-QA Web Frontend', () => {
       expect(screen.getByText(/Severe defocus detected/i)).toBeInTheDocument();
     });
   });
+
+  it('handles drag and drop file uploads', () => {
+    render(<App />);
+    const dropzone = screen.getByTestId('dropzone');
+    const validFile = new File(['dropped-bytes'], 'dropped.png', { type: 'image/png' });
+
+    fireEvent.dragOver(dropzone);
+    fireEvent.drop(dropzone, {
+      dataTransfer: {
+        files: [validFile],
+      },
+    });
+
+    expect(screen.getByAltText('Preview')).toBeInTheDocument();
+  });
+
+  it('rejects malformed backend responses that fail runtime schema validation', async () => {
+    const malformedResponse = {
+      model_version: '0.2.0',
+      quality: 'good',
+      // Probabilities summing to 0.5 instead of 1.0
+      probabilities: { good: 0.3, usable: 0.1, reject: 0.1 },
+      calibrated_confidence: 0.9,
+      uncertainty: 0.1,
+      ood_score: -1.0,
+      decision: 'accept',
+      feedback: [],
+      disclaimer: 'test',
+    };
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => malformedResponse,
+    } as Response);
+
+    render(<App />);
+    const fileInput = screen.getByTestId('file-input');
+    const validFile = new File(['bytes'], 'fundus.jpg', { type: 'image/jpeg' });
+    fireEvent.change(fileInput, { target: { files: [validFile] } });
+
+    fireEvent.click(screen.getByTestId('predict-button'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Malformed backend response/i)).toBeInTheDocument();
+    });
+  });
 });
 
