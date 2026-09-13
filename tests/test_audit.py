@@ -75,13 +75,19 @@ def test_run_leakage_and_duplicate_audit_rich_provenance(tmp_path):
 
     from retinaguard.data.audit import run_leakage_and_duplicate_audit
 
-    # Create real dummy images with true SHA256 hashes
+    # Create real dummy images with distinct textures and true SHA256 hashes
     img1_p = tmp_path / "p1.png"
     img2_p = tmp_path / "p2.png"
     img3_p = tmp_path / "p3.png"
-    Image.fromarray(np.full((32, 32, 3), 10, dtype=np.uint8)).save(img1_p)
-    Image.fromarray(np.full((32, 32, 3), 20, dtype=np.uint8)).save(img2_p)
-    Image.fromarray(np.full((32, 32, 3), 30, dtype=np.uint8)).save(img3_p)
+    Image.fromarray(np.random.RandomState(101).randint(0, 255, (64, 64, 3), dtype=np.uint8)).save(
+        img1_p
+    )
+    Image.fromarray(np.random.RandomState(202).randint(0, 255, (64, 64, 3), dtype=np.uint8)).save(
+        img2_p
+    )
+    Image.fromarray(np.random.RandomState(303).randint(0, 255, (64, 64, 3), dtype=np.uint8)).save(
+        img3_p
+    )
 
     splits = {
         "train": pd.DataFrame(
@@ -123,8 +129,11 @@ def test_run_leakage_and_duplicate_audit_rich_provenance(tmp_path):
     assert report["cross_split_isolation_passed"] is True
     assert report["intra_split_uniqueness_passed"] is True
     assert report["image_integrity_passed"] is True
+    assert report["near_duplicate_isolation_passed"] is True
     assert report["overall_audit_passed"] is True
     assert report["isolation_passed"] is True
+    assert "patient_id_provenance" in report
+    assert "near_duplicate_audit" in report
     assert "train" in report["splits"]
     assert "val" in report["splits"]
     assert report["splits"]["train"]["records"] == 2

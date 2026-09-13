@@ -326,11 +326,7 @@ class RetinaGuardPredictor:
                 # 3. Verify image size equals input dimensions
                 if "image_size" in sidecar_data:
                     sidecar_sz = sidecar_data["image_size"]
-                    sz = (
-                        sidecar_sz[0]
-                        if isinstance(sidecar_sz, (list, tuple))
-                        else int(sidecar_sz)
-                    )
+                    sz = sidecar_sz[0] if isinstance(sidecar_sz, (list, tuple)) else int(sidecar_sz)
                     if sz != self.image_size:
                         raise ValueError(
                             f"ONNX sidecar image size mismatch: sidecar specifies {sz} != predictor configured {self.image_size}"
