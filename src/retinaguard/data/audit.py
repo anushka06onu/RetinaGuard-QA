@@ -56,7 +56,9 @@ def inspect_image_file(file_path: Union[str, Path]) -> Dict[str, Any]:
 def find_duplicate_images(
     image_paths: List[Union[str, Path]], check_perceptual: bool = True, phash_threshold: int = 4
 ) -> Dict[str, Any]:
-    """Find exact (SHA-256) and near-duplicate (dHash/pHash) image groups."""
+    """Find exact (SHA-256) and near-duplicate (dHash/pHash) image groups with scalable Hamming comparison."""
+    import numpy as np
+
     sha_map: Dict[str, List[str]] = {}
     phash_list: List[tuple] = []
 
@@ -76,19 +78,35 @@ def find_duplicate_images(
 
     near_duplicates = []
     if check_perceptual and len(phash_list) > 1:
-        for i in range(len(phash_list)):
-            for j in range(i + 1, len(phash_list)):
-                p1, h1 = phash_list[i]
-                p2, h2 = phash_list[j]
-                dist = h1 - h2
-                if dist <= phash_threshold:
-                    near_duplicates.append({"path_a": p1, "path_b": p2, "distance": int(dist)})
+        # Fast vectorized Hamming distance computation
+        paths = [x[0] for x in phash_list]
+        hash_bools = np.array([x[1].hash.flatten() for x in phash_list], dtype=bool)  # (N, 64)
+        n = len(paths)
+        # Vectorized block-wise comparison
+        chunk_size = 500
+        for i_start in range(0, n, chunk_size):
+            i_end = min(n, i_start + chunk_size)
+            chunk_a = hash_bools[i_start:i_end]  # (B, 64)
+            # Compute pairwise xor sum with all subsequent items
+            dists = np.bitwise_xor(chunk_a[:, None, :], hash_bools[None, :, :]).sum(axis=-1)  # (B, N)
+            for local_i in range(i_end - i_start):
+                global_i = i_start + local_i
+                match_indices = np.where((dists[local_i] <= phash_threshold) & (np.arange(n) > global_i))[0]
+                for j in match_indices:
+                    near_duplicates.append(
+                        {
+                            "path_a": paths[global_i],
+                            "path_b": paths[j],
+                            "distance": int(dists[local_i, j]),
+                        }
+                    )
 
     return {
         "total_scanned": len(image_paths),
         "exact_duplicates": exact_duplicates,
         "near_duplicates": near_duplicates,
     }
+
 
 
 def verify_patient_split_isolation(splits: Dict[str, List[str]]) -> Dict[str, Any]:
