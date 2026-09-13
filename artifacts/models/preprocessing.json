@@ -1,5 +1,11 @@
 {
+  "schema_version": "1.0.0",
   "version": "1.0.0",
+  "class_order": [
+    "good",
+    "usable",
+    "reject"
+  ],
   "image_size": [
     384,
     384
@@ -7,6 +13,7 @@
   "crop_method": "canonical_fov_intensity_mask",
   "fov_threshold": 15,
   "margin_ratio": 0.02,
+  "interpolation": "bilinear",
   "padding": "square_pad_preserve_aspect",
   "normalization": {
     "mean": [
@@ -20,5 +27,7 @@
       0.225
     ]
   },
-  "color_space": "RGB"
+  "color_space": "RGB",
+  "source_checkpoint_sha256": "preliminary_obsolete",
+  "status": "completed"
 }
