@@ -85,6 +85,9 @@ function validatePredictionResponse(raw: unknown): PredictionResponse {
   if (!Number.isFinite(good) || !Number.isFinite(usable) || !Number.isFinite(reject)) {
     throw new Error('Malformed backend response: probabilities must be finite numbers.');
   }
+  if (good < 0 || good > 1 || usable < 0 || usable > 1 || reject < 0 || reject > 1) {
+    throw new Error('Malformed backend response: each class probability must satisfy 0 <= p <= 1.');
+  }
   const probSum = good + usable + reject;
   if (Math.abs(probSum - 1.0) > 1e-3) {
     throw new Error(`Malformed backend response: probabilities sum (${probSum.toFixed(4)}) diverges from 1.0.`);
@@ -95,8 +98,18 @@ function validatePredictionResponse(raw: unknown): PredictionResponse {
   if (!Number.isFinite(confidence) || !Number.isFinite(uncertainty) || !Number.isFinite(oodScore)) {
     throw new Error('Malformed backend response: numerical scores must be finite numbers.');
   }
-  if (!Array.isArray(data.feedback)) {
-    throw new Error('Malformed backend response: feedback must be an array.');
+  if (confidence < 0 || confidence > 1) {
+    throw new Error('Malformed backend response: calibrated confidence must satisfy 0 <= confidence <= 1.');
+  }
+  const maxEntropy = Math.log2(3.0) + 1e-4;
+  if (uncertainty < 0 || uncertainty > maxEntropy) {
+    throw new Error(`Malformed backend response: uncertainty must satisfy 0 <= uncertainty <= log2(3) (${maxEntropy.toFixed(4)} bits).`);
+  }
+  if (!Array.isArray(data.feedback) || !data.feedback.every((x: unknown) => typeof x === 'string')) {
+    throw new Error('Malformed backend response: feedback must be an array of strings.');
+  }
+  if (typeof data.quality_attributes !== 'object' || data.quality_attributes === null) {
+    throw new Error('Malformed backend response: quality_attributes must be a valid object.');
   }
   return data as unknown as PredictionResponse;
 }
