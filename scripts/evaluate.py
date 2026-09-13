@@ -32,6 +32,7 @@ def evaluate_dataset_partition(
     device: str = "cpu",
     image_size: int = 384,
     fail_on_empty: bool = True,
+    allow_synthetic_fallback: bool = False,
 ) -> Tuple[Dict[str, Any], pd.DataFrame]:
     """Evaluate model on a dataset partition with strict label masking and structured return."""
     p = Path(csv_path)
@@ -52,7 +53,9 @@ def evaluate_dataset_partition(
         }, pd.DataFrame()
 
     val_transform = get_val_transforms(image_size=image_size)
-    ds = RetinalQualityDataset(df, transform=val_transform, allow_synthetic_fallback=False)
+    ds = RetinalQualityDataset(
+        df, transform=val_transform, allow_synthetic_fallback=allow_synthetic_fallback
+    )
     loader = torch.utils.data.DataLoader(ds, batch_size=16, shuffle=False)
 
     all_logits, all_y, all_masks, all_p, all_ids = [], [], [], [], []

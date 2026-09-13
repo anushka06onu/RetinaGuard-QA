@@ -279,7 +279,18 @@ def main():
         action="store_true",
         help="Allow reusing verified seed runs generated from previous Git commits",
     )
+    parser.add_argument(
+        "--fixture-mode",
+        action="store_true",
+        help="Run campaign using test fixture datasets for fast verification and smoke testing",
+    )
     args = parser.parse_args()
+
+    if args.fixture_mode:
+        if args.eyeq_split == "data/splits/eyeq_test.csv" and not Path(args.eyeq_split).exists():
+            args.eyeq_split = "tests/fixtures/splits/eyeq_test.csv"
+        if args.deepdrid_split == "data/splits/deepdrid_external_test.csv" and not Path(args.deepdrid_split).exists():
+            args.deepdrid_split = "tests/fixtures/splits/deepdrid_test.csv"
 
     # Automatically switch default config if zero-shot mode is specified with multitask default
     if args.zero_shot and args.config == "configs/train_multitask.yaml":
@@ -343,7 +354,7 @@ def main():
         train_res = run_training_experiment(
             config_path=args.config,
             smoke_test=args.smoke_test,
-            fixture_mode=False,
+            fixture_mode=args.fixture_mode,
             override_seed=seed,
             output_dir=seed_dir,
         )
@@ -405,7 +416,12 @@ def main():
         # EyeQ test evaluation
         if Path(args.eyeq_split).is_file():
             eyeq_eval, df_eyeq_preds = evaluate_dataset_partition(
-                model, args.eyeq_split, "EyeQ Test", is_deepdrid=False, image_size=ckpt_img_size
+                model,
+                args.eyeq_split,
+                "EyeQ Test",
+                is_deepdrid=False,
+                image_size=ckpt_img_size,
+                allow_synthetic_fallback=args.fixture_mode,
             )
             pred_file = preds_dir / "eyeq_test_predictions.csv"
             df_eyeq_preds.to_csv(pred_file, index=False)
@@ -467,6 +483,7 @@ def main():
                 is_deepdrid=True,
                 is_zero_shot=is_zs,
                 image_size=ckpt_img_size,
+                allow_synthetic_fallback=args.fixture_mode,
             )
             pred_file = preds_dir / pred_file_name
             df_dd_preds.to_csv(pred_file, index=False)
@@ -546,19 +563,14 @@ def main():
     print(f"\nExported per-seed metrics to {per_seed_csv}")
 
     # Compute Aggregate Mean +/- Sample Std (ddof=1)
-    non_numeric = [
-        "seed",
-        "checkpoint_path",
-        "checkpoint_sha256",
-        "config_path",
-        "config_sha256",
-        "git_commit",
-        "created_at_utc",
+    numeric_cols = [
+        c
+        for c in df_seeds.select_dtypes(include=[np.number]).columns
+        if c not in ["seed"]
     ]
-    numeric_cols = [c for c in df_seeds.columns if c not in non_numeric]
     summary_data = []
     for col in numeric_cols:
-        vals = df_seeds[col].dropna()
+        vals = pd.to_numeric(df_seeds[col], errors="coerce").dropna()
         if len(vals) > 0:
             std_val = float(np.std(vals, ddof=1)) if len(vals) > 1 else 0.0
             summary_data.append(

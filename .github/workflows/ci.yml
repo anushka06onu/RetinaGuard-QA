@@ -28,7 +28,7 @@ jobs:
 
     - name: Run Pytest Suite with Coverage
       run: |
-        PYTHONPATH=. pytest tests/ -v --cov=src/retinaguard --cov-fail-under=70
+        PYTHONPATH=. pytest tests/ api/tests/ -v --cov=src/retinaguard --cov=api --cov-fail-under=70
 
   code-quality:
     runs-on: ubuntu-latest

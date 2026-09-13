@@ -662,3 +662,47 @@ def test_ablation_script_configuration_and_execution_smoke(tmp_path):
     assert res["seed"] == 2026
     assert res["ablation_name"] == "test_no_attr"
     assert "best_val_macro_f1" in res
+
+
+def test_campaign_runner_full_fixture_integration(tmp_path, monkeypatch):
+    """Smoke integration test of run_campaign.py: training -> EyeQ eval -> DeepDRiD eval -> manifest -> checksums -> archive -> independent verification."""
+    import sys
+    from scripts.run_campaign import main as campaign_main
+
+    runs_dir = tmp_path / "runs"
+    metrics_dir = tmp_path / "metrics"
+    campaigns_dir = tmp_path / "campaigns"
+
+    test_args = [
+        "run_campaign.py",
+        "--config",
+        "configs/train_multitask.yaml",
+        "--seeds",
+        "2026",
+        "--fixture-mode",
+        "--smoke-test",
+        "--output-runs-dir",
+        str(runs_dir),
+        "--output-metrics-dir",
+        str(metrics_dir),
+        "--output-campaigns-dir",
+        str(campaigns_dir),
+        "--overwrite",
+    ]
+    monkeypatch.setattr(sys, "argv", test_args)
+    campaign_main()
+
+    # Verify campaign artifacts were created and verified
+    assert (runs_dir / "multitask" / "seed_2026" / "run_manifest.json").is_file()
+    assert (runs_dir / "multitask" / "seed_2026" / "SHA256SUMS").is_file()
+    assert (metrics_dir / "per_seed_metrics.csv").is_file()
+    assert (metrics_dir / "campaign_summary.csv").is_file()
+
+    # Verify archive directories
+    archive_subdirs = list(campaigns_dir.glob("multitask_*"))
+    assert len(archive_subdirs) == 1
+    archive_dir = archive_subdirs[0]
+    assert (archive_dir / "campaign_manifest.json").is_file()
+    assert (archive_dir / "SHA256SUMS").is_file()
+    assert (archive_dir / "seed_2026" / "best.ckpt").is_file()
+
