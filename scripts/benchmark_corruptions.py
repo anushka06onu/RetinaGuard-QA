@@ -12,7 +12,6 @@ from PIL import Image
 from retinaguard.data.preprocessing import (
     get_transform_from_metadata,
     get_val_transforms,
-    preprocess_image_canonical,
 )
 from retinaguard.evaluation.corruptions import SyntheticCorruptionSuite
 from retinaguard.evaluation.metrics import compute_quality_metrics
