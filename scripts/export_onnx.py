@@ -139,6 +139,8 @@ def main():
 
     # Export sidecar manifest (Item 11 & Item 16)
     sidecar_manifest = {
+        "schema_version": "1.0.0",
+        "status": "completed",
         "source_checkpoint_path": str(ckpt_p),
         "source_checkpoint_sha256": ckpt_sha,
         "onnx_model_sha256": onnx_sha,
@@ -155,7 +157,8 @@ def main():
 
     parity_report = {
         "status": "completed_parity",
-        "eligible_as_final_result": True,
+        "eligible_as_deployment_evidence": True,
+        "eligible_as_predictive_performance_result": False,
         "overall_max_error": overall_max_error,
         "parity_tolerance": args.parity_tolerance,
         "parity_passed": bool(overall_max_error <= args.parity_tolerance),
