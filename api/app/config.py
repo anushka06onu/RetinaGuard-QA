@@ -29,7 +29,11 @@ class Settings:
             "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000",
         )
     )
+    max_upload_size_bytes: int = field(
+        default_factory=lambda: int(os.environ.get("MAX_UPLOAD_SIZE_BYTES", "15728640"))
+    )
     test_mode: bool = field(default_factory=lambda: os.environ.get("TEST_MODE", "0") == "1")
+
 
     @property
     def cors_origins(self) -> List[str]:
