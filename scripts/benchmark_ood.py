@@ -20,7 +20,6 @@ from sklearn.metrics import auc, precision_recall_curve, roc_auc_score, roc_curv
 from retinaguard.data.preprocessing import (
     get_transform_from_metadata,
     get_val_transforms,
-    preprocess_image_canonical,
 )
 from retinaguard.evaluation.ood import (
     RetinalModalityValidator,
