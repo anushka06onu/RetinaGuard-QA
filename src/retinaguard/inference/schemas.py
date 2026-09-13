@@ -21,8 +21,8 @@ class QualityProbabilities(BaseModel):
     @model_validator(mode="after")
     def check_sum(self) -> "QualityProbabilities":
         total = self.good + self.usable + self.reject
-        if not (0.90 <= total <= 1.10):
-            raise ValueError(f"Probabilities must approximately sum to 1.0, got {total}")
+        if abs(total - 1.0) > 1e-4:
+            raise ValueError(f"Probabilities must sum to 1.0 within numerical tolerance 1e-4, got {total}")
         return self
 
 
@@ -56,7 +56,4 @@ class PredictionResponse(BaseModel):
     )
     latency_ms: Optional[float] = Field(None, ge=0.0, description="Inference latency in milliseconds")
 
-
-class PredictionRequest(BaseModel):
-    image_base64: Optional[str] = None
 
