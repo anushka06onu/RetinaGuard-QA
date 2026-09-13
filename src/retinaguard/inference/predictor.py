@@ -294,15 +294,70 @@ class RetinaGuardPredictor:
                         f"ONNX {attr} dimension violation: expected 3 classes, got shape {out_dict[attr].shape}"
                     )
 
-            # Check sidecar manifest for trained heads (Item 11)
+            # Check sidecar manifest for contract validation (Item 11)
             sidecar_p = path.with_name(path.stem + "_manifest.json")
             if not sidecar_p.is_file():
                 sidecar_p = path.parent / "onnx_manifest.json"
             if sidecar_p.is_file():
                 with open(sidecar_p, "r", encoding="utf-8") as f:
                     sidecar_data = json.load(f)
+
+                # 1. Verify ONNX model sha256 if recorded
+                if "onnx_model_sha256" in sidecar_data:
+                    from retinaguard.utils.hashing import compute_sha256
+
+                    actual_onnx_sha = compute_sha256(path)
+                    expected_onnx_sha = sidecar_data["onnx_model_sha256"]
+                    if actual_onnx_sha != expected_onnx_sha:
+                        raise ValueError(
+                            f"ONNX sidecar hash mismatch: loaded file ({actual_onnx_sha}) != sidecar ({expected_onnx_sha})"
+                        )
+
+                # 2. Verify trained heads are a subset of actual model output names
                 if "trained_heads" in sidecar_data:
-                    self.supported_heads = list(sidecar_data["trained_heads"])
+                    sidecar_heads = list(sidecar_data["trained_heads"])
+                    missing_heads = set(sidecar_heads) - set(out_names)
+                    if missing_heads:
+                        raise ValueError(
+                            f"ONNX sidecar contract violation: trained heads {missing_heads} not present in model outputs {out_names}"
+                        )
+                    self.supported_heads = sidecar_heads
+
+                # 3. Verify image size equals input dimensions
+                if "image_size" in sidecar_data:
+                    sidecar_sz = sidecar_data["image_size"]
+                    sz = (
+                        sidecar_sz[0]
+                        if isinstance(sidecar_sz, (list, tuple))
+                        else int(sidecar_sz)
+                    )
+                    if sz != self.image_size:
+                        raise ValueError(
+                            f"ONNX sidecar image size mismatch: sidecar specifies {sz} != predictor configured {self.image_size}"
+                        )
+
+                # 4. Verify class order matches inference schema
+                if "class_order" in sidecar_data:
+                    expected_order = ["good", "usable", "reject"]
+                    if list(sidecar_data["class_order"]) != expected_order:
+                        raise ValueError(
+                            f"ONNX sidecar class_order mismatch: expected {expected_order}, got {sidecar_data['class_order']}"
+                        )
+
+                # 5. Verify source checkpoint matches preprocessing metadata if available
+                if self.preprocessing_metadata and "source_checkpoint_sha256" in sidecar_data:
+                    prep_sha = self.preprocessing_metadata.get("source_checkpoint_sha256")
+                    sidecar_ckpt_sha = sidecar_data.get("source_checkpoint_sha256")
+                    if (
+                        prep_sha
+                        and sidecar_ckpt_sha
+                        and prep_sha != "unknown"
+                        and sidecar_ckpt_sha != "unknown"
+                    ):
+                        if prep_sha != sidecar_ckpt_sha:
+                            raise ValueError(
+                                f"Lineage conflict: preprocessing metadata checkpoint hash ({prep_sha}) != ONNX sidecar checkpoint hash ({sidecar_ckpt_sha})"
+                            )
 
             self.ort_session = session
             self.model_architecture_compatible = True
