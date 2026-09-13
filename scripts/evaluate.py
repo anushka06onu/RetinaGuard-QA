@@ -225,7 +225,7 @@ def main():
         state = torch.load(ckpt_p, map_location="cpu")
     metadata = state.get("metadata", {})
     training_datasets = metadata.get("training_datasets", [])
-    eval_img_size = metadata.get("resolved_config", {}).get("data", {}).get("image_size", 384)
+    eval_img_size = metadata.get("resolved_config", {}).get("training", {}).get("image_size", 384)
 
     model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_p)
     model.eval()
