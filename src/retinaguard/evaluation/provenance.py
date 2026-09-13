@@ -232,7 +232,7 @@ def validate_empirical_result(data_or_path: Union[str, Path, Dict[str, Any]]) ->
             raise ValueError("Preliminary obsolete artifact must declare head_type.")
         return {"valid": True, "type": "preliminary_obsolete_result"}
 
-    elif status in ["evaluated", "training_history"]:
+    elif status in ["evaluated", "training_history", "completed_parity", "parity_verification"]:
         return {"valid": True, "type": "pipeline_intermediate"}
 
     else:
