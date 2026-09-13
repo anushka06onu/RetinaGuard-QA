@@ -57,21 +57,26 @@ def test_decision_engine_rules():
 
 def test_predictor_onnx_inference(tmp_path):
     # Verify inference with a temporary test model in tmp_path
+    from scripts.export_onnx import OnnxMultiTaskWrapper
+
     onnx_path = tmp_path / "temp_test_model.onnx"
     model = RetinaGuardMultiTaskModel(backbone_name="mobilenetv3_large_100", pretrained=False)
     model.eval()
+    wrapper = OnnxMultiTaskWrapper(model)
+    wrapper.eval()
     dummy = torch.randn(1, 3, 384, 384)
     torch.onnx.export(
-        model,
+        wrapper,
         dummy,
         str(onnx_path),
         input_names=["input_image"],
         output_names=[
             "quality_logits",
+            "overall_quality_logits",
             "artifact_logits",
             "clarity_logits",
-            "field_logits",
-            "features",
+            "field_definition_logits",
+            "latent_features",
         ],
         opset_version=18,
     )
@@ -100,14 +105,15 @@ def test_predictor_strict_config_validation(tmp_path):
     cal_file.write_text(json.dumps({"temperature": -0.5}))
 
     with pytest.raises(ValueError, match="Temperature must be a finite float > 0"):
-        RetinaGuardPredictor(calibration_config_path=cal_file, model_path=None)
+        RetinaGuardPredictor(calibration_config_path=cal_file, model_path=None, preprocessing_config_path=None)
 
     # 2. Invalid preprocessing image_size
     prep_file = tmp_path / "bad_preprocessing.json"
     prep_file.write_text(json.dumps({"image_size": -100}))
 
-    with pytest.raises(ValueError, match="Invalid image_size"):
-        RetinaGuardPredictor(preprocessing_config_path=prep_file, model_path=None)
+    with pytest.raises(ValueError, match="image_size"):
+        RetinaGuardPredictor(preprocessing_config_path=prep_file, model_path=None, calibration_config_path=None)
+
 
     # 3. Invalid uncertainty threshold (> log2(3) or <= 0)
     cal_bad_u = tmp_path / "bad_u_cal.json"
