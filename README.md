@@ -13,10 +13,10 @@
 
 > [!IMPORTANT]
 > **Engineering Pipeline Verification Stage:**
-> The software architecture, data ingestion, split auditing, multi-task model heads, probability calibration, selective prediction, OOD gating, and deployment stack are implemented and covered by automated test suites; final-model deployment validation remains pending conclusion of full-scale dataset training.
+> The software architecture, data ingestion, split auditing, multi-task model heads, probability calibration, selective prediction, OOD gating, container stack, and automated test suites are fully implemented. Production readiness mode activates upon loading a completed matched experimental campaign package.
 >
 > **Experimental Status:**
-> Preliminary multi-task engineering runs have been executed on the verified DeepDRiD dataset partitions. Full multi-seed campaigns across EyeQ, three independent training seeds, zero-shot transfer, real-image baseline comparisons, and exhaustive OOD benchmarks are currently in progress on authorized datasets.
+> Multi-task training, baseline pipelines, and ablation scripts are implemented and verified via automated integration fixtures. Multi-seed training campaigns across EyeQ, three independent seeds, zero-shot transfer, real-image baseline comparisons, and exhaustive OOD benchmarks execute against authorized dataset partitions.
 >
 > **Scientific Rigor Standard:**
 > No constructed, estimated, or fixture-derived value is reported as empirical model performance. Metric reports in `artifacts/metrics/` are produced strictly from verifiable execution logs and recorded predictions.
@@ -54,9 +54,9 @@ The experimental protocol evaluates multi-task representations against single-ta
 | **Classical Texture/Color Baseline** | EyeQ Official Test / DeepDRiD Test | Feature Extractor + Classifier | Macro-F1, AUROC |
 | **MobileNetV3 Single-Task** | EyeQ Official Test | 3-Class Quality | Macro-F1, Balanced Acc, Latency |
 | **EfficientNet-B0 Single-Task** | EyeQ Official Test | 3-Class Quality | Macro-F1, Balanced Acc, Latency |
-| **RetinaGuard-QA Multi-Task (3 Seeds)** | EyeQ Official Test ($N=15{,}700$) | Quality + Acquisition Attributes | Macro-F1, ECE, Selective Precision |
-| **DeepDRiD Supervised Held-Out** | DeepDRiD Test ($N=400$, 100 patients) | Binary Overall Quality + Attributes | Binary Macro-F1, Ordinal F1 |
-| **Zero-Shot External Transfer** | DeepDRiD External ($N=400$, 100 patients) | Binary Acceptable vs Reject Transfer | External AUROC, Macro-F1 |
+| **RetinaGuard-QA Multi-Task (3 Seeds)** | EyeQ Test Partition | Quality + Acquisition Attributes | Macro-F1, ECE, Selective Precision |
+| **DeepDRiD Supervised Held-Out** | DeepDRiD Test | Binary Overall Quality + Attributes | Binary Macro-F1, Ordinal F1 |
+| **Zero-Shot External Transfer** | DeepDRiD External | Binary Acceptable vs Reject Transfer | External AUROC, Macro-F1 |
 
 ### B. Scientific Rigor & Evidence Integrity Standards
 
@@ -75,7 +75,7 @@ Follow this sequential pipeline to replicate dataset preparation, leakage auditi
 ```bash
 # 1. Environment Installation
 pip install -e ".[dev]"
-cd web && npm install && npm run build && cd ..
+cd web && npm ci && npm run build && cd ..
 
 # 2. Data Manifest Preparation
 python scripts/prepare_deepdrid.py \
@@ -103,11 +103,11 @@ python scripts/audit_dataset.py \
 python scripts/train.py --config configs/train_multitask.yaml
 python scripts/run_campaign.py --config configs/train_multitask.yaml --seeds 2026 2027 2028
 
-# 6. Post-Hoc Probability Calibration (Validation Split Only)
+# 6. Post-Hoc Probability Calibration (Validation Split Only for Public EyeQ Head)
 python scripts/calibrate.py \
   --checkpoint artifacts/models/best.ckpt \
-  --val-split data/splits/deepdrid_val.csv \
-  --task deepdrid_overall \
+  --val-split data/splits/eyeq_val.csv \
+  --task eyeq_quality \
   --output-dir artifacts/metrics
 
 # 7. Model Evaluation (Held-Out & Zero-Shot Transfer)
@@ -124,13 +124,13 @@ python scripts/export_onnx.py \
 # 9. Out-of-Distribution & Optical Corruption Benchmarking
 python scripts/benchmark_ood.py \
   --checkpoint artifacts/models/best.ckpt \
-  --id-test-split data/splits/deepdrid_external_test.csv \
+  --id-test-split data/splits/eyeq_test.csv \
   --output-file artifacts/metrics/ood.json
 
 python scripts/benchmark_corruptions.py \
   --checkpoint artifacts/models/best.ckpt \
-  --test-split data/splits/deepdrid_external_test.csv \
-  --task deepdrid_overall \
+  --test-split data/splits/eyeq_test.csv \
+  --task eyeq_quality \
   --output-dir artifacts/metrics
 
 # 10. Generate Figures from Recorded Metrics
@@ -153,7 +153,7 @@ retinaguard-qa/
 ├── data/                # Data cards, exclusions, and patient-isolated split files
 ├── src/retinaguard/     # Core package (data, models, training, evaluation, inference)
 ├── scripts/             # Standalone CLI tools for reproduction and benchmarking
-├── api/                 # FastAPI backend with /health/live, /health/ready, /api/predict
+├── api/                 # FastAPI backend with /health/live, /health/ready, /api/v1/predict
 ├── web/                 # React 18 + TypeScript + Tailwind operator interface
 ├── artifacts/           # Versioned metrics JSONs, reports, and SHA256SUMS
 │   ├── figures/         # Figure plots generated strictly from recorded JSON metrics
@@ -169,9 +169,9 @@ retinaguard-qa/
 
 ## 5. Artifact Policy & Reproducibility
 
-- Large binary checkpoints (`.ckpt`, `.pt`) are excluded from Git tracking.
+- Large binary checkpoints (`.ckpt`, `.pt`) and raw dataset images are excluded from Git tracking.
 - Model artifacts are generated locally via the reproduction pipeline (`scripts/train.py`, `scripts/export_onnx.py`).
-- Preprocessing configurations, calibration parameters, and dataset split manifests are tracked directly in the repository with SHA-256 provenance.
+- Preprocessing configurations, calibration parameters, and dataset split manifests are generated and versioned in `artifacts/` with SHA-256 provenance.
 - To verify local artifact integrity:
   ```bash
   sha256sum -c artifacts/provenance/SHA256SUMS
