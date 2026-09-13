@@ -172,7 +172,9 @@ def verify_campaign_archive(archive_dir: Path) -> Tuple[bool, str]:
             if len(parts) != 2:
                 return False, f"Malformed line {line_num} in campaign SHA256SUMS: {raw_line}"
             expected_sha, rel_str = parts
-            if len(expected_sha) != 64 or not all(c in "0123456789abcdefABCDEF" for c in expected_sha):
+            if len(expected_sha) != 64 or not all(
+                c in "0123456789abcdefABCDEF" for c in expected_sha
+            ):
                 return False, f"Invalid SHA-256 hash at line {line_num}: {expected_sha}"
             if rel_str.startswith("/") or rel_str.startswith("\\"):
                 return False, f"Absolute path forbidden in SHA256SUMS: {rel_str}"
@@ -196,7 +198,10 @@ def verify_campaign_archive(archive_dir: Path) -> Tuple[bool, str]:
         if disk_p.is_file() and disk_p.name != "SHA256SUMS":
             rel_disk = str(disk_p.relative_to(archive_dir))
             if rel_disk not in seen_rel_paths:
-                return False, f"Unlisted file on disk not recorded in campaign SHA256SUMS: {rel_disk}"
+                return (
+                    False,
+                    f"Unlisted file on disk not recorded in campaign SHA256SUMS: {rel_disk}",
+                )
 
     # Validate all metric JSON files in all archived seeds
     for seed_metrics_dir in sorted(archive_dir.glob("seed_*/metrics")):
@@ -289,7 +294,10 @@ def main():
     if args.fixture_mode:
         if args.eyeq_split == "data/splits/eyeq_test.csv" and not Path(args.eyeq_split).exists():
             args.eyeq_split = "tests/fixtures/splits/eyeq_test.csv"
-        if args.deepdrid_split == "data/splits/deepdrid_external_test.csv" and not Path(args.deepdrid_split).exists():
+        if (
+            args.deepdrid_split == "data/splits/deepdrid_external_test.csv"
+            and not Path(args.deepdrid_split).exists()
+        ):
             args.deepdrid_split = "tests/fixtures/splits/deepdrid_test.csv"
 
     # Automatically switch default config if zero-shot mode is specified with multitask default
@@ -393,14 +401,18 @@ def main():
 
         print(f">>> [SEED {seed}] Checkpoint verified at {ckpt_path}. Evaluating test splits...")
 
-        ckpt_img_size = ckpt_meta.get("resolved_config", {}).get("training", {}).get("image_size", 384)
+        ckpt_img_size = (
+            ckpt_meta.get("resolved_config", {}).get("training", {}).get("image_size", 384)
+        )
         model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_path)
         model.eval()
 
         created_at_utc = datetime.datetime.now(datetime.timezone.utc).isoformat()
         seed_entry: Dict[str, Any] = {
             "seed": seed,
-            "best_validation_objective": train_res.get("best_validation_objective", train_res.get("best_val_macro_f1")),
+            "best_validation_objective": train_res.get(
+                "best_validation_objective", train_res.get("best_val_macro_f1")
+            ),
             "best_val_macro_f1": train_res.get("best_val_macro_f1"),
             "selection_metric": train_res.get("selection_metric", "primary_macro_f1"),
             "selection_mode": train_res.get("selection_mode", "max"),
@@ -529,7 +541,6 @@ def main():
             seed_entry[f"{prefix}_ci_lower"] = dd_eval["macro_f1_95_ci"]["ci_lower"]
             seed_entry[f"{prefix}_ci_upper"] = dd_eval["macro_f1_95_ci"]["ci_upper"]
 
-
         # Save Run Manifest with explicit completion status (Item 6)
         run_manifest = {
             "status": "completed",
@@ -542,7 +553,9 @@ def main():
             "created_at_utc": created_at_utc,
             "summary_metrics": seed_entry,
             "training_result": {
-                "best_validation_objective": train_res.get("best_validation_objective", train_res.get("best_val_macro_f1")),
+                "best_validation_objective": train_res.get(
+                    "best_validation_objective", train_res.get("best_val_macro_f1")
+                ),
                 "selection_metric": train_res.get("selection_metric", "primary_macro_f1"),
                 "selection_mode": train_res.get("selection_mode", "max"),
                 "epochs_trained": train_res["epochs_trained"],
@@ -564,9 +577,7 @@ def main():
 
     # Compute Aggregate Mean +/- Sample Std (ddof=1)
     numeric_cols = [
-        c
-        for c in df_seeds.select_dtypes(include=[np.number]).columns
-        if c not in ["seed"]
+        c for c in df_seeds.select_dtypes(include=[np.number]).columns if c not in ["seed"]
     ]
     summary_data = []
     for col in numeric_cols:
@@ -599,7 +610,9 @@ def main():
     archived_config_p = campaign_archive_dir / "config.yaml"
     if Path(args.config).is_file():
         shutil.copy2(args.config, archived_config_p)
-    archived_config_sha256 = compute_sha256(archived_config_p) if archived_config_p.is_file() else config_sha256
+    archived_config_sha256 = (
+        compute_sha256(archived_config_p) if archived_config_p.is_file() else config_sha256
+    )
 
     # Copy evaluated split manifests into campaign archive
     splits_archive_dir = campaign_archive_dir / "splits"

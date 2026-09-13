@@ -667,6 +667,7 @@ def test_ablation_script_configuration_and_execution_smoke(tmp_path):
 def test_campaign_runner_full_fixture_integration(tmp_path, monkeypatch):
     """Smoke integration test of run_campaign.py: training -> EyeQ eval -> DeepDRiD eval -> manifest -> checksums -> archive -> independent verification."""
     import sys
+
     from scripts.run_campaign import main as campaign_main
 
     runs_dir = tmp_path / "runs"
@@ -705,4 +706,3 @@ def test_campaign_runner_full_fixture_integration(tmp_path, monkeypatch):
     assert (archive_dir / "campaign_manifest.json").is_file()
     assert (archive_dir / "SHA256SUMS").is_file()
     assert (archive_dir / "seed_2026" / "best.ckpt").is_file()
-

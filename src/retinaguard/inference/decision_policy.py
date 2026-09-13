@@ -1,6 +1,6 @@
 """Actionable decision policy and feedback formulation matching Phase 12 and 15."""
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional, cast
 
 from .schemas import (
     DecisionAction,
@@ -22,7 +22,9 @@ class DecisionPolicyEngine:
         supported_heads: Optional[List[str]] = None,
     ):
         if ood_direction not in ["lower_is_ood", "higher_is_ood"]:
-            raise ValueError(f"Invalid ood_direction: {ood_direction}. Must be 'lower_is_ood' or 'higher_is_ood'.")
+            raise ValueError(
+                f"Invalid ood_direction: {ood_direction}. Must be 'lower_is_ood' or 'higher_is_ood'."
+            )
         self.uncertainty_threshold = uncertainty_threshold
         self.ood_energy_threshold = ood_energy_threshold
         self.ood_direction = ood_direction
@@ -93,9 +95,21 @@ class DecisionPolicyEngine:
         field_def_code = attributes_raw.get("field_definition") if attributes_raw else None
 
         attr_decodings = {
-            "artifact": {0: "none", 1: "mild", 2: "severe"}.get(artifact_code) if artifact_code is not None else None,
-            "clarity": {0: "high", 1: "moderate", 2: "low"}.get(clarity_code) if clarity_code is not None else None,
-            "field_definition": {0: "adequate", 1: "incomplete", 2: "poor"}.get(field_def_code) if field_def_code is not None else None,
+            "artifact": (
+                {0: "none", 1: "mild", 2: "severe"}.get(artifact_code)
+                if artifact_code is not None
+                else None
+            ),
+            "clarity": (
+                {0: "high", 1: "moderate", 2: "low"}.get(clarity_code)
+                if clarity_code is not None
+                else None
+            ),
+            "field_definition": (
+                {0: "adequate", 1: "incomplete", 2: "poor"}.get(field_def_code)
+                if field_def_code is not None
+                else None
+            ),
         }
 
         # OOD determination based on direction
@@ -126,7 +140,7 @@ class DecisionPolicyEngine:
 
         return PredictionResponse(
             model_version=self.model_version,
-            quality=pred_class,
+            quality=cast(Literal["good", "usable", "reject"], pred_class),
             probabilities=QualityProbabilities(
                 good=round(probs.get("good", 0.0), 4),
                 usable=round(probs.get("usable", 0.0), 4),
@@ -136,7 +150,11 @@ class DecisionPolicyEngine:
             uncertainty=round(uncertainty, 4),
             ood_score=round(ood_score, 4),
             decision=decision,
-            quality_attributes=QualityAttributes(**attr_decodings),
+            quality_attributes=QualityAttributes(
+                artifact=cast(Any, attr_decodings.get("artifact")),
+                clarity=cast(Any, attr_decodings.get("clarity")),
+                field_definition=cast(Any, attr_decodings.get("field_definition")),
+            ),
             feedback=feedback,
             disclaimer="Technical image-quality assessment only; not a clinical diagnosis or treatment recommendation.",
             latency_ms=round(latency_ms, 2) if latency_ms is not None else None,

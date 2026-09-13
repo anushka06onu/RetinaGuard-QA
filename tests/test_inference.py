@@ -105,15 +105,18 @@ def test_predictor_strict_config_validation(tmp_path):
     cal_file.write_text(json.dumps({"temperature": -0.5}))
 
     with pytest.raises(ValueError, match="Temperature must be a finite float > 0"):
-        RetinaGuardPredictor(calibration_config_path=cal_file, model_path=None, preprocessing_config_path=None)
+        RetinaGuardPredictor(
+            calibration_config_path=cal_file, model_path=None, preprocessing_config_path=None
+        )
 
     # 2. Invalid preprocessing image_size
     prep_file = tmp_path / "bad_preprocessing.json"
     prep_file.write_text(json.dumps({"image_size": -100}))
 
     with pytest.raises(ValueError, match="image_size"):
-        RetinaGuardPredictor(preprocessing_config_path=prep_file, model_path=None, calibration_config_path=None)
-
+        RetinaGuardPredictor(
+            preprocessing_config_path=prep_file, model_path=None, calibration_config_path=None
+        )
 
     # 3. Invalid uncertainty threshold (> log2(3) or <= 0)
     cal_bad_u = tmp_path / "bad_u_cal.json"
@@ -258,4 +261,3 @@ def test_decision_engine_unsupported_heads():
     assert res.quality_attributes.field_definition is None
     # Ensure feedback doesn't include spurious attribute claims
     assert not any("blur" in fb.lower() or "lens" in fb.lower() for fb in res.feedback)
-

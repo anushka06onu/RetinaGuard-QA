@@ -192,10 +192,10 @@ def model_info(service: QualityAssessmentService = Depends(get_service)) -> Dict
         and hash_verified
         and arch_compatible
     )
-    
+
     return {
         "system_name": "RetinaGuard-QA",
-        "version": getattr(p, "policy_engine", None).model_version if getattr(p, "policy_engine", None) else "0.2.0",
+        "version": (p.policy_engine.model_version if p.policy_engine is not None else "0.2.0"),
         "status": "Research Prototype",
         "readiness_status": "ready" if is_ready else "development/pending",
         "model_loaded": model_loaded,
@@ -207,7 +207,9 @@ def model_info(service: QualityAssessmentService = Depends(get_service)) -> Dict
             "artifact_status_valid": status_valid,
             "model_architecture_compatible": arch_compatible,
         },
-        "runtime_engine": "onnxruntime_cpu" if p.ort_session else ("pytorch_cpu" if p.pt_model else "none"),
+        "runtime_engine": (
+            "onnxruntime_cpu" if p.ort_session else ("pytorch_cpu" if p.pt_model else "none")
+        ),
         "trained_heads": getattr(p, "supported_heads", ["quality_logits"]),
         "quality_classes": ["good", "usable", "reject"],
         "quality_attributes": ["artifact", "clarity", "field_definition"],
@@ -229,7 +231,6 @@ def model_info(service: QualityAssessmentService = Depends(get_service)) -> Dict
             "Recapture thresholds must be calibrated for target clinical screening workflow.",
         ],
     }
-
 
 
 async def _process_image_upload(

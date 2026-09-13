@@ -88,10 +88,14 @@ def find_duplicate_images(
             i_end = min(n, i_start + chunk_size)
             chunk_a = hash_bools[i_start:i_end]  # (B, 64)
             # Compute pairwise xor sum with all subsequent items
-            dists = np.bitwise_xor(chunk_a[:, None, :], hash_bools[None, :, :]).sum(axis=-1)  # (B, N)
+            dists = np.bitwise_xor(chunk_a[:, None, :], hash_bools[None, :, :]).sum(
+                axis=-1
+            )  # (B, N)
             for local_i in range(i_end - i_start):
                 global_i = i_start + local_i
-                match_indices = np.where((dists[local_i] <= phash_threshold) & (np.arange(n) > global_i))[0]
+                match_indices = np.where(
+                    (dists[local_i] <= phash_threshold) & (np.arange(n) > global_i)
+                )[0]
                 for j in match_indices:
                     near_duplicates.append(
                         {
@@ -106,7 +110,6 @@ def find_duplicate_images(
         "exact_duplicates": exact_duplicates,
         "near_duplicates": near_duplicates,
     }
-
 
 
 def verify_patient_split_isolation(splits: Dict[str, List[str]]) -> Dict[str, Any]:

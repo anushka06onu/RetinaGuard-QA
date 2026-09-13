@@ -135,7 +135,6 @@ def get_transform_from_metadata(metadata: Dict[str, Any]) -> T.Compose:
     if color_space != "RGB":
         raise ValueError(f"Unsupported color_space: {color_space}. Expected 'RGB'.")
 
-
     # Image size validation
     img_size = metadata.get("image_size", [384, 384])
     if isinstance(img_size, int):
@@ -203,7 +202,6 @@ def get_transform_from_metadata(metadata: Dict[str, Any]) -> T.Compose:
             T.Normalize(mean=list(mean), std=list(std)),
         ]
     )
-
 
 
 def preprocess_image_canonical(

@@ -34,7 +34,6 @@ class Settings:
     )
     test_mode: bool = field(default_factory=lambda: os.environ.get("TEST_MODE", "0") == "1")
 
-
     @property
     def cors_origins(self) -> List[str]:
         return [o.strip() for o in self.cors_origins_raw.split(",") if o.strip()]

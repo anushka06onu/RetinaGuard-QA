@@ -209,7 +209,13 @@ class RetinaGuardPredictor:
                         )
                     self.model_hash_verified = True
 
-        self.supported_heads = ["quality_logits", "overall_quality_logits", "artifact_logits", "clarity_logits", "field_definition_logits"]
+        self.supported_heads = [
+            "quality_logits",
+            "overall_quality_logits",
+            "artifact_logits",
+            "clarity_logits",
+            "field_definition_logits",
+        ]
 
         if allow_test_fallback:
             self.artifact_status_valid = True
@@ -234,40 +240,59 @@ class RetinaGuardPredictor:
             session = ort.InferenceSession(
                 str(path), sess_options=opts, providers=["CPUExecutionProvider"]
             )
-            
+
             # Strict ONNX Contract Validation (Items 9 & 10)
             inputs = session.get_inputs()
             if len(inputs) != 1:
-                raise ValueError(f"ONNX model contract violation: expected exactly 1 input, got {len(inputs)}")
-            
+                raise ValueError(
+                    f"ONNX model contract violation: expected exactly 1 input, got {len(inputs)}"
+                )
+
             inp = inputs[0]
             inp_shape = inp.shape
             if len(inp_shape) != 4:
-                raise ValueError(f"ONNX model contract violation: expected 4D input [N,C,H,W], got {inp_shape}")
+                raise ValueError(
+                    f"ONNX model contract violation: expected 4D input [N,C,H,W], got {inp_shape}"
+                )
             if inp_shape[1] not in [3, "channel", "channels"]:
-                raise ValueError(f"ONNX model contract violation: expected 3-channel input, got shape {inp_shape}")
-            
+                raise ValueError(
+                    f"ONNX model contract violation: expected 3-channel input, got shape {inp_shape}"
+                )
+
             outputs = session.get_outputs()
             out_names = [o.name for o in outputs]
             if "quality_logits" not in out_names:
-                raise ValueError(f"ONNX model contract violation: missing 'quality_logits' output in {out_names}")
-            
+                raise ValueError(
+                    f"ONNX model contract violation: missing 'quality_logits' output in {out_names}"
+                )
+
             # Check finite outputs parity on test tensor
             dummy_test = np.zeros((1, 3, self.image_size, self.image_size), dtype=np.float32)
             test_outs = session.run(None, {inp.name: dummy_test})
             for out_name, out_val in zip(out_names, test_outs):
                 if not np.all(np.isfinite(out_val)):
-                    raise ValueError(f"ONNX model contract violation: non-finite values in output '{out_name}'")
-            
+                    raise ValueError(
+                        f"ONNX model contract violation: non-finite values in output '{out_name}'"
+                    )
+
             # Verify exact named output dimensions (Item 10)
             out_dict = dict(zip(out_names, test_outs))
             if out_dict["quality_logits"].shape[-1] != 3:
-                raise ValueError(f"ONNX quality_logits dimension violation: expected 3 classes, got shape {out_dict['quality_logits'].shape}")
-            if "overall_quality_logits" in out_dict and out_dict["overall_quality_logits"].shape[-1] != 2:
-                raise ValueError(f"ONNX overall_quality_logits dimension violation: expected 2 classes, got shape {out_dict['overall_quality_logits'].shape}")
+                raise ValueError(
+                    f"ONNX quality_logits dimension violation: expected 3 classes, got shape {out_dict['quality_logits'].shape}"
+                )
+            if (
+                "overall_quality_logits" in out_dict
+                and out_dict["overall_quality_logits"].shape[-1] != 2
+            ):
+                raise ValueError(
+                    f"ONNX overall_quality_logits dimension violation: expected 2 classes, got shape {out_dict['overall_quality_logits'].shape}"
+                )
             for attr in ["artifact_logits", "clarity_logits", "field_definition_logits"]:
                 if attr in out_dict and out_dict[attr].shape[-1] != 3:
-                    raise ValueError(f"ONNX {attr} dimension violation: expected 3 classes, got shape {out_dict[attr].shape}")
+                    raise ValueError(
+                        f"ONNX {attr} dimension violation: expected 3 classes, got shape {out_dict[attr].shape}"
+                    )
 
             # Check sidecar manifest for trained heads (Item 11)
             sidecar_p = path.with_name(path.stem + "_manifest.json")
@@ -296,9 +321,21 @@ class RetinaGuardPredictor:
                 elif "training_datasets" in metadata:
                     trained_heads = ["quality_logits"]
                     if "DeepDRiD" in metadata["training_datasets"]:
-                        trained_heads += ["overall_quality_logits", "artifact_logits", "clarity_logits", "field_definition_logits"]
+                        trained_heads += [
+                            "overall_quality_logits",
+                            "artifact_logits",
+                            "clarity_logits",
+                            "field_definition_logits",
+                        ]
                     self.supported_heads = trained_heads
-                elif metadata.get("resolved_config", {}).get("data", {}).get("datasets", {}).get("deepdrid", {}).get("enabled") is False:
+                elif (
+                    metadata.get("resolved_config", {})
+                    .get("data", {})
+                    .get("datasets", {})
+                    .get("deepdrid", {})
+                    .get("enabled")
+                    is False
+                ):
                     self.supported_heads = ["quality_logits"]
             else:
                 model = RetinaGuardMultiTaskModel(pretrained=False)
@@ -337,7 +374,6 @@ class RetinaGuardPredictor:
         else:
             tensor = preprocess_image_canonical(pil_img, image_size=self.image_size)
 
-
         # 3. Model Inference (Named Outputs - Item 12 & 13)
         attributes_raw = {"artifact": None, "clarity": None, "field_definition": None}
         if self.ort_session is not None:
@@ -362,8 +398,13 @@ class RetinaGuardPredictor:
             elif len(ort_outs) > 3 and "clarity_logits" in self.supported_heads:
                 attributes_raw["clarity"] = int(np.argmax(ort_outs[3][0]))
 
-            if "field_definition_logits" in out_dict and "field_definition_logits" in self.supported_heads:
-                attributes_raw["field_definition"] = int(np.argmax(out_dict["field_definition_logits"][0]))
+            if (
+                "field_definition_logits" in out_dict
+                and "field_definition_logits" in self.supported_heads
+            ):
+                attributes_raw["field_definition"] = int(
+                    np.argmax(out_dict["field_definition_logits"][0])
+                )
             elif len(ort_outs) > 4 and "field_definition_logits" in self.supported_heads:
                 attributes_raw["field_definition"] = int(np.argmax(ort_outs[4][0]))
         else:

@@ -58,7 +58,6 @@ def main():
 
     ckpt_sha = compute_sha256(ckpt_p)
 
-
     try:
         ckpt_state = torch.load(ckpt_p, map_location="cpu", weights_only=False)
     except TypeError:
@@ -68,7 +67,9 @@ def main():
     trained_heads = ckpt_meta.get("trained_heads", ["quality_logits"])
     training_datasets = ckpt_meta.get("training_datasets", ["EyeQ"])
 
-    print(f"=== Exporting Trained RetinaGuard Checkpoint ({ckpt_p}) to ONNX ({out_p}) [Size: {img_size}x{img_size}] ===")
+    print(
+        f"=== Exporting Trained RetinaGuard Checkpoint ({ckpt_p}) to ONNX ({out_p}) [Size: {img_size}x{img_size}] ==="
+    )
     model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_p)
     model.eval()
 
@@ -192,7 +193,6 @@ def main():
         status="completed",
     )
     print("Exported preprocessing metadata to artifacts/models/preprocessing.json")
-
 
 
 if __name__ == "__main__":
