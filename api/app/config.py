@@ -5,6 +5,18 @@ from dataclasses import dataclass, field
 from typing import List
 
 
+def _get_validated_max_upload_size() -> int:
+    val_str = os.environ.get("MAX_UPLOAD_SIZE_BYTES", "15728640")
+    try:
+        val = int(val_str)
+    except (ValueError, TypeError):
+        return 15728640
+    # Enforce safe bounds: 1 MB to 100 MB
+    if val < 1024 * 1024 or val > 100 * 1024 * 1024:
+        return 15728640
+    return val
+
+
 @dataclass
 class Settings:
     """Central authoritative application settings reading unified environment variables."""
@@ -29,9 +41,7 @@ class Settings:
             "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000",
         )
     )
-    max_upload_size_bytes: int = field(
-        default_factory=lambda: int(os.environ.get("MAX_UPLOAD_SIZE_BYTES", "15728640"))
-    )
+    max_upload_size_bytes: int = field(default_factory=_get_validated_max_upload_size)
     test_mode: bool = field(default_factory=lambda: os.environ.get("TEST_MODE", "0") == "1")
 
     @property
