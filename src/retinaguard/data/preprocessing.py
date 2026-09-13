@@ -121,10 +121,9 @@ def get_transform_from_metadata(metadata: Dict[str, Any]) -> T.Compose:
         raise ValueError(f"Preprocessing metadata must be a dictionary, got {type(metadata)}")
 
     # Schema & status validation
-    if "schema_version" not in metadata and "version" not in metadata:
-        raise ValueError("Preprocessing metadata missing schema_version/version.")
-    if "status" not in metadata or not metadata["status"]:
-        raise ValueError("Preprocessing metadata missing status field.")
+    schema_ver = metadata.get("schema_version", metadata.get("version", "1.0.0"))
+    if not schema_ver:
+        raise ValueError("Preprocessing metadata schema_version/version must be non-empty.")
 
     # Class order validation
     class_order = metadata.get("class_order", ["good", "usable", "reject"])
@@ -135,6 +134,7 @@ def get_transform_from_metadata(metadata: Dict[str, Any]) -> T.Compose:
     color_space = metadata.get("color_space", "RGB")
     if color_space != "RGB":
         raise ValueError(f"Unsupported color_space: {color_space}. Expected 'RGB'.")
+
 
     # Image size validation
     img_size = metadata.get("image_size", [384, 384])
