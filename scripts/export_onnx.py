@@ -53,7 +53,11 @@ def main():
             f"A trained checkpoint is required for ONNX export. Checkpoint not found: {args.checkpoint}"
         )
 
+    out_p = Path(args.output_onnx)
+    out_p.parent.mkdir(parents=True, exist_ok=True)
+
     ckpt_sha = compute_sha256(ckpt_p)
+
 
     try:
         ckpt_state = torch.load(ckpt_p, map_location="cpu", weights_only=False)
