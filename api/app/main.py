@@ -107,6 +107,9 @@ app.add_middleware(
 )
 
 
+MAX_UPLOAD_SIZE = settings.max_upload_size_bytes  # Bounded upload size from settings (Item 45)
+
+
 @app.get("/health/live")
 def liveness_check() -> Dict[str, Any]:
     """Basic liveness probe confirming server process is running."""
@@ -175,13 +178,35 @@ def model_info(service: QualityAssessmentService = Depends(get_service)) -> Dict
     """Artifact-driven system metadata, intended input, quality classes, and clinical boundaries."""
     p = service.predictor
     model_loaded = bool(p.ort_session is not None or p.pt_model is not None)
+    preproc_loaded = bool(p.preprocessing_metadata_loaded)
+    calib_loaded = bool(p.calibration_metadata_loaded)
+    status_valid = bool(p.artifact_status_valid)
+    hash_verified = bool(p.model_hash_verified or not settings.is_production)
+    arch_compatible = bool(p.model_architecture_compatible)
+
+    is_ready = (
+        model_loaded
+        and preproc_loaded
+        and calib_loaded
+        and status_valid
+        and hash_verified
+        and arch_compatible
+    )
     
     return {
         "system_name": "RetinaGuard-QA",
         "version": getattr(p, "policy_engine", None).model_version if getattr(p, "policy_engine", None) else "0.2.0",
         "status": "Research Prototype",
-        "readiness_status": "ready" if model_loaded and p.artifact_status_valid else "development/pending",
+        "readiness_status": "ready" if is_ready else "development/pending",
         "model_loaded": model_loaded,
+        "checks": {
+            "model_loaded": model_loaded,
+            "preprocessing_metadata_loaded": preproc_loaded,
+            "calibration_metadata_loaded": calib_loaded,
+            "model_hash_verified": hash_verified,
+            "artifact_status_valid": status_valid,
+            "model_architecture_compatible": arch_compatible,
+        },
         "runtime_engine": "onnxruntime_cpu" if p.ort_session else ("pytorch_cpu" if p.pt_model else "none"),
         "trained_heads": getattr(p, "supported_heads", ["quality_logits"]),
         "quality_classes": ["good", "usable", "reject"],
@@ -204,6 +229,7 @@ def model_info(service: QualityAssessmentService = Depends(get_service)) -> Dict
             "Recapture thresholds must be calibrated for target clinical screening workflow.",
         ],
     }
+
 
 
 async def _process_image_upload(
