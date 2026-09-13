@@ -1,0 +1,74 @@
+{
+  "status": "completed_parity",
+  "eligible_as_final_result": true,
+  "overall_max_error": 2.9802322387695312e-08,
+  "parity_tolerance": 0.0001,
+  "parity_passed": true,
+  "heads": {
+    "quality_logits": {
+      "max_absolute_error": 1.862645149230957e-09,
+      "mean_absolute_error": 6.208817349140361e-10,
+      "shape": [
+        1,
+        3
+      ],
+      "parity_passed": true
+    },
+    "overall_quality_logits": {
+      "max_absolute_error": 1.862645149230957e-09,
+      "mean_absolute_error": 1.862645149230957e-09,
+      "shape": [
+        1,
+        2
+      ],
+      "parity_passed": true
+    },
+    "artifact_logits": {
+      "max_absolute_error": 2.7939677238464355e-09,
+      "mean_absolute_error": 2.1730859334212482e-09,
+      "shape": [
+        1,
+        3
+      ],
+      "parity_passed": true
+    },
+    "clarity_logits": {
+      "max_absolute_error": 3.725290298461914e-09,
+      "mean_absolute_error": 1.862645149230957e-09,
+      "shape": [
+        1,
+        3
+      ],
+      "parity_passed": true
+    },
+    "field_definition_logits": {
+      "max_absolute_error": 3.725290298461914e-09,
+      "mean_absolute_error": 1.5522042540183634e-09,
+      "shape": [
+        1,
+        3
+      ],
+      "parity_passed": true
+    },
+    "latent_features": {
+      "max_absolute_error": 2.9802322387695312e-08,
+      "mean_absolute_error": 9.51831680140458e-09,
+      "shape": [
+        1,
+        128
+      ],
+      "parity_passed": true
+    }
+  },
+  "opset_version": 18,
+  "checkpoint_path": "artifacts/models/best.ckpt",
+  "checkpoint_sha256": "910ef46d69692ff3f3192855b1bb3123664275427c903fb2c870524fd5e3a596",
+  "onnx_model_path": "artifacts/models/model.onnx",
+  "onnx_model_sha256": "383571040b2ddd161aa360924348398e19f322dc6f03be202c20bfc38b17e74a",
+  "software_versions": {
+    "torch": "2.14.0",
+    "onnx": "1.22.0",
+    "onnxruntime": "1.23.2"
+  },
+  "verified_at_utc": "2026-09-13T15:07:33.038206+00:00"
+}

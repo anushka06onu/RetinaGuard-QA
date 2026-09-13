@@ -1,0 +1,26 @@
+{
+  "source_checkpoint_path": "artifacts/models/best.ckpt",
+  "source_checkpoint_sha256": "910ef46d69692ff3f3192855b1bb3123664275427c903fb2c870524fd5e3a596",
+  "onnx_model_sha256": "383571040b2ddd161aa360924348398e19f322dc6f03be202c20bfc38b17e74a",
+  "image_size": [
+    384,
+    384
+  ],
+  "trained_heads": [
+    "quality_logits",
+    "overall_quality_logits",
+    "artifact_logits",
+    "clarity_logits",
+    "field_definition_logits"
+  ],
+  "training_datasets": [
+    "EyeQ",
+    "DeepDRiD"
+  ],
+  "class_order": [
+    "good",
+    "usable",
+    "reject"
+  ],
+  "created_at_utc": "2026-09-13T15:07:33.037981+00:00"
+}
