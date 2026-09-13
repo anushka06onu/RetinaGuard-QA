@@ -54,13 +54,19 @@ class RetinaGuardPredictor:
         self.model_hash_verified = False
         self.artifact_status_valid = False
         self.model_architecture_compatible = False
+        self.preprocessing_metadata = None
+        self.preprocess_transform = None
 
-        # Load authoritative preprocessing config if present
+        # Load authoritative preprocessing config if present (Item 7 & Item 8)
         if preprocessing_config_path:
             p_path = Path(preprocessing_config_path)
             if p_path.is_file():
                 with open(p_path, "r", encoding="utf-8") as f:
                     cfg = json.load(f)
+                from retinaguard.data.preprocessing import get_transform_from_metadata
+
+                self.preprocessing_metadata = cfg
+                self.preprocess_transform = get_transform_from_metadata(cfg)
                 img_sz = cfg.get("image_size", self.image_size)
                 if isinstance(img_sz, int) and img_sz > 0:
                     self.image_size = img_sz
@@ -70,29 +76,6 @@ class RetinaGuardPredictor:
                     and all(isinstance(x, int) and x > 0 for x in img_sz)
                 ):
                     self.image_size = img_sz[0]
-                else:
-                    raise ValueError(
-                        f"Invalid image_size in {preprocessing_config_path}: {img_sz}. Must be positive integer or [H, W] pair."
-                    )
-
-                if "normalization" in cfg:
-                    norm = cfg["normalization"]
-                    if (
-                        "mean" in norm
-                        and (not isinstance(norm["mean"], list) or len(norm["mean"]) != 3)
-                    ) or (
-                        "std" in norm
-                        and (not isinstance(norm["std"], list) or len(norm["std"]) != 3)
-                    ):
-                        raise ValueError(
-                            f"Invalid normalization parameters in {preprocessing_config_path}: must have 3-channel mean and std."
-                        )
-
-                if "class_order" in cfg:
-                    if list(cfg["class_order"]) != ["good", "usable", "reject"]:
-                        raise ValueError(
-                            f"Invalid class_order in {preprocessing_config_path}: {cfg['class_order']}. Expected ['good', 'usable', 'reject']."
-                        )
                 self.preprocessing_metadata_loaded = True
 
         # Load authoritative calibration temperature and decision thresholds if present
@@ -252,7 +235,7 @@ class RetinaGuardPredictor:
                 str(path), sess_options=opts, providers=["CPUExecutionProvider"]
             )
             
-            # Strict ONNX Contract Validation (Item 12)
+            # Strict ONNX Contract Validation (Items 9 & 10)
             inputs = session.get_inputs()
             if len(inputs) != 1:
                 raise ValueError(f"ONNX model contract violation: expected exactly 1 input, got {len(inputs)}")
@@ -266,8 +249,8 @@ class RetinaGuardPredictor:
             
             outputs = session.get_outputs()
             out_names = [o.name for o in outputs]
-            if "quality_logits" not in out_names and len(outputs) == 0:
-                raise ValueError("ONNX model contract violation: missing quality_logits output")
+            if "quality_logits" not in out_names:
+                raise ValueError(f"ONNX model contract violation: missing 'quality_logits' output in {out_names}")
             
             # Check finite outputs parity on test tensor
             dummy_test = np.zeros((1, 3, self.image_size, self.image_size), dtype=np.float32)
@@ -276,10 +259,25 @@ class RetinaGuardPredictor:
                 if not np.all(np.isfinite(out_val)):
                     raise ValueError(f"ONNX model contract violation: non-finite values in output '{out_name}'")
             
-            # Verify quality logit dimensions
-            q_idx = out_names.index("quality_logits") if "quality_logits" in out_names else 0
-            if test_outs[q_idx].shape[-1] != 3:
-                raise ValueError(f"ONNX quality_logits dimension violation: expected 3 classes, got shape {test_outs[q_idx].shape}")
+            # Verify exact named output dimensions (Item 10)
+            out_dict = dict(zip(out_names, test_outs))
+            if out_dict["quality_logits"].shape[-1] != 3:
+                raise ValueError(f"ONNX quality_logits dimension violation: expected 3 classes, got shape {out_dict['quality_logits'].shape}")
+            if "overall_quality_logits" in out_dict and out_dict["overall_quality_logits"].shape[-1] != 2:
+                raise ValueError(f"ONNX overall_quality_logits dimension violation: expected 2 classes, got shape {out_dict['overall_quality_logits'].shape}")
+            for attr in ["artifact_logits", "clarity_logits", "field_definition_logits"]:
+                if attr in out_dict and out_dict[attr].shape[-1] != 3:
+                    raise ValueError(f"ONNX {attr} dimension violation: expected 3 classes, got shape {out_dict[attr].shape}")
+
+            # Check sidecar manifest for trained heads (Item 11)
+            sidecar_p = path.with_name(path.stem + "_manifest.json")
+            if not sidecar_p.is_file():
+                sidecar_p = path.parent / "onnx_manifest.json"
+            if sidecar_p.is_file():
+                with open(sidecar_p, "r", encoding="utf-8") as f:
+                    sidecar_data = json.load(f)
+                if "trained_heads" in sidecar_data:
+                    self.supported_heads = list(sidecar_data["trained_heads"])
 
             self.ort_session = session
             self.model_architecture_compatible = True
@@ -294,8 +292,13 @@ class RetinaGuardPredictor:
             if metadata:
                 model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(metadata)
                 if "trained_heads" in metadata:
-                    self.supported_heads = metadata["trained_heads"]
-                elif metadata.get("training_config", {}).get("datasets", {}).get("deepdrid", {}).get("enabled") is False:
+                    self.supported_heads = list(metadata["trained_heads"])
+                elif "training_datasets" in metadata:
+                    trained_heads = ["quality_logits"]
+                    if "DeepDRiD" in metadata["training_datasets"]:
+                        trained_heads += ["overall_quality_logits", "artifact_logits", "clarity_logits", "field_definition_logits"]
+                    self.supported_heads = trained_heads
+                elif metadata.get("resolved_config", {}).get("data", {}).get("datasets", {}).get("deepdrid", {}).get("enabled") is False:
                     self.supported_heads = ["quality_logits"]
             else:
                 model = RetinaGuardMultiTaskModel(pretrained=False)
@@ -328,8 +331,12 @@ class RetinaGuardPredictor:
         modality_check = RetinalModalityValidator.validate(pil_img)
         is_valid_modality = bool(modality_check["is_fundus"])
 
-        # 2. Canonical Preprocessing
-        tensor = preprocess_image_canonical(pil_img, image_size=self.image_size)
+        # 2. Canonical Preprocessing (Metadata-Driven - Item 7)
+        if self.preprocess_transform is not None:
+            tensor = self.preprocess_transform(pil_img).unsqueeze(0)
+        else:
+            tensor = preprocess_image_canonical(pil_img, image_size=self.image_size)
+
 
         # 3. Model Inference (Named Outputs - Item 12 & 13)
         attributes_raw = {"artifact": None, "clarity": None, "field_definition": None}
