@@ -373,16 +373,26 @@ def main():
                 raise ValueError(
                     "Checkpoint metadata contains DeepDRiD split provenance; cannot be used for genuine zero-shot evaluation."
                 )
+        else:
+            try:
+                ckpt_state = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+            except TypeError:
+                ckpt_state = torch.load(ckpt_path, map_location="cpu")
+            ckpt_meta = ckpt_state.get("metadata", {})
 
         print(f">>> [SEED {seed}] Checkpoint verified at {ckpt_path}. Evaluating test splits...")
 
+        ckpt_img_size = ckpt_meta.get("resolved_config", {}).get("training", {}).get("image_size", 384)
         model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_path)
         model.eval()
 
         created_at_utc = datetime.datetime.now(datetime.timezone.utc).isoformat()
         seed_entry: Dict[str, Any] = {
             "seed": seed,
-            "best_val_macro_f1": train_res["best_val_macro_f1"],
+            "best_validation_objective": train_res.get("best_validation_objective", train_res.get("best_val_macro_f1")),
+            "best_val_macro_f1": train_res.get("best_val_macro_f1"),
+            "selection_metric": train_res.get("selection_metric", "primary_macro_f1"),
+            "selection_mode": train_res.get("selection_mode", "max"),
             "epochs_trained": train_res["epochs_trained"],
             "checkpoint_path": str(ckpt_path),
             "checkpoint_sha256": ckpt_sha256,
@@ -395,7 +405,7 @@ def main():
         # EyeQ test evaluation
         if Path(args.eyeq_split).is_file():
             eyeq_eval, df_eyeq_preds = evaluate_dataset_partition(
-                model, args.eyeq_split, "EyeQ Test", is_deepdrid=False
+                model, args.eyeq_split, "EyeQ Test", is_deepdrid=False, image_size=ckpt_img_size
             )
             pred_file = preds_dir / "eyeq_test_predictions.csv"
             df_eyeq_preds.to_csv(pred_file, index=False)
@@ -456,6 +466,7 @@ def main():
                 ),
                 is_deepdrid=True,
                 is_zero_shot=is_zs,
+                image_size=ckpt_img_size,
             )
             pred_file = preds_dir / pred_file_name
             df_dd_preds.to_csv(pred_file, index=False)
@@ -501,44 +512,6 @@ def main():
             seed_entry[f"{prefix}_ci_lower"] = dd_eval["macro_f1_95_ci"]["ci_lower"]
             seed_entry[f"{prefix}_ci_upper"] = dd_eval["macro_f1_95_ci"]["ci_upper"]
 
-            eval_label = (
-                "Zero-Shot Transfer" if args.zero_shot else "Supervised Multi-Task Attribute"
-            )
-            print(
-                f"[Seed {seed}] Evaluating on DeepDRiD External ({eval_label}) Split ({args.deepdrid_split})..."
-            )
-            deepdrid_eval = evaluate_dataset_partition(
-                model_path=ckpt_path,
-                split_csv_path=args.deepdrid_split,
-                dataset_name="deepdrid",
-                output_metrics_dir=seed_dir / "metrics",
-                output_predictions_dir=seed_dir / "predictions",
-                experiment_type=f"{mode_name}_seed_{seed}",
-                git_commit=git_commit,
-                split_sha256=compute_sha256(args.deepdrid_split),
-                checkpoint_sha256=ckpt_sha256,
-                seed=seed,
-                config_path=args.config,
-                config_sha256=config_sha256,
-            )
-
-        seed_entry = {
-            "seed": seed,
-            "eyeq_macro_f1": eyeq_eval.get("macro_f1", None),
-            "eyeq_accuracy": eyeq_eval.get("accuracy", None),
-            "eyeq_quadratic_kappa": eyeq_eval.get("quadratic_weighted_kappa", None),
-            "eyeq_expected_calibration_error": eyeq_eval.get("expected_calibration_error", None),
-            "deepdrid_overall_macro_f1": deepdrid_eval.get("macro_f1", None),
-            "deepdrid_artifact_macro_f1": deepdrid_eval.get("artifact_macro_f1", None),
-            "deepdrid_clarity_macro_f1": deepdrid_eval.get("clarity_macro_f1", None),
-            "deepdrid_field_def_macro_f1": deepdrid_eval.get("field_definition_macro_f1", None),
-            "checkpoint_path": str(ckpt_path),
-            "checkpoint_sha256": ckpt_sha256,
-            "config_path": args.config,
-            "config_sha256": config_sha256,
-            "git_commit": git_commit,
-            "created_at_utc": created_at_utc,
-        }
 
         # Save Run Manifest with explicit completion status (Item 6)
         run_manifest = {
