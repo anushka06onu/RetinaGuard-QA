@@ -14,7 +14,11 @@ from retinaguard.evaluation.provenance import validate_empirical_result
 from retinaguard.models.multitask import RetinaGuardMultiTaskModel
 from retinaguard.training.train import run_training_experiment
 from retinaguard.utils.hashing import compute_sha256
-from scripts.evaluate import evaluate_dataset_partition
+
+try:
+    from scripts.evaluate import evaluate_dataset_partition
+except ModuleNotFoundError:
+    from evaluate import evaluate_dataset_partition
 
 
 def generate_seed_checksums(seed_dir: Path) -> Path:
