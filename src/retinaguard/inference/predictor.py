@@ -295,12 +295,38 @@ class RetinaGuardPredictor:
                     )
 
             # Check sidecar manifest for contract validation (Item 11)
+            import os
+
+            is_prod = (
+                os.environ.get("APP_MODE", "development").lower() == "production"
+                and os.environ.get("TEST_MODE", "0") != "1"
+            )
+
             sidecar_p = path.with_name(path.stem + "_manifest.json")
             if not sidecar_p.is_file():
                 sidecar_p = path.parent / "onnx_manifest.json"
+
+            if is_prod and not sidecar_p.is_file():
+                raise FileNotFoundError(
+                    f"Production mode requires ONNX sidecar manifest at {sidecar_p}"
+                )
+
             if sidecar_p.is_file():
                 with open(sidecar_p, "r", encoding="utf-8") as f:
                     sidecar_data = json.load(f)
+
+                if is_prod:
+                    required_sidecar_fields = [
+                        "onnx_model_sha256",
+                        "trained_heads",
+                        "image_size",
+                        "class_order",
+                    ]
+                    missing_sidecar = [k for k in required_sidecar_fields if k not in sidecar_data]
+                    if missing_sidecar:
+                        raise ValueError(
+                            f"Production ONNX sidecar manifest missing required fields: {missing_sidecar}"
+                        )
 
                 # 1. Verify ONNX model sha256 if recorded
                 if "onnx_model_sha256" in sidecar_data:
