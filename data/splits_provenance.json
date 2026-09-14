@@ -1,0 +1,105 @@
+{
+  "provenance_schema_version": "1.0.0",
+  "generated_at_utc": "2026-09-14T18:00:00.000000+00:00",
+  "dataset_specifications": {
+    "DeepDRiD": {
+      "version": "Challenge 2020 / Regular Fundus",
+      "partition_algorithm": "official_challenge_partitions_preserved",
+      "patient_isolation": "grouped_by_patient_id",
+      "source_metadata_hashes": {
+        "raw_training_labels_sha256": "0f26db5cd2cf14939f6a96732a7e9e5aef243ae70a29e099e678d412cb4c47b6",
+        "raw_validation_labels_sha256": "54c2f11bf0647fe3cc64496cd83646ea4a4fdf0aab82b1cd4891ad998f220332",
+        "raw_external_test_labels_sha256": "9a76b7ea16747b7a1413a66a443072a70de20a13ee063b3533c58bdf79d98f8b"
+      },
+      "manifest_sha256": "f10fdc17bea7fefeee32557b1aad34bed36488832c04c7f67067bdfde59758c3",
+      "label_mapping_sha256": "73798da8cea7949158c54113ef5712f4af95c0e62d640d33f360febe2ec6dc03",
+      "exclusions": {
+        "total_excluded": 0,
+        "reasons": []
+      },
+      "splits": {
+        "train": {
+          "file": "data/splits/deepdrid_train.csv",
+          "sha256": "d7d85b2b8a8ca99ecc2a45310b1068cd3fe332ed2aec5b346900e3d796a29d54",
+          "record_count": 1200,
+          "patient_count": 300,
+          "class_distributions": {
+            "overall_quality_canonical": {
+              "reject": 624,
+              "good": 576
+            },
+            "artifact": {
+              "0": 599,
+              "1": 287,
+              "2": 314
+            },
+            "clarity": {
+              "0": 828,
+              "1": 343,
+              "2": 29
+            },
+            "field_definition": {
+              "0": 965,
+              "1": 180,
+              "2": 55
+            }
+          }
+        },
+        "val": {
+          "file": "data/splits/deepdrid_val.csv",
+          "sha256": "c7d600f26a5624d59b00541252be8ca7b679543f5cf2732d7fb26d610c2b3c05",
+          "record_count": 400,
+          "patient_count": 100,
+          "class_distributions": {
+            "overall_quality_canonical": {
+              "reject": 218,
+              "good": 182
+            },
+            "artifact": {
+              "0": 191,
+              "1": 100,
+              "2": 109
+            },
+            "clarity": {
+              "0": 276,
+              "1": 118,
+              "2": 6
+            },
+            "field_definition": {
+              "0": 313,
+              "1": 73,
+              "2": 14
+            }
+          }
+        },
+        "external_test": {
+          "file": "data/splits/deepdrid_external_test.csv",
+          "sha256": "ed61d43d2b41dda38b7ccd38ed78623f4452ddf2a122963f1a704c186050922e",
+          "record_count": 400,
+          "patient_count": 100,
+          "class_distributions": {
+            "overall_quality_canonical": {
+              "reject": 220,
+              "good": 180
+            },
+            "artifact": {
+              "0": 192,
+              "1": 85,
+              "2": 123
+            },
+            "clarity": {
+              "0": 255,
+              "1": 130,
+              "2": 15
+            },
+            "field_definition": {
+              "0": 323,
+              "1": 62,
+              "2": 15
+            }
+          }
+        }
+      }
+    }
+  }
+}
