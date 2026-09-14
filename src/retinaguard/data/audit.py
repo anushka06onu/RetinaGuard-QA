@@ -61,6 +61,10 @@ def find_duplicate_images(
 
     sha_map: Dict[str, List[str]] = {}
     phash_list: List[tuple] = []
+    phash_attempted = 0
+    phash_succeeded = 0
+    phash_failed = 0
+    phash_failure_reasons: List[str] = []
 
     for p in image_paths:
         path_str = str(p)
@@ -68,11 +72,15 @@ def find_duplicate_images(
         sha_map.setdefault(sha, []).append(path_str)
 
         if check_perceptual:
+            phash_attempted += 1
             try:
                 h = compute_perceptual_hash(p)
                 phash_list.append((path_str, h))
-            except Exception:
-                pass
+                phash_succeeded += 1
+            except Exception as exc:
+                phash_failed += 1
+                if len(phash_failure_reasons) < 10:
+                    phash_failure_reasons.append(f"{Path(p).name}: {str(exc)}")
 
     exact_duplicates = {k: v for k, v in sha_map.items() if len(v) > 1}
 
@@ -109,6 +117,10 @@ def find_duplicate_images(
         "total_scanned": len(image_paths),
         "exact_duplicates": exact_duplicates,
         "near_duplicates": near_duplicates,
+        "phash_attempted": phash_attempted,
+        "phash_succeeded": phash_succeeded,
+        "phash_failed": phash_failed,
+        "phash_failure_reasons": phash_failure_reasons,
     }
 
 
@@ -270,12 +282,24 @@ def run_leakage_and_duplicate_audit(
         missing_images = 0
         mismatched_hashes = 0
         unmatched_patients = 0
+        ambiguous_patients = 0
+        split_phash_attempted = 0
+        split_phash_succeeded = 0
+        split_phash_failed = 0
+        split_phash_failure_reasons: List[str] = []
+
         if "path" in df.columns and "sha256" in df.columns:
             for _, row in df.iterrows():
                 img_p = Path(row["path"])
-                pid = str(row.get("patient_id", ""))
-                if not pid or pid == "nan" or pid == "unknown":
+                pid = str(row.get("patient_id", "")).strip()
+                if not pid or pid in ["nan", "unknown", "none", "null"]:
                     unmatched_patients += 1
+                elif not (
+                    pid.isdigit()
+                    or (pid.startswith("P") and pid[1:].isdigit())
+                    or (pid.startswith("D") and pid[1:].isdigit())
+                ):
+                    ambiguous_patients += 1
 
                 if img_p.is_file():
                     try:
@@ -285,8 +309,10 @@ def run_leakage_and_duplicate_audit(
                         else:
                             mismatched_hashes += 1
                         if check_perceptual:
+                            split_phash_attempted += 1
                             try:
                                 h = compute_perceptual_hash(img_p)
+                                split_phash_succeeded += 1
                                 all_image_records.append(
                                     {
                                         "split": split_name,
@@ -298,8 +324,10 @@ def run_leakage_and_duplicate_audit(
                                         "phash": h,
                                     }
                                 )
-                            except Exception:
-                                pass
+                            except Exception as exc:
+                                split_phash_failed += 1
+                                if len(split_phash_failure_reasons) < 10:
+                                    split_phash_failure_reasons.append(f"{img_p.name}: {str(exc)}")
                     except Exception:
                         mismatched_hashes += 1
                 else:
@@ -316,12 +344,17 @@ def run_leakage_and_duplicate_audit(
                 int(df["sha256"].dropna().nunique()) if "sha256" in df.columns else 0
             ),
             "unmatched_patients": unmatched_patients,
+            "ambiguous_patients": ambiguous_patients,
             "intra_split_duplicates": intra_dups,
             "label_distributions": label_dist,
             "image_integrity": {
                 "verified_images": verified_images,
                 "missing_images": missing_images,
                 "mismatched_hashes": mismatched_hashes,
+                "phash_attempted": split_phash_attempted,
+                "phash_succeeded": split_phash_succeeded,
+                "phash_failed": split_phash_failed,
+                "phash_failure_reasons": split_phash_failure_reasons,
             },
         }
 
@@ -380,22 +413,34 @@ def run_leakage_and_duplicate_audit(
                     if datasets_list[global_i] != datasets_list[j]:
                         cross_dataset_near_duplicates.append(pair_info)
 
-    near_duplicate_isolation_passed = len(cross_split_near_duplicates) == 0
+    total_phash_attempted = sum(
+        d["image_integrity"]["phash_attempted"] for d in split_details.values()
+    )
+    total_phash_succeeded = sum(
+        d["image_integrity"]["phash_succeeded"] for d in split_details.values()
+    )
+    total_phash_failed = sum(d["image_integrity"]["phash_failed"] for d in split_details.values())
+    all_phash_reasons = []
+    for d in split_details.values():
+        all_phash_reasons.extend(d["image_integrity"]["phash_failure_reasons"])
+
+    near_duplicate_isolation_passed = (
+        len(cross_split_near_duplicates) == 0 and total_phash_failed == 0
+    )
     cross_split_isolation_passed = (
         (len(patient_leaks) == 0) and (len(sha_leaks) == 0) and near_duplicate_isolation_passed
     )
     intra_split_uniqueness_passed = all(
         len(d["intra_split_duplicates"]) == 0 for d in split_details.values()
     )
-    # Non-vacuous image integrity: require verified_images == records, 0 missing, 0 mismatched
-    image_integrity_passed = all(
+    # Non-vacuous image integrity: require every split to contain records > 0, all verified, 0 missing, 0 mismatched, 0 phash failures
+    image_integrity_passed = len(split_details) > 0 and all(
         (
-            d["records"] == 0
-            or (
-                d["image_integrity"]["verified_images"] == d["records"]
-                and d["image_integrity"]["missing_images"] == 0
-                and d["image_integrity"]["mismatched_hashes"] == 0
-            )
+            d["records"] > 0
+            and d["image_integrity"]["verified_images"] == d["records"]
+            and d["image_integrity"]["missing_images"] == 0
+            and d["image_integrity"]["mismatched_hashes"] == 0
+            and d["image_integrity"]["phash_failed"] == 0
         )
         for d in split_details.values()
     )
@@ -416,18 +461,25 @@ def run_leakage_and_duplicate_audit(
         "overall_audit_passed": overall_audit_passed,
         "isolation_passed": cross_split_isolation_passed,
         "patient_id_provenance": {
-            "patient_id_source": "dataset_adapter_regex_extraction",
+            "patient_id_source": "filename_regex",
+            "source_authority": "derived",
+            "validated_against_official_metadata": False,
             "extraction_rules": {
                 "DeepDRiD": r"^(\d+)_",
                 "EyeQ": r"^(\d+)_(left|right)",
             },
             "unmatched_images": sum(d.get("unmatched_patients", 0) for d in split_details.values()),
-            "ambiguous_patient_ids": 0,
-            "provenance_status": "verified_authoritative",
+            "ambiguous_patient_ids": sum(
+                d.get("ambiguous_patients", 0) for d in split_details.values()
+            ),
         },
         "near_duplicate_audit": {
             "phash_algorithm": "dhash",
             "distance_threshold": phash_threshold,
+            "phash_attempted": total_phash_attempted,
+            "phash_succeeded": total_phash_succeeded,
+            "phash_failed": total_phash_failed,
+            "phash_failure_reasons": all_phash_reasons[:10],
             "total_images_scanned": len(all_image_records),
             "near_duplicate_pairs_count": len(near_duplicate_pairs),
             "cross_split_near_duplicates_count": len(cross_split_near_duplicates),
