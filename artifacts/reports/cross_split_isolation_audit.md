@@ -2,8 +2,8 @@
 
 ## Summary
 - **Schema Version:** 1.0
-- **Generated At UTC:** 2026-09-15T19:29:30.056030+00:00
-- **Git Commit:** `3cfd4537bdee4677081cb69cf915123ace64f2ae`
+- **Generated At UTC:** 2026-09-15T19:39:46.873862+00:00
+- **Git Commit:** `098736ab19eb4c650c23a3ca9264f3890c95b845`
 - **Audit Script SHA-256:** `6dde76207e99253e3b114b20f6a9f68d3ccad3e86b740572065400e0b81339a2`
 - **Mapping Schema SHA-256:** `73798da8cea7949158c54113ef5712f4af95c0e62d640d33f360febe2ec6dc03`
 - **Cross-Split Isolation:** ✅ PASSED (Zero Leakage)
