@@ -83,22 +83,13 @@ class RetinalQualityDataset(Dataset):
 
         dataset_name = str(row.get("dataset", "")).lower()
 
-        # 1. EyeQ Quality Head (Good=0 / Usable=1 / Reject=2)
-        # EyeQ samples supervise quality_target.
+        # 1. 3-Class Quality Head (Good=0 / Usable=1 / Reject=2)
         quality_target = torch.tensor(0, dtype=torch.long)
         quality_mask = torch.tensor(0.0, dtype=torch.float32)
-        if dataset_name == "eyeq" or (
-            not dataset_name
-            and "quality_canonical" in row
-            and pd.notna(row["quality_canonical"])
-            and not (
-                "overall_quality_canonical" in row and pd.notna(row["overall_quality_canonical"])
-            )
-        ):
-            q_label = row.get("quality_canonical", row.get("quality_raw", row.get("quality", None)))
-            if pd.notna(q_label) and q_label in self.QUALITY_MAP:
-                quality_target = torch.tensor(self.QUALITY_MAP[q_label], dtype=torch.long)
-                quality_mask = torch.tensor(1.0, dtype=torch.float32)
+        q_label = row.get("quality_canonical", row.get("quality_raw", row.get("quality", None)))
+        if pd.notna(q_label) and q_label in self.QUALITY_MAP:
+            quality_target = torch.tensor(self.QUALITY_MAP[q_label], dtype=torch.long)
+            quality_mask = torch.tensor(1.0, dtype=torch.float32)
 
         # 2. DeepDRiD Overall Quality Head (Good=0 / Reject=1)
         # DeepDRiD samples supervise overall_quality_target.
