@@ -680,18 +680,28 @@ def main():
         seed_records,
         key=lambda r: float(r.get("best_validation_objective", 0.0) or 0.0),
     )
+    models_dir = campaigns_dir.parent / "models" if campaigns_dir.name == "campaigns" else campaigns_dir / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
+    best_ckpt_dst = models_dir / "best.ckpt"
+    
+    src_ckpt_p = Path(selected_seed_entry.get("checkpoint_path", ""))
+    if not args.fixture_mode and src_ckpt_p.is_file():
+        shutil.copy2(src_ckpt_p, best_ckpt_dst)
+        print(f"Copied selected best checkpoint ({src_ckpt_p}) to {best_ckpt_dst}")
+        ckpt_rel_str = "artifacts/models/best.ckpt"
+    else:
+        ckpt_rel_str = str(src_ckpt_p)
+
     deployment_checkpoint_selection = {
         "selection_metric": selected_seed_entry.get("selection_metric", "primary_macro_f1"),
         "selection_rule": selected_seed_entry.get("selection_mode", "max"),
         "selected_seed": selected_seed_entry["seed"],
         "selected_epoch": selected_seed_entry.get("epochs_trained"),
         "validation_score": selected_seed_entry.get("best_validation_objective"),
-        "checkpoint_path": selected_seed_entry.get("checkpoint_path"),
+        "checkpoint_path": ckpt_rel_str,
         "checkpoint_sha256": selected_seed_entry.get("checkpoint_sha256"),
         "selection_note": "Selected strictly by validation set objective performance across independent training seeds.",
     }
-    models_dir = campaigns_dir.parent / "models" if campaigns_dir.name == "campaigns" else campaigns_dir / "models"
-    models_dir.mkdir(parents=True, exist_ok=True)
     selected_ckpt_json_p = models_dir / "selected_checkpoint.json"
     with open(selected_ckpt_json_p, "w", encoding="utf-8") as f:
         json.dump(deployment_checkpoint_selection, f, indent=2)
