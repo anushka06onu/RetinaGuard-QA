@@ -87,6 +87,22 @@ class RetinalQualityDataset(Dataset):
         quality_target = torch.tensor(0, dtype=torch.long)
         quality_mask = torch.tensor(0.0, dtype=torch.float32)
         q_label = row.get("quality_canonical", row.get("quality_raw", row.get("quality", None)))
+        if not pd.notna(q_label) or str(q_label).strip() == "":
+            oq_c = row.get("overall_quality_canonical", row.get("overall_quality_raw", row.get("overall_quality", None)))
+            if oq_c == "reject" or str(oq_c) == "0":
+                q_label = "reject"
+            elif oq_c == "good" or str(oq_c) == "1":
+                try:
+                    art = int(row.get("artifact", 0)) if pd.notna(row.get("artifact", None)) else 0
+                    cla = int(row.get("clarity", 0)) if pd.notna(row.get("clarity", None)) else 0
+                    fld = int(row.get("field_definition", 0)) if pd.notna(row.get("field_definition", None)) else 0
+                    if art == 0 and cla == 0 and fld == 0:
+                        q_label = "good"
+                    else:
+                        q_label = "usable"
+                except Exception:
+                    q_label = "usable"
+
         if pd.notna(q_label) and q_label in self.QUALITY_MAP:
             quality_target = torch.tensor(self.QUALITY_MAP[q_label], dtype=torch.long)
             quality_mask = torch.tensor(1.0, dtype=torch.float32)
