@@ -60,6 +60,7 @@ mlruns/
 !results/models/*.onnx
 !artifacts/models/*.onnx
 !artifacts/models/*.onnx.data
+!artifacts/models/*.ckpt
 
 # Testing & Linting
 .pytest_cache/
