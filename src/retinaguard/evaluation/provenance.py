@@ -185,6 +185,84 @@ def validate_empirical_result(data_or_path: Union[str, Path, Dict[str, Any]]) ->
                 f"Extra: {len(diff_extra)}, Missing: {len(diff_missing)}"
             )
 
+        # Confirm prediction targets strictly match ground-truth split labels (Item 12)
+        task_name = str(data.get("dataset_task", data.get("task", ""))).lower()
+        quality_map = {
+            "good": 0,
+            "usable": 1,
+            "reject": 2,
+            0: 0,
+            1: 1,
+            2: 2,
+            "0": 0,
+            "1": 1,
+            "2": 2,
+        }
+        overall_map = {
+            "good": 0,
+            "reject": 1,
+            "poor": 1,
+            "poor_reject": 1,
+            "poor/reject": 1,
+            0: 0,
+            1: 1,
+            "0": 0,
+            "1": 1,
+        }
+
+        split_targets = {}
+        for _, s_row in df_split.iterrows():
+            sid = str(s_row["image_id"])
+            if (
+                "eyeq" in task_name
+                or "quality_3class" in task_name
+                or (
+                    "quality_canonical" in s_row
+                    and pd.notna(s_row["quality_canonical"])
+                    and not (
+                        "overall_quality_canonical" in s_row
+                        and pd.notna(s_row["overall_quality_canonical"])
+                    )
+                )
+            ):
+                raw_l = s_row.get(
+                    "quality_canonical", s_row.get("quality_raw", s_row.get("quality"))
+                )
+                if pd.notna(raw_l) and raw_l in quality_map:
+                    split_targets[sid] = quality_map[raw_l]
+            elif (
+                "deepdrid" in task_name
+                or "overall" in task_name
+                or (
+                    (
+                        "overall_quality_canonical" in s_row
+                        and pd.notna(s_row["overall_quality_canonical"])
+                    )
+                    or ("overall_quality_raw" in s_row and pd.notna(s_row["overall_quality_raw"]))
+                    or ("overall_quality" in s_row and pd.notna(s_row["overall_quality"]))
+                )
+            ):
+                raw_l = s_row.get(
+                    "overall_quality_canonical",
+                    s_row.get(
+                        "overall_quality_raw",
+                        s_row.get("overall_quality", s_row.get("quality_canonical")),
+                    ),
+                )
+                if pd.notna(raw_l) and raw_l in overall_map:
+                    split_targets[sid] = overall_map[raw_l]
+
+        for _, p_row in df_preds.iterrows():
+            pid = str(p_row["image_id"])
+            pred_target = int(p_row["target"])
+            if pid in split_targets:
+                expected_t = split_targets[pid]
+                if pred_target != expected_t:
+                    raise ValueError(
+                        f"Prediction target mismatch for image '{pid}': "
+                        f"prediction target ({pred_target}) != split ground-truth label ({expected_t})"
+                    )
+
         recomputed_acc = float(accuracy_score(df_preds["target"], df_preds["prediction"]))
         recomputed_f1 = float(
             f1_score(df_preds["target"], df_preds["prediction"], average="macro", zero_division=0)
