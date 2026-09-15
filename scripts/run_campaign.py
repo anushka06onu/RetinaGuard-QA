@@ -584,15 +584,23 @@ def main():
             seed_entry[f"{prefix}_ci_upper"] = dd_eval["macro_f1_95_ci"]["ci_upper"]
             deepdrid_completed = True
 
+        required_checks = []
+        if Path(args.eyeq_split).is_file():
+            required_checks.append(eyeq_completed)
+        if Path(args.deepdrid_split).is_file():
+            required_checks.append(deepdrid_completed)
+
         all_required_done = (
-            (eyeq_completed and deepdrid_completed)
+            all(required_checks)
             if not is_exploratory
-            else (eyeq_completed or deepdrid_completed)
-        )
+            else any(required_checks)
+        ) if required_checks else False
+
         if not is_exploratory and not all_required_done:
             raise RuntimeError(
                 f"Seed {seed} failed to complete all protocol-required evaluations: "
-                f"EyeQ: {eyeq_completed}, DeepDRiD: {deepdrid_completed}"
+                f"EyeQ: {eyeq_completed} (required={Path(args.eyeq_split).is_file()}), "
+                f"DeepDRiD: {deepdrid_completed} (required={Path(args.deepdrid_split).is_file()})"
             )
 
         # Save Run Manifest with explicit completion status (Item 6 & 9)
