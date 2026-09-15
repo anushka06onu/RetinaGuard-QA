@@ -30,16 +30,16 @@ echo "[7/13] Exporting Selected Checkpoint to Production ONNX..."
 python3 scripts/export_onnx.py --checkpoint artifacts/models/best.ckpt --output-onnx artifacts/models/model.onnx
 
 echo "[8/13] Calibrating Probabilities and Decision Thresholds..."
-python3 scripts/calibrate.py --checkpoint artifacts/models/best.ckpt --val-split data/splits/deepdrid_val.csv --task deepdrid_overall --onnx-model artifacts/models/model.onnx
+python3 scripts/calibrate.py --checkpoint artifacts/models/best.ckpt --val-split data/splits/deepdrid_val.csv --task eyeq_quality --onnx-model artifacts/models/model.onnx
 
 echo "[9/13] Evaluating Held-Out Dataset Performance..."
 python3 scripts/evaluate.py --checkpoint artifacts/models/best.ckpt --output-dir artifacts/metrics
 
 echo "[10/13] Benchmarking Out-of-Distribution Detection..."
-python3 scripts/benchmark_ood.py --checkpoint artifacts/models/best.ckpt --id-test-split data/splits/deepdrid_external_test.csv --task deepdrid_overall --include-synthetic-stress-test --output-file artifacts/metrics/ood.json
+python3 scripts/benchmark_ood.py --checkpoint artifacts/models/best.ckpt --id-test-split data/splits/deepdrid_external_test.csv --task eyeq_quality --include-synthetic-stress-test --output-file artifacts/metrics/ood.json
 
 echo "[11/13] Benchmarking Optical Corruption Robustness..."
-python3 scripts/benchmark_corruptions.py --checkpoint artifacts/models/best.ckpt --test-split data/splits/deepdrid_external_test.csv --task deepdrid_overall --output-dir artifacts/metrics
+python3 scripts/benchmark_corruptions.py --checkpoint artifacts/models/best.ckpt --test-split data/splits/deepdrid_external_test.csv --task eyeq_quality --output-dir artifacts/metrics
 
 echo "[12/13] Benchmarking End-to-End Inference Latency..."
 python3 scripts/benchmark_inference.py --model artifacts/models/model.onnx --test-split data/splits/deepdrid_external_test.csv --output-json artifacts/metrics/latency.json
