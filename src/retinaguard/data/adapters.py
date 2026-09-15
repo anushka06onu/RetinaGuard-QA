@@ -337,6 +337,17 @@ def parse_deepdrid_metadata(
             fld_map,
         )
 
+        # Derive canonical 3-class quality (Good / Usable / Reject) for multi-task supervision
+        if canonical_oq == "reject":
+            derived_quality = "reject"
+        elif canonical_oq == "good":
+            if artifact == 0 and clarity == 0 and field_def == 0:
+                derived_quality = "good"
+            else:
+                derived_quality = "usable"
+        else:
+            derived_quality = None
+
         rows.append(
             {
                 "dataset": "deepdrid",
@@ -347,8 +358,8 @@ def parse_deepdrid_metadata(
                 "width": w,
                 "height": h,
                 "sha256": sha,
-                "quality_raw": None,
-                "quality_canonical": None,
+                "quality_raw": raw_oq,
+                "quality_canonical": derived_quality,
                 "overall_quality_raw": raw_oq,
                 "overall_quality_canonical": canonical_oq,
                 "artifact": artifact,
