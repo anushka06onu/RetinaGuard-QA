@@ -86,6 +86,11 @@ class ClassicalFeatureExtractor:
             dtype=np.float32,
         )
 
+    extract = extract_features
+
+
+ClassicalQualityFeatureExtractor = ClassicalFeatureExtractor
+
 
 class ClassicalQualityModel:
     """Classical baseline trained on physical feature vectors."""

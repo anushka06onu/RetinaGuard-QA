@@ -39,12 +39,14 @@ def run_majority_class_baseline(
     df_train = pd.read_csv(train_csv)
     df_test = pd.read_csv(test_csv)
 
-    col = "quality_canonical" if task == "eyeq_quality" else "overall_quality_canonical"
-    q_map = (
-        {"good": 0, "usable": 1, "reject": 2, 0: 0, 1: 1, 2: 2}
-        if task == "eyeq_quality"
-        else {"good": 0, "reject": 1, "poor": 1, 0: 0, 1: 1}
-    )
+    if "quality_canonical" in df_train.columns and df_train["quality_canonical"].notna().sum() > 0:
+        col = "quality_canonical"
+        q_map = {"good": 0, "usable": 1, "reject": 2, 0: 0, 1: 1, 2: 2}
+        task = "eyeq_quality"
+    else:
+        col = "overall_quality_canonical"
+        q_map = {"good": 0, "reject": 1, "poor": 1, 0: 0, 1: 1}
+        task = "deepdrid_overall"
 
     valid_train = [
         (r["image_id"], q_map[r[col]])
@@ -125,12 +127,14 @@ def run_classical_feature_baseline(
     df_train = pd.read_csv(train_csv)
     df_test = pd.read_csv(test_csv)
 
-    col = "quality_canonical" if task == "eyeq_quality" else "overall_quality_canonical"
-    q_map = (
-        {"good": 0, "usable": 1, "reject": 2, 0: 0, 1: 1, 2: 2}
-        if task == "eyeq_quality"
-        else {"good": 0, "reject": 1, "poor": 1, 0: 0, 1: 1}
-    )
+    if "quality_canonical" in df_train.columns and df_train["quality_canonical"].notna().sum() > 0:
+        col = "quality_canonical"
+        q_map = {"good": 0, "usable": 1, "reject": 2, 0: 0, 1: 1, 2: 2}
+        task = "eyeq_quality"
+    else:
+        col = "overall_quality_canonical"
+        q_map = {"good": 0, "reject": 1, "poor": 1, 0: 0, 1: 1}
+        task = "deepdrid_overall"
 
     def extract_set(df: pd.DataFrame, max_n: Optional[int] = None):
         valid_rows = [r for _, r in df.iterrows() if pd.notna(r.get(col)) and r[col] in q_map]
