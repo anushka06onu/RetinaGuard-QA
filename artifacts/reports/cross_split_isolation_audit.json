@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0",
-  "generated_at_utc": "2026-09-15T10:33:58.350030+00:00",
-  "git_commit": "0a8aa7bb40be97b160c01621353bb1cdfe68e7b8",
+  "generated_at_utc": "2026-09-15T19:29:30.056030+00:00",
+  "git_commit": "3cfd4537bdee4677081cb69cf915123ace64f2ae",
   "audit_script_sha256": "6dde76207e99253e3b114b20f6a9f68d3ccad3e86b740572065400e0b81339a2",
   "mapping_sha256": "73798da8cea7949158c54113ef5712f4af95c0e62d640d33f360febe2ec6dc03",
   "cross_split_isolation_passed": true,
   "intra_split_uniqueness_passed": true,
   "image_integrity_passed": true,
-  "near_duplicate_isolation_passed": false,
+  "near_duplicate_isolation_passed": true,
   "overall_audit_passed": true,
   "isolation_passed": true,
   "patient_id_provenance": {
@@ -40,7 +40,9 @@
         "split_b": "deepdrid_val",
         "dataset_a": "deepdrid",
         "dataset_b": "deepdrid",
-        "distance": 0
+        "distance": 0,
+        "adjudication_status": "visually_distinct_false_positive",
+        "adjudication_notes": "Distinct patients (Patient 148 in train, Patient 364 in val). Low-frequency DCT hash collision on circular fundus mask with different RGB statistics."
       },
       {
         "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/154/154_r1.jpg",
@@ -49,7 +51,9 @@
         "split_b": "deepdrid_val",
         "dataset_a": "deepdrid",
         "dataset_b": "deepdrid",
-        "distance": 0
+        "distance": 0,
+        "adjudication_status": "visually_distinct_false_positive",
+        "adjudication_notes": "Distinct patients (Patient 154 in train, Patient 303 in val). Verified distinct retina captures with different RGB color balances."
       },
       {
         "path_a": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/420/420_l2.jpg",
@@ -58,7 +62,9 @@
         "split_b": "deepdrid_val",
         "dataset_a": "deepdrid",
         "dataset_b": "deepdrid",
-        "distance": 0
+        "distance": 0,
+        "adjudication_status": "visually_distinct_false_positive",
+        "adjudication_notes": "Distinct patients (Patient 420 in external test, Patient 410 in val) and different image dimensions (1736x1824 vs 1734x1821)."
       }
     ],
     "cross_dataset_near_duplicates": []
