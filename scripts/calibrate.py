@@ -193,9 +193,22 @@ def main():
         )
 
     # Save complete production calibration & decision metadata (Item 4 & 13)
+    import subprocess
+
+    def get_git_commit_sha() -> str:
+        try:
+            return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+        except Exception:
+            return "unknown"
+
     cal_meta_p = Path("artifacts/models/calibration_metadata.json")
     cal_meta_p.parent.mkdir(parents=True, exist_ok=True)
     calibration_metadata = {
+        "schema_version": "1.0.0",
+        "status": "completed",
+        "eligible_as_final_result": True,
+        "generated_by": "scripts/calibrate.py",
+        "git_commit": get_git_commit_sha(),
         "dataset": "EyeQ" if args.task == "eyeq_quality" else "DeepDRiD",
         "task": args.task,
         "output_head": (
