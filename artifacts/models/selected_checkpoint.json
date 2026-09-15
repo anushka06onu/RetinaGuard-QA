@@ -2,9 +2,9 @@
   "selection_metric": "primary_macro_f1",
   "selection_rule": "max",
   "selected_seed": 2026,
-  "selected_epoch": 2,
-  "validation_score": 0.1312,
-  "checkpoint_path": "/private/var/folders/nx/kdqsq27n0nz997pwrqlnmy6w0000gn/T/pytest-of-fatehahossainanushka/pytest-147/test_campaign_runner_full_fixt0/runs/multitask/seed_2026/best.ckpt",
-  "checkpoint_sha256": "6eec591250848fe4cbf1aa45ac2e628d38be8c6dbe8c31d1efea3400ca7539f8",
+  "selected_epoch": 35,
+  "validation_score": 0.6842,
+  "checkpoint_path": "artifacts/models/best.ckpt",
+  "checkpoint_sha256": "910ef46d69692ff3f3192855b1bb3123664275427c903fb2c870524fd5e3a596",
   "selection_note": "Selected strictly by validation set objective performance across independent training seeds."
 }

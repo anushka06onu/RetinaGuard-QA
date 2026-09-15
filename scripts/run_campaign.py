@@ -686,8 +686,9 @@ def main():
         "checkpoint_sha256": selected_seed_entry.get("checkpoint_sha256"),
         "selection_note": "Selected strictly by validation set objective performance across independent training seeds.",
     }
-    selected_ckpt_json_p = Path("artifacts/models/selected_checkpoint.json")
-    selected_ckpt_json_p.parent.mkdir(parents=True, exist_ok=True)
+    models_dir = campaigns_dir.parent / "models" if campaigns_dir.name == "campaigns" else campaigns_dir / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
+    selected_ckpt_json_p = models_dir / "selected_checkpoint.json"
     with open(selected_ckpt_json_p, "w", encoding="utf-8") as f:
         json.dump(deployment_checkpoint_selection, f, indent=2)
 
