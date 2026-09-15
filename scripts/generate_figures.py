@@ -7,8 +7,14 @@ If input metrics are missing, it fails fast.
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import List
+
+# Ensure local source package is prioritized over any site-packages install
+src_dir = str(Path(__file__).resolve().parent.parent / "src")
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
 
 import matplotlib.pyplot as plt
 import numpy as np

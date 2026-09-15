@@ -8,8 +8,14 @@ import argparse
 import datetime
 import json
 import subprocess
+import sys
 from pathlib import Path
 from typing import List, Tuple
+
+# Ensure local source package is prioritized over any site-packages install
+src_dir = str(Path(__file__).resolve().parent.parent / "src")
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
 
 import numpy as np
 import pandas as pd

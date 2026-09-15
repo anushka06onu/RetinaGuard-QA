@@ -1,6 +1,11 @@
-"""Training runner script supporting config-driven execution, smoke tests, and isolated fixture mode."""
-
 import argparse
+import sys
+from pathlib import Path
+
+# Ensure local source package is prioritized over any site-packages install
+src_dir = str(Path(__file__).resolve().parent.parent / "src")
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
 
 from retinaguard.training.train import run_training_experiment
 
