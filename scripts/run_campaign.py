@@ -157,8 +157,8 @@ def verify_campaign_archive(archive_dir: Path) -> Tuple[bool, str]:
     except Exception as e:
         return False, f"Malformed campaign_manifest.json: {e}"
 
-    if c_manifest.get("status") != "completed":
-        return False, f"Campaign status not completed: {c_manifest.get('status')}"
+    if c_manifest.get("status") not in ["completed", "fixture_completed"]:
+        return False, f"Campaign status not valid completed state: {c_manifest.get('status')}"
 
     sums_file = archive_dir / "SHA256SUMS"
     if not sums_file.is_file():
@@ -226,8 +226,11 @@ def verify_campaign_archive(archive_dir: Path) -> Tuple[bool, str]:
             try:
                 with open(s_manifest_p, "r", encoding="utf-8") as f:
                     s_manifest = json.load(f)
-                if s_manifest.get("status") != "completed":
-                    return False, f"Seed run status not completed in {seed_dir.name}"
+                if s_manifest.get("status") not in ["completed", "fixture_completed"]:
+                    return (
+                        False,
+                        f"Seed run status not in completed state in {seed_dir.name}: {s_manifest.get('status')}",
+                    )
             except Exception as e:
                 return False, f"Malformed run_manifest.json in {seed_dir.name}: {e}"
 
@@ -307,6 +310,23 @@ def main():
     # Automatically switch default config if zero-shot mode is specified with multitask default
     if args.zero_shot and args.config == "configs/train_multitask.yaml":
         args.config = "configs/train_eyeq.yaml"
+
+    is_exploratory = args.smoke_test or args.fixture_mode
+    if not is_exploratory:
+        if len(args.seeds) < 3:
+            raise ValueError(
+                f"Final campaign mode requires at least 3 unique seeds, got {len(args.seeds)}: {args.seeds}"
+            )
+        if len(set(args.seeds)) != len(args.seeds):
+            raise ValueError(f"Duplicate seeds detected in final campaign mode: {args.seeds}")
+        if not Path(args.eyeq_split).is_file():
+            raise FileNotFoundError(
+                f"Final campaign protocol requires EyeQ split at {args.eyeq_split}"
+            )
+        if not Path(args.deepdrid_split).is_file():
+            raise FileNotFoundError(
+                f"Final campaign protocol requires DeepDRiD split at {args.deepdrid_split}"
+            )
 
     mode_name = "zero_shot" if args.zero_shot else "multitask"
     mode_str = "Zero-Shot Transfer Campaign" if args.zero_shot else "Supervised Multi-Task Campaign"
@@ -429,6 +449,9 @@ def main():
             "created_at_utc": created_at_utc,
         }
 
+        eyeq_completed = False
+        deepdrid_completed = False
+
         # EyeQ test evaluation
         if Path(args.eyeq_split).is_file():
             eyeq_eval, df_eyeq_preds = evaluate_dataset_partition(
@@ -443,10 +466,15 @@ def main():
             df_eyeq_preds.to_csv(pred_file, index=False)
             pred_sha = compute_sha256(pred_file)
 
+            eval_status = "fixture_completed" if args.fixture_mode else "completed"
+            is_eligible = not args.fixture_mode
+            origin = "constructed_fixture" if args.fixture_mode else "authorized_dataset"
+
             eyeq_eval.update(
                 {
-                    "status": "completed",
-                    "eligible_as_final_result": True,
+                    "status": eval_status,
+                    "eligible_as_final_result": is_eligible,
+                    "data_origin": origin,
                     "generated_by": "scripts/run_campaign.py",
                     "git_commit": git_commit,
                     "seed": seed,
@@ -477,6 +505,7 @@ def main():
             seed_entry["eyeq_qwk"] = eyeq_eval["quadratic_weighted_kappa"]
             seed_entry["eyeq_ci_lower"] = eyeq_eval["macro_f1_95_ci"]["ci_lower"]
             seed_entry["eyeq_ci_upper"] = eyeq_eval["macro_f1_95_ci"]["ci_upper"]
+            eyeq_completed = True
 
         # DeepDRiD evaluation (Held-Out Supervised or Zero-Shot External Transfer)
         if Path(args.deepdrid_split).is_file():
@@ -505,10 +534,15 @@ def main():
             df_dd_preds.to_csv(pred_file, index=False)
             pred_sha = compute_sha256(pred_file)
 
+            eval_status = "fixture_completed" if args.fixture_mode else "completed"
+            is_eligible = not args.fixture_mode
+            origin = "constructed_fixture" if args.fixture_mode else "authorized_dataset"
+
             dd_eval.update(
                 {
-                    "status": "completed",
-                    "eligible_as_final_result": True,
+                    "status": eval_status,
+                    "eligible_as_final_result": is_eligible,
+                    "data_origin": origin,
                     "generated_by": "scripts/run_campaign.py",
                     "git_commit": git_commit,
                     "seed": seed,
@@ -544,13 +578,29 @@ def main():
             seed_entry[f"{prefix}_qwk"] = dd_eval["quadratic_weighted_kappa"]
             seed_entry[f"{prefix}_ci_lower"] = dd_eval["macro_f1_95_ci"]["ci_lower"]
             seed_entry[f"{prefix}_ci_upper"] = dd_eval["macro_f1_95_ci"]["ci_upper"]
+            deepdrid_completed = True
 
-        # Save Run Manifest with explicit completion status (Item 6)
+        all_required_done = (
+            (eyeq_completed and deepdrid_completed)
+            if not is_exploratory
+            else (eyeq_completed or deepdrid_completed)
+        )
+        if not is_exploratory and not all_required_done:
+            raise RuntimeError(
+                f"Seed {seed} failed to complete all protocol-required evaluations: "
+                f"EyeQ: {eyeq_completed}, DeepDRiD: {deepdrid_completed}"
+            )
+
+        # Save Run Manifest with explicit completion status (Item 6 & 9)
         run_manifest = {
-            "status": "completed",
-            "eligible_for_aggregation": True,
+            "status": "fixture_completed" if args.fixture_mode else "completed",
+            "eligible_for_aggregation": not args.fixture_mode,
+            "data_origin": "constructed_fixture" if args.fixture_mode else "authorized_dataset",
             "campaign_mode": mode_name,
             "seed": seed,
+            "eyeq_test_completed": eyeq_completed,
+            "deepdrid_test_completed": deepdrid_completed,
+            "all_required_evaluations_completed": all_required_done,
             "config_path": args.config,
             "config_sha256": config_sha256,
             "git_commit": git_commit,
@@ -579,23 +629,39 @@ def main():
     df_seeds.to_csv(per_seed_csv, index=False)
     print(f"\nExported per-seed metrics to {per_seed_csv}")
 
-    # Compute Aggregate Mean +/- Sample Std (ddof=1)
+    # Compute Aggregate Mean +/- Sample Std (ddof=1) and 95% Confidence Intervals (Item 13)
+    from scipy import stats
+
     numeric_cols = [
         c for c in df_seeds.select_dtypes(include=[np.number]).columns if c not in ["seed"]
     ]
     summary_data = []
     for col in numeric_cols:
-        vals = pd.to_numeric(df_seeds[col], errors="coerce").dropna()
-        if len(vals) > 0:
-            std_val = float(np.std(vals, ddof=1)) if len(vals) > 1 else 0.0
+        vals = pd.to_numeric(df_seeds[col], errors="coerce").dropna().values
+        n = len(vals)
+        if n > 0:
+            mean_val = float(np.mean(vals))
+            std_val = float(np.std(vals, ddof=1)) if n > 1 else 0.0
+            if n > 1 and std_val > 1e-9:
+                t_crit = stats.t.ppf(0.975, df=n - 1)
+                ci_hw = float(t_crit * (std_val / np.sqrt(n)))
+                ci_lower = mean_val - ci_hw
+                ci_upper = mean_val + ci_hw
+            else:
+                ci_lower = mean_val
+                ci_upper = mean_val
             summary_data.append(
                 {
                     "metric": col,
-                    "mean": round(float(np.mean(vals)), 4),
+                    "mean": round(mean_val, 4),
                     "std_sample": round(std_val, 4),
+                    "ci_95_lower": round(ci_lower, 4),
+                    "ci_95_upper": round(ci_upper, 4),
                     "min": round(float(np.min(vals)), 4),
                     "max": round(float(np.max(vals)), 4),
-                    "num_seeds": len(vals),
+                    "successful_seeds": n,
+                    "expected_seeds": len(args.seeds),
+                    "missing_seeds": len(args.seeds) - n,
                 }
             )
 
@@ -604,6 +670,26 @@ def main():
     summary_csv = metrics_dir / summary_name
     df_summary.to_csv(summary_csv, index=False)
     print(f"Exported campaign summary to {summary_csv}")
+
+    # Select deployment checkpoint strictly using validation objective score (Item 14)
+    selected_seed_entry = max(
+        seed_records,
+        key=lambda r: float(r.get("best_validation_objective", 0.0) or 0.0),
+    )
+    deployment_checkpoint_selection = {
+        "selection_metric": selected_seed_entry.get("selection_metric", "primary_macro_f1"),
+        "selection_rule": selected_seed_entry.get("selection_mode", "max"),
+        "selected_seed": selected_seed_entry["seed"],
+        "selected_epoch": selected_seed_entry.get("epochs_trained"),
+        "validation_score": selected_seed_entry.get("best_validation_objective"),
+        "checkpoint_path": selected_seed_entry.get("checkpoint_path"),
+        "checkpoint_sha256": selected_seed_entry.get("checkpoint_sha256"),
+        "selection_note": "Selected strictly by validation set objective performance across independent training seeds.",
+    }
+    selected_ckpt_json_p = Path("artifacts/models/selected_checkpoint.json")
+    selected_ckpt_json_p.parent.mkdir(parents=True, exist_ok=True)
+    with open(selected_ckpt_json_p, "w", encoding="utf-8") as f:
+        json.dump(deployment_checkpoint_selection, f, indent=2)
 
     # Campaign-Level Archival Directory & Checksums (Self-Contained Evidence Package)
     timestamp_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -673,10 +759,12 @@ def main():
     df_summary.to_csv(campaign_archive_dir / summary_name, index=False)
 
     campaign_manifest = {
-        "status": "completed",
-        "eligible_for_aggregation": True,
+        "status": "fixture_completed" if args.fixture_mode else "completed",
+        "eligible_for_aggregation": not args.fixture_mode,
+        "data_origin": "constructed_fixture" if args.fixture_mode else "authorized_dataset",
         "campaign_mode": mode_name,
         "seeds": args.seeds,
+        "deployment_checkpoint_selection": deployment_checkpoint_selection,
         "config_path": "config.yaml",
         "config_sha256": archived_config_sha256,
         "git_commit": git_commit,
@@ -700,7 +788,7 @@ def main():
         f"Archived and verified self-contained campaign evidence package at {campaign_archive_dir}"
     )
 
-    print(f"\n=== 3-Seed {mode_str} Summary (Sample SD ddof=1) ===")
+    print(f"\n=== 3-Seed {mode_str} Summary (Sample SD ddof=1 & 95% CI) ===")
     print(df_summary.to_string(index=False))
 
 
