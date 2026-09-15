@@ -205,3 +205,26 @@ def test_create_splits_fail_fast_on_empty_manifest(tmp_path):
     )
     assert res.returncode != 0
     assert "contains zero valid records" in res.stderr
+
+
+def test_verify_splits_against_provenance():
+    """Verify that verify_splits validates split provenance correctly."""
+    import sys
+    from pathlib import Path
+    import subprocess
+
+    res = subprocess.run(
+        [
+            sys.executable,
+            "scripts/verify_splits.py",
+            "--provenance-file",
+            "data/splits_provenance.json",
+            "--splits-dir",
+            "data/splits",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert res.returncode == 0
+    assert "SUCCESS: All split files match cryptographic provenance" in res.stdout
+
