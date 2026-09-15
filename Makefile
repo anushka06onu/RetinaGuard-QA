@@ -1,4 +1,4 @@
-.PHONY: install audit-data split-data smoke-train test train evaluate calibrate benchmark export api web docker lint format
+.PHONY: install audit-data split-data verify-splits smoke-train test train evaluate calibrate benchmark export campaign ablations verify-artifacts docker-smoke api web docker lint format
 
 PYTHON ?= python3
 PIP ?= $(PYTHON) -m pip
@@ -6,36 +6,49 @@ PIP ?= $(PYTHON) -m pip
 install:
 	$(PIP) install --upgrade pip
 	$(PIP) install -e ".[dev]"
-	cd web && npm install
+	cd web && npm ci
 
 audit-data:
-	PYTHONPATH=. $(PYTHON) scripts/audit_dataset.py
+	PYTHONPATH=src $(PYTHON) scripts/audit_dataset.py
 
 split-data:
-	PYTHONPATH=. $(PYTHON) scripts/create_splits.py
+	PYTHONPATH=src $(PYTHON) scripts/create_splits.py
+
+verify-splits:
+	$(PYTHON) scripts/verify_splits.py
+
+verify-artifacts:
+	$(PYTHON) scripts/verify_artifacts.py
 
 smoke-train:
-	PYTHONPATH=. $(PYTHON) scripts/train.py --config configs/train_eyeq.yaml --smoke-test
+	PYTHONPATH=src $(PYTHON) scripts/train.py --config configs/train_eyeq.yaml --smoke-test
 
 train:
-	PYTHONPATH=. $(PYTHON) scripts/train.py --config configs/train_eyeq.yaml
-	PYTHONPATH=. $(PYTHON) scripts/train.py --config configs/train_multitask.yaml
+	PYTHONPATH=src $(PYTHON) scripts/train.py --config configs/train_eyeq.yaml
+	PYTHONPATH=src $(PYTHON) scripts/train.py --config configs/train_multitask.yaml
+
+campaign:
+	PYTHONPATH=src $(PYTHON) scripts/run_campaign.py --config configs/train_multitask.yaml --seeds 42 43 44
+
+ablations:
+	PYTHONPATH=src $(PYTHON) scripts/run_ablations.py --config configs/train_multitask.yaml
 
 evaluate:
-	PYTHONPATH=. $(PYTHON) scripts/evaluate.py --checkpoint artifacts/models/best.ckpt
+	PYTHONPATH=src $(PYTHON) scripts/evaluate.py --checkpoint artifacts/models/best.ckpt
 
 calibrate:
-	PYTHONPATH=. $(PYTHON) scripts/calibrate.py --checkpoint artifacts/models/best.ckpt
+	PYTHONPATH=src $(PYTHON) scripts/calibrate.py --checkpoint artifacts/models/best.ckpt
 
 benchmark:
-	PYTHONPATH=. $(PYTHON) scripts/benchmark_corruptions.py --checkpoint artifacts/models/best.ckpt
-	PYTHONPATH=. $(PYTHON) scripts/benchmark_inference.py --model artifacts/models/model.onnx
+	PYTHONPATH=src $(PYTHON) scripts/benchmark_corruptions.py --checkpoint artifacts/models/best.ckpt
+	PYTHONPATH=src $(PYTHON) scripts/benchmark_ood.py --checkpoint artifacts/models/best.ckpt
+	PYTHONPATH=src $(PYTHON) scripts/benchmark_inference.py --model artifacts/models/model.onnx
 
 export:
-	PYTHONPATH=. $(PYTHON) scripts/export_onnx.py --checkpoint artifacts/models/best.ckpt
+	PYTHONPATH=src $(PYTHON) scripts/export_onnx.py --checkpoint artifacts/models/best.ckpt
 
 test:
-	PYTHONPATH=. pytest tests/ api/tests/ -v
+	PYTHONPATH=src pytest tests/ api/tests/ -v
 
 lint:
 	ruff check .
@@ -54,3 +67,6 @@ web:
 
 docker:
 	docker compose up --build
+
+docker-smoke:
+	docker compose build
