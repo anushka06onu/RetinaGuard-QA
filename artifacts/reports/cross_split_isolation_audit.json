@@ -1,14 +1,221 @@
 {
   "schema_version": "1.0",
-  "generated_at_utc": "2026-09-14T19:53:02.553079+00:00",
-  "git_commit": "7ea92d9515eade21f4bb125ea70659aadbbed42f",
-  "audit_script_sha256": "a6e48af94835cbaec096b48712461264894ead04edf3279e066150c4ebdae3ec",
+  "generated_at_utc": "2026-09-15T09:28:00.302497+00:00",
+  "git_commit": "2a505ae93ae1ab656472a5eff5ecf2ab7747a68f",
+  "audit_script_sha256": "6dde76207e99253e3b114b20f6a9f68d3ccad3e86b740572065400e0b81339a2",
   "mapping_sha256": "73798da8cea7949158c54113ef5712f4af95c0e62d640d33f360febe2ec6dc03",
-  "cross_split_isolation_passed": true,
+  "cross_split_isolation_passed": false,
   "intra_split_uniqueness_passed": true,
   "image_integrity_passed": true,
-  "overall_audit_passed": true,
-  "isolation_passed": true,
+  "near_duplicate_isolation_passed": false,
+  "overall_audit_passed": false,
+  "isolation_passed": false,
+  "patient_id_provenance": {
+    "patient_id_source": "filename_regex",
+    "source_authority": "derived",
+    "validated_against_official_metadata": false,
+    "extraction_rules": {
+      "DeepDRiD": "^(\\d+)_",
+      "EyeQ": "^(\\d+)_(left|right)"
+    },
+    "unmatched_images": 0,
+    "ambiguous_patient_ids": 0
+  },
+  "near_duplicate_audit": {
+    "phash_algorithm": "dhash",
+    "distance_threshold": 4,
+    "phash_attempted": 2000,
+    "phash_succeeded": 2000,
+    "phash_failed": 0,
+    "phash_failure_reasons": [],
+    "total_images_scanned": 2000,
+    "near_duplicate_pairs_count": 48110,
+    "cross_split_near_duplicates_count": 26835,
+    "cross_dataset_near_duplicates_count": 0,
+    "cross_split_near_duplicates": [
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/398/398_l1.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_external_test",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 4
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/417/417_r1.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_external_test",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 4
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/420/420_l2.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_external_test",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 4
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/425/425_l2.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_external_test",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 4
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/429/429_l2.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_external_test",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 4
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/458/458_r1.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_external_test",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 4
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/464/464_l1.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_external_test",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 4
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/488/488_l1.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_external_test",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 4
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/301/301_l2.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_val",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 4
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/325/325_l1.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_val",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 4
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/339/339_l2.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_val",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 3
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/351/351_l1.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_val",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 4
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/357/357_r1.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_val",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 3
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/407/407_l1.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_val",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 4
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/407/407_l2.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_val",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 3
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/410/410_l1.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_val",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 4
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/422/422_r1.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_val",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 3
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_r1.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/277/277_r1.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_val",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 4
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_r2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/354/354_l1.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_external_test",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 4
+      },
+      {
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_r2.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/368/368_r1.jpg",
+        "split_a": "deepdrid_train",
+        "split_b": "deepdrid_external_test",
+        "dataset_a": "deepdrid",
+        "dataset_b": "deepdrid",
+        "distance": 4
+      }
+    ],
+    "cross_dataset_near_duplicates": []
+  },
   "splits": {
     "deepdrid_train": {
       "path": "data/splits/deepdrid_train.csv",
@@ -16,6 +223,8 @@
       "records": 1200,
       "unique_patients": 300,
       "unique_image_hashes": 1200,
+      "unmatched_patients": 0,
+      "ambiguous_patients": 0,
       "intra_split_duplicates": {},
       "label_distributions": {
         "overall_quality_canonical": {
@@ -44,7 +253,11 @@
       "image_integrity": {
         "verified_images": 1200,
         "missing_images": 0,
-        "mismatched_hashes": 0
+        "mismatched_hashes": 0,
+        "phash_attempted": 1200,
+        "phash_succeeded": 1200,
+        "phash_failed": 0,
+        "phash_failure_reasons": []
       }
     },
     "deepdrid_external_test": {
@@ -53,6 +266,8 @@
       "records": 400,
       "unique_patients": 100,
       "unique_image_hashes": 400,
+      "unmatched_patients": 0,
+      "ambiguous_patients": 0,
       "intra_split_duplicates": {},
       "label_distributions": {
         "overall_quality_canonical": {
@@ -81,7 +296,11 @@
       "image_integrity": {
         "verified_images": 400,
         "missing_images": 0,
-        "mismatched_hashes": 0
+        "mismatched_hashes": 0,
+        "phash_attempted": 400,
+        "phash_succeeded": 400,
+        "phash_failed": 0,
+        "phash_failure_reasons": []
       }
     },
     "deepdrid_val": {
@@ -90,6 +309,8 @@
       "records": 400,
       "unique_patients": 100,
       "unique_image_hashes": 400,
+      "unmatched_patients": 0,
+      "ambiguous_patients": 0,
       "intra_split_duplicates": {},
       "label_distributions": {
         "overall_quality_canonical": {
@@ -118,13 +339,19 @@
       "image_integrity": {
         "verified_images": 400,
         "missing_images": 0,
-        "mismatched_hashes": 0
+        "mismatched_hashes": 0,
+        "phash_attempted": 400,
+        "phash_succeeded": 400,
+        "phash_failed": 0,
+        "phash_failure_reasons": []
       }
     }
   },
   "comparisons_performed": [
     "patient_id_cross_split",
     "sha256_cross_split",
+    "perceptual_hash_cross_split_near_duplicate",
+    "perceptual_hash_cross_dataset_near_duplicate",
     "intra_split_duplicates",
     "image_file_existence_and_hash_verification",
     "label_distribution_verification"

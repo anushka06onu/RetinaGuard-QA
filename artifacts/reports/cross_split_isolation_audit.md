@@ -2,14 +2,14 @@
 
 ## Summary
 - **Schema Version:** 1.0
-- **Generated At UTC:** 2026-09-14T19:53:02.553079+00:00
-- **Git Commit:** `7ea92d9515eade21f4bb125ea70659aadbbed42f`
-- **Audit Script SHA-256:** `a6e48af94835cbaec096b48712461264894ead04edf3279e066150c4ebdae3ec`
+- **Generated At UTC:** 2026-09-15T09:28:00.302497+00:00
+- **Git Commit:** `2a505ae93ae1ab656472a5eff5ecf2ab7747a68f`
+- **Audit Script SHA-256:** `6dde76207e99253e3b114b20f6a9f68d3ccad3e86b740572065400e0b81339a2`
 - **Mapping Schema SHA-256:** `73798da8cea7949158c54113ef5712f4af95c0e62d640d33f360febe2ec6dc03`
-- **Cross-Split Isolation:** ✅ PASSED (Zero Leakage)
+- **Cross-Split Isolation:** ❌ FAILED (Leakage Detected)
 - **Intra-Split Uniqueness:** ✅ PASSED (No Duplicates)
 - **Image Integrity:** ✅ PASSED (All Verified)
-- **Overall Audit Status:** ✅ PASSED
+- **Overall Audit Status:** ❌ FAILED
 - **Splits Evaluated:** deepdrid_train, deepdrid_external_test, deepdrid_val
 
 ## Partition Summary & Cryptographic Hashes
@@ -28,6 +28,8 @@
 ## Comparisons Performed
 - `patient_id_cross_split`
 - `sha256_cross_split`
+- `perceptual_hash_cross_split_near_duplicate`
+- `perceptual_hash_cross_dataset_near_duplicate`
 - `intra_split_duplicates`
 - `image_file_existence_and_hash_verification`
 - `label_distribution_verification`

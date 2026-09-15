@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
-  "generated_at_utc": "2026-09-14T19:53:02.553079+00:00",
-  "git_commit": "7ea92d9515eade21f4bb125ea70659aadbbed42f",
-  "overall_status": "passed",
+  "generated_at_utc": "2026-09-15T09:28:00.302497+00:00",
+  "git_commit": "2a505ae93ae1ab656472a5eff5ecf2ab7747a68f",
+  "overall_status": "failed",
   "splits_audited": [
     "deepdrid_train",
     "deepdrid_external_test",
@@ -18,7 +18,7 @@
     "deepdrid_external_test": 100,
     "deepdrid_val": 100
   },
-  "cross_split_isolation_passed": true,
+  "cross_split_isolation_passed": false,
   "patient_leakages": {},
   "sha256_leakages": {},
   "splits_details": {
@@ -28,6 +28,8 @@
       "records": 1200,
       "unique_patients": 300,
       "unique_image_hashes": 1200,
+      "unmatched_patients": 0,
+      "ambiguous_patients": 0,
       "intra_split_duplicates": {},
       "label_distributions": {
         "overall_quality_canonical": {
@@ -56,7 +58,11 @@
       "image_integrity": {
         "verified_images": 1200,
         "missing_images": 0,
-        "mismatched_hashes": 0
+        "mismatched_hashes": 0,
+        "phash_attempted": 1200,
+        "phash_succeeded": 1200,
+        "phash_failed": 0,
+        "phash_failure_reasons": []
       }
     },
     "deepdrid_external_test": {
@@ -65,6 +71,8 @@
       "records": 400,
       "unique_patients": 100,
       "unique_image_hashes": 400,
+      "unmatched_patients": 0,
+      "ambiguous_patients": 0,
       "intra_split_duplicates": {},
       "label_distributions": {
         "overall_quality_canonical": {
@@ -93,7 +101,11 @@
       "image_integrity": {
         "verified_images": 400,
         "missing_images": 0,
-        "mismatched_hashes": 0
+        "mismatched_hashes": 0,
+        "phash_attempted": 400,
+        "phash_succeeded": 400,
+        "phash_failed": 0,
+        "phash_failure_reasons": []
       }
     },
     "deepdrid_val": {
@@ -102,6 +114,8 @@
       "records": 400,
       "unique_patients": 100,
       "unique_image_hashes": 400,
+      "unmatched_patients": 0,
+      "ambiguous_patients": 0,
       "intra_split_duplicates": {},
       "label_distributions": {
         "overall_quality_canonical": {
@@ -130,7 +144,11 @@
       "image_integrity": {
         "verified_images": 400,
         "missing_images": 0,
-        "mismatched_hashes": 0
+        "mismatched_hashes": 0,
+        "phash_attempted": 400,
+        "phash_succeeded": 400,
+        "phash_failed": 0,
+        "phash_failure_reasons": []
       }
     }
   }
