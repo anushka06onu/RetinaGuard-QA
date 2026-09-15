@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 import pandas as pd
 import torch
+import yaml
 
 from retinaguard.evaluation.provenance import validate_empirical_result
 from retinaguard.models.multitask import RetinaGuardMultiTaskModel
@@ -307,9 +308,12 @@ def main():
         ):
             args.deepdrid_split = "tests/fixtures/splits/deepdrid_test.csv"
 
-    # Automatically switch default config if zero-shot mode is specified with multitask default
-    if args.zero_shot and args.config == "configs/train_multitask.yaml":
-        args.config = "configs/train_eyeq.yaml"
+    # Check enabled datasets from config
+    with open(args.config, "r", encoding="utf-8") as f:
+        cfg_loaded = yaml.safe_load(f) or {}
+    datasets_cfg = cfg_loaded.get("data", {}).get("datasets", {})
+    eyeq_enabled = datasets_cfg.get("eyeq", {}).get("enabled", False)
+    deepdrid_enabled = datasets_cfg.get("deepdrid", {}).get("enabled", True)
 
     is_exploratory = args.smoke_test or args.fixture_mode
     if not is_exploratory:
@@ -319,11 +323,11 @@ def main():
             )
         if len(set(args.seeds)) != len(args.seeds):
             raise ValueError(f"Duplicate seeds detected in final campaign mode: {args.seeds}")
-        if not Path(args.eyeq_split).is_file():
+        if eyeq_enabled and not Path(args.eyeq_split).is_file():
             raise FileNotFoundError(
                 f"Final campaign protocol requires EyeQ split at {args.eyeq_split}"
             )
-        if not Path(args.deepdrid_split).is_file():
+        if deepdrid_enabled and not Path(args.deepdrid_split).is_file():
             raise FileNotFoundError(
                 f"Final campaign protocol requires DeepDRiD split at {args.deepdrid_split}"
             )
