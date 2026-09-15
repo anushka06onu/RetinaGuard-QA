@@ -1,11 +1,12 @@
 """Unit tests for artifact checksum and lineage verification."""
 
 import json
-import subprocess
-import sys
-from pathlib import Path
 
-from scripts.verify_artifacts import compute_sha256, verify_checksum_manifest, generate_checksum_manifest
+from scripts.verify_artifacts import (
+    compute_sha256,
+    generate_checksum_manifest,
+    verify_checksum_manifest,
+)
 
 
 def test_verify_artifacts_synthetic(tmp_path):

@@ -13,7 +13,7 @@ import hashlib
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict
 
 # Ensure local src is in path
 src_dir = str(Path(__file__).resolve().parent.parent / "src")
@@ -38,7 +38,11 @@ def extract_splits_from_provenance(prov_data: Dict[str, Any]) -> Dict[str, Dict[
         for ds_name, ds_info in prov_data["dataset_specifications"].items():
             ds_splits = ds_info.get("splits", {})
             for split_k, meta in ds_splits.items():
-                split_name = f"{ds_name.lower()}_{split_k}" if not split_k.startswith(ds_name.lower()) else split_k
+                split_name = (
+                    f"{ds_name.lower()}_{split_k}"
+                    if not split_k.startswith(ds_name.lower())
+                    else split_k
+                )
                 flat_splits[split_name] = meta
     elif "splits" in prov_data:
         flat_splits = prov_data["splits"]
@@ -156,7 +160,9 @@ def verify_splits(
             report["errors"].append(err_msg)
 
         # 3. Label Distribution Checks
-        expected_dist = expected_meta.get("class_distributions", expected_meta.get("label_distributions", {}))
+        expected_dist = expected_meta.get(
+            "class_distributions", expected_meta.get("label_distributions", {})
+        )
         dist_match = True
         for col_name, expected_counts in expected_dist.items():
             if col_name not in df.columns:
@@ -165,7 +171,9 @@ def verify_splits(
                 report["errors"].append(err_msg)
                 dist_match = False
                 continue
-            actual_counts = {str(k): int(v) for k, v in df[col_name].value_counts(dropna=False).items()}
+            actual_counts = {
+                str(k): int(v) for k, v in df[col_name].value_counts(dropna=False).items()
+            }
             for val_k, exp_v in expected_counts.items():
                 act_v = actual_counts.get(str(val_k), 0)
                 if act_v != exp_v:
@@ -213,7 +221,9 @@ def verify_splits(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Verify dataset splits against provenance manifest.")
+    parser = argparse.ArgumentParser(
+        description="Verify dataset splits against provenance manifest."
+    )
     parser.add_argument(
         "--provenance-file",
         type=Path,
@@ -246,7 +256,9 @@ def main() -> int:
     print(f"Splits failed:  {report['splits_failed']}")
 
     if report["overall_passed"]:
-        print("SUCCESS: All split files match cryptographic provenance and distribution records exactly.")
+        print(
+            "SUCCESS: All split files match cryptographic provenance and distribution records exactly."
+        )
         return 0
     else:
         print("FAILED: Provenance verification failed with the following errors:")

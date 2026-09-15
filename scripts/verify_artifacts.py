@@ -8,7 +8,7 @@ import hashlib
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 
 def compute_sha256(filepath: Path) -> str:
@@ -101,7 +101,9 @@ def verify_checksum_manifest(
                     mand_p = repo_root / mand
                 if mand_p.is_file():
                     report["unlisted_mandatory_files"].append(mand)
-                    report["errors"].append(f"Mandatory artifact '{mand}' exists but is missing from SHA256SUMS")
+                    report["errors"].append(
+                        f"Mandatory artifact '{mand}' exists but is missing from SHA256SUMS"
+                    )
 
     # Lineage and cross-artifact consistency checks
     if check_lineage:
@@ -174,7 +176,9 @@ def generate_checksum_manifest(
                     files_to_hash.append(p)
 
     # Sort deterministically
-    files_to_hash = sorted(list(set(files_to_hash)), key=lambda x: str(x.relative_to(artifacts_dir)))
+    files_to_hash = sorted(
+        list(set(files_to_hash)), key=lambda x: str(x.relative_to(artifacts_dir))
+    )
 
     lines = []
     for f in files_to_hash:

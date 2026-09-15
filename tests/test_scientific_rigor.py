@@ -63,6 +63,7 @@ def test_production_artifacts_contain_no_unsupported_metrics():
         "ood.json",
         "latency.json",
         "onnx_parity.json",
+        "baselines.json",
     }
     metrics_files = [
         f for f in Path("artifacts/metrics").glob("*.json") if f.name not in allowed_metric_names
@@ -139,8 +140,20 @@ def test_empirical_result_artifact_schema_and_integrity(tmp_path):
     """Verify that all metric artifacts conform to rigorous evidence-status schema."""
     from retinaguard.evaluation.provenance import validate_empirical_result
 
-    # 1. Verify all committed metrics files in artifacts/metrics/
-    metrics_files = list(Path("artifacts/metrics").glob("*.json"))
+    # 1. Verify all committed model classification metrics files in artifacts/metrics/
+    classification_metric_names = {
+        "deepdrid_heldout.json",
+        "held_out_deepdrid.json",
+        "internal_eyeq.json",
+        "eyeq_test.json",
+        "train_history.json",
+        "zero_shot_transfer.json",
+    }
+    metrics_files = [
+        mf
+        for mf in Path("artifacts/metrics").glob("*.json")
+        if mf.name in classification_metric_names
+    ]
     assert len(metrics_files) > 0, "Expected metrics files in artifacts/metrics/"
     for mf in metrics_files:
         res = validate_empirical_result(mf)

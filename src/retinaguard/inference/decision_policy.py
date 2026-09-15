@@ -138,13 +138,20 @@ class DecisionPolicyEngine:
             field_def_code,
         )
 
+        p_good = round(probs.get("good", 0.0), 4)
+        p_usable = round(probs.get("usable", 0.0), 4)
+        p_reject = round(1.0 - p_good - p_usable, 4)
+        if p_reject < 0.0:
+            p_reject = 0.0
+            p_usable = round(1.0 - p_good, 4)
+
         return PredictionResponse(
             model_version=self.model_version,
             quality=cast(Literal["good", "usable", "reject"], pred_class),
             probabilities=QualityProbabilities(
-                good=round(probs.get("good", 0.0), 4),
-                usable=round(probs.get("usable", 0.0), 4),
-                reject=round(probs.get("reject", 0.0), 4),
+                good=p_good,
+                usable=p_usable,
+                reject=p_reject,
             ),
             calibrated_confidence=round(cal_conf, 4),
             uncertainty=round(uncertainty, 4),

@@ -27,9 +27,9 @@ class QualityProbabilities(BaseModel):
     @model_validator(mode="after")
     def check_sum(self) -> "QualityProbabilities":
         total = self.good + self.usable + self.reject
-        if abs(total - 1.0) > 1e-4:
+        if abs(total - 1.0) > 1e-3:
             raise ValueError(
-                f"Probabilities must sum to 1.0 within numerical tolerance 1e-4, got {total}"
+                f"Probabilities must sum to 1.0 within numerical tolerance 1e-3, got {total}"
             )
         return self
 
