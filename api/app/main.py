@@ -219,6 +219,8 @@ def model_info(service: QualityAssessmentService = Depends(get_service)) -> Dict
         "ood_direction": p.policy_engine.ood_direction,
         "intended_input": "Color Retinal Fundus Photograph (Standard 45/50 degree FOV)",
         "supported_formats": ["JPEG", "PNG"],
+        "max_upload_size_bytes": settings.max_upload_size_bytes,
+        "max_upload_size_mb": round(settings.max_upload_size_bytes / (1024 * 1024), 1),
         "clinical_disclaimer": (
             "Model-assessed technical quality for research purposes only. "
             "Not clinically validated. Not intended for direct diagnostic disease grading."
@@ -245,7 +247,7 @@ async def _process_image_upload(
             detail=f"Unsupported media type: {file.content_type}. Please provide an image (JPEG or PNG).",
         )
 
-    # 2. Stream read buffer with bounded chunks and strict size limit (Item 30)
+    # 2. Stream read buffer with bounded chunks and strict size limit (Item 30 & Item 45)
     contents = bytearray()
     chunk_size = 64 * 1024  # 64 KB chunks
     while True:
@@ -254,8 +256,10 @@ async def _process_image_upload(
             break
         contents.extend(chunk)
         if len(contents) > MAX_UPLOAD_SIZE:
+            max_mb = round(MAX_UPLOAD_SIZE / (1024 * 1024), 1)
             raise HTTPException(
-                status_code=413, detail="File too large. Maximum permitted size is 15MB."
+                status_code=413,
+                detail=f"File too large. Maximum permitted size is {max_mb}MB.",
             )
 
     if len(contents) == 0:
