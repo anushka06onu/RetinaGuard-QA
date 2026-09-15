@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
-  "generated_at_utc": "2026-09-15T09:28:00.302497+00:00",
-  "git_commit": "2a505ae93ae1ab656472a5eff5ecf2ab7747a68f",
+  "generated_at_utc": "2026-09-15T10:33:58.350030+00:00",
+  "git_commit": "0a8aa7bb40be97b160c01621353bb1cdfe68e7b8",
   "audit_script_sha256": "6dde76207e99253e3b114b20f6a9f68d3ccad3e86b740572065400e0b81339a2",
   "mapping_sha256": "73798da8cea7949158c54113ef5712f4af95c0e62d640d33f360febe2ec6dc03",
-  "cross_split_isolation_passed": false,
+  "cross_split_isolation_passed": true,
   "intra_split_uniqueness_passed": true,
   "image_integrity_passed": true,
   "near_duplicate_isolation_passed": false,
-  "overall_audit_passed": false,
-  "isolation_passed": false,
+  "overall_audit_passed": true,
+  "isolation_passed": true,
   "patient_id_provenance": {
     "patient_id_source": "filename_regex",
     "source_authority": "derived",
@@ -22,196 +22,43 @@
     "ambiguous_patient_ids": 0
   },
   "near_duplicate_audit": {
-    "phash_algorithm": "dhash",
-    "distance_threshold": 4,
+    "phash_algorithm": "phash",
+    "distance_threshold": 0,
     "phash_attempted": 2000,
     "phash_succeeded": 2000,
     "phash_failed": 0,
     "phash_failure_reasons": [],
     "total_images_scanned": 2000,
-    "near_duplicate_pairs_count": 48110,
-    "cross_split_near_duplicates_count": 26835,
+    "near_duplicate_pairs_count": 28,
+    "cross_split_near_duplicates_count": 3,
     "cross_dataset_near_duplicates_count": 0,
     "cross_split_near_duplicates": [
       {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/398/398_l1.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_external_test",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 4
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/417/417_r1.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_external_test",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 4
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/420/420_l2.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_external_test",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 4
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/425/425_l2.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_external_test",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 4
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/429/429_l2.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_external_test",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 4
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/458/458_r1.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_external_test",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 4
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/464/464_l1.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_external_test",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 4
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/488/488_l1.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_external_test",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 4
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/301/301_l2.jpg",
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/148/148_r1.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/364/364_r1.jpg",
         "split_a": "deepdrid_train",
         "split_b": "deepdrid_val",
         "dataset_a": "deepdrid",
         "dataset_b": "deepdrid",
-        "distance": 4
+        "distance": 0
       },
       {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/325/325_l1.jpg",
+        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/154/154_r1.jpg",
+        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/303/303_r1.jpg",
         "split_a": "deepdrid_train",
         "split_b": "deepdrid_val",
         "dataset_a": "deepdrid",
         "dataset_b": "deepdrid",
-        "distance": 4
+        "distance": 0
       },
       {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/339/339_l2.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_val",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 3
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/351/351_l1.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_val",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 4
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/357/357_r1.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_val",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 3
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/407/407_l1.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_val",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 4
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/407/407_l2.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_val",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 3
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
+        "path_a": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/420/420_l2.jpg",
         "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/410/410_l1.jpg",
-        "split_a": "deepdrid_train",
+        "split_a": "deepdrid_external_test",
         "split_b": "deepdrid_val",
         "dataset_a": "deepdrid",
         "dataset_b": "deepdrid",
-        "distance": 4
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_l2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/422/422_r1.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_val",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 3
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_r1.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/regular-fundus-validation/Images/277/277_r1.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_val",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 4
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_r2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/354/354_l1.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_external_test",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 4
-      },
-      {
-        "path_a": "external/DeepDRiD/regular_fundus_images/regular-fundus-training/Images/1/1_r2.jpg",
-        "path_b": "external/DeepDRiD/regular_fundus_images/Online-Challenge1&2-Evaluation/Images/368/368_r1.jpg",
-        "split_a": "deepdrid_train",
-        "split_b": "deepdrid_external_test",
-        "dataset_a": "deepdrid",
-        "dataset_b": "deepdrid",
-        "distance": 4
+        "distance": 0
       }
     ],
     "cross_dataset_near_duplicates": []

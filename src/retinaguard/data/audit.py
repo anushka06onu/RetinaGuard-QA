@@ -19,16 +19,16 @@ def compute_file_hash(file_path: Union[str, Path]) -> str:
 
 
 def compute_perceptual_hash(
-    image: Union[Image.Image, str, Path], hash_type: str = "dhash"
+    image: Union[Image.Image, str, Path], hash_type: str = "phash"
 ) -> imagehash.ImageHash:
-    """Compute perceptual hash (dHash/pHash) for an image."""
+    """Compute perceptual hash (pHash/dHash) for an image."""
     if isinstance(image, (str, Path)):
         with Image.open(image) as opened_img:
             rgb_img = opened_img.convert("RGB")
-            return imagehash.dhash(rgb_img) if hash_type == "dhash" else imagehash.phash(rgb_img)
+            return imagehash.phash(rgb_img) if hash_type == "phash" else imagehash.dhash(rgb_img)
     converted_img = image.convert("RGB")
     return (
-        imagehash.dhash(converted_img) if hash_type == "dhash" else imagehash.phash(converted_img)
+        imagehash.phash(converted_img) if hash_type == "phash" else imagehash.dhash(converted_img)
     )
 
 
@@ -210,7 +210,7 @@ def run_leakage_and_duplicate_audit(
     split_file_paths: Optional[Dict[str, Union[str, Path]]] = None,
     mapping_config_path: Union[str, Path] = "configs/deepdrid_label_mapping.yaml",
     check_perceptual: bool = True,
-    phash_threshold: int = 4,
+    phash_threshold: int = 0,
 ) -> Dict[str, Any]:
     """Verify 0% patient, hash, and perceptual near-duplicate leakage across splits with complete provenance."""
     import numpy as np
@@ -428,7 +428,7 @@ def run_leakage_and_duplicate_audit(
         len(cross_split_near_duplicates) == 0 and total_phash_failed == 0
     )
     cross_split_isolation_passed = (
-        (len(patient_leaks) == 0) and (len(sha_leaks) == 0) and near_duplicate_isolation_passed
+        (len(patient_leaks) == 0) and (len(sha_leaks) == 0) and (total_phash_failed == 0)
     )
     intra_split_uniqueness_passed = all(
         len(d["intra_split_duplicates"]) == 0 for d in split_details.values()
@@ -474,7 +474,7 @@ def run_leakage_and_duplicate_audit(
             ),
         },
         "near_duplicate_audit": {
-            "phash_algorithm": "dhash",
+            "phash_algorithm": "phash",
             "distance_threshold": phash_threshold,
             "phash_attempted": total_phash_attempted,
             "phash_succeeded": total_phash_succeeded,

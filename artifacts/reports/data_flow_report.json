@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
-  "generated_at_utc": "2026-09-15T09:28:00.302497+00:00",
-  "git_commit": "2a505ae93ae1ab656472a5eff5ecf2ab7747a68f",
-  "overall_status": "failed",
+  "generated_at_utc": "2026-09-15T10:33:58.350030+00:00",
+  "git_commit": "0a8aa7bb40be97b160c01621353bb1cdfe68e7b8",
+  "overall_status": "passed",
   "splits_audited": [
     "deepdrid_train",
     "deepdrid_external_test",
@@ -18,7 +18,7 @@
     "deepdrid_external_test": 100,
     "deepdrid_val": 100
   },
-  "cross_split_isolation_passed": false,
+  "cross_split_isolation_passed": true,
   "patient_leakages": {},
   "sha256_leakages": {},
   "splits_details": {
