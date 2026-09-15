@@ -7,9 +7,7 @@ experiment:
 data:
   datasets:
     eyeq:
-      enabled: true
-      train_split: "data/splits/eyeq_train.csv"
-      val_split: "data/splits/eyeq_val.csv"
+      enabled: false
     deepdrid:
       enabled: true
       train_split: "data/splits/deepdrid_train.csv"
@@ -27,7 +25,7 @@ model:
       weight: 1.0
     overall_quality:
       num_classes: 2 # Good / Poor-Reject (Binary in DeepDRiD)
-      weight: 0.8
+      weight: 1.0
     artifact:
       num_classes: 3 # Ordinal levels (0=None, 1=Mild, 2=Severe)
       weight: 0.5
@@ -40,7 +38,7 @@ model:
 
 training:
   image_size: 384
-  epochs: 40
+  epochs: 25
   batch_size: 32
   num_workers: 2
   optimizer: "adamw"
