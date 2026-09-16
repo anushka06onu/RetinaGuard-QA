@@ -265,13 +265,18 @@ def main():
                 "fpr_at_95_tpr": float(compute_fpr_at_95_tpr(y_true, y_scores)),
             }
 
-    # 4. Controlled Synthetic Stress Test (Labeled explicitly as synthetic)
+    # 4. Controlled Synthetic Stress Test & Multi-Stage OOD Defense
     if args.include_synthetic_stress_test:
         rng = np.random.RandomState(2026)
         synthetic_scores = []
+        syn_modality_passed = 0
+        syn_features = []
         for _ in range(len(id_records)):
             arr = rng.randint(0, 256, (384, 384, 3), dtype=np.uint8)
             img = Image.fromarray(arr)
+            mod_val = RetinalModalityValidator.validate(img)
+            if mod_val["is_fundus"]:
+                syn_modality_passed += 1
             tensor = transform(img).unsqueeze(0)
             with torch.no_grad():
                 outputs = model(tensor)
@@ -279,18 +284,30 @@ def main():
                 synthetic_scores.append(
                     float(compute_energy_score(logits, temperature=temperature))
                 )
+                if "latent_features" in outputs:
+                    syn_features.append(outputs["latent_features"].numpy()[0])
 
         syn_arr = np.array(synthetic_scores)
         y_true = np.concatenate([np.ones(len(id_scores_arr)), np.zeros(len(syn_arr))])
         y_scores = np.concatenate([id_scores_arr, syn_arr])
 
         precision, recall, _ = precision_recall_curve(y_true, y_scores)
+        
+        # Modality Gate metric (ID=1, OOD=0)
+        id_mod_labels = np.ones(len(id_records))
+        syn_mod_labels = np.zeros(len(syn_arr))
+        y_mod_true = np.concatenate([id_mod_labels, syn_mod_labels])
+        y_mod_pred = np.concatenate([np.ones(id_modality_passes), np.zeros(len(id_records) - id_modality_passes), np.ones(syn_modality_passed), np.zeros(len(syn_arr) - syn_modality_passed)])
+        modality_auroc = float(roc_auc_score(y_mod_true, y_mod_pred))
+
         benchmarks["synthetic_noise_stress_test"] = {
             "type": "synthetic_uniform_noise",
             "num_samples": len(syn_arr),
-            "auroc": float(roc_auc_score(y_true, y_scores)),
-            "auprc": float(auc(recall, precision)),
-            "fpr_at_95_tpr": float(compute_fpr_at_95_tpr(y_true, y_scores)),
+            "modality_gate_auroc": modality_auroc,
+            "modality_gate_rejection_rate": float(1.0 - (syn_modality_passed / len(syn_arr))),
+            "energy_score_auroc": float(roc_auc_score(y_true, y_scores)),
+            "energy_score_auprc": float(auc(recall, precision)),
+            "energy_score_fpr_at_95_tpr": float(compute_fpr_at_95_tpr(y_true, y_scores)),
         }
 
     out_file = Path(args.output_file)
