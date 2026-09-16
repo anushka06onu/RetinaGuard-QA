@@ -158,7 +158,7 @@ def main():
     labels = []
     for img_path, label in selected_rows:
         with Image.open(img_path) as img:
-            clean_images.append(img.convert("RGB"))
+            clean_images.append(img.convert("RGB").resize((384, 384), Image.Resampling.BILINEAR))
         labels.append(label)
 
     labels_arr = np.array(labels)
