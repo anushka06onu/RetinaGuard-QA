@@ -1,28 +1,30 @@
 {
   "metadata": {
-    "score_equation": "E(x; T) = -T * log(sum(exp(logits / T))) [T=1.0]",
+    "score_equation": "E(x; T) = -T * log(sum(exp(logits / T))) [T=1.3442]",
     "direction": "higher_is_id / lower_is_ood",
-    "temperature": 1.0,
-    "task_head": "deepdrid_overall",
-    "logits_key": "overall_quality_logits",
+    "temperature": 1.3442,
+    "task_head": "eyeq_quality",
+    "logits_key": "quality_logits",
     "threshold_source": "artifacts/models/calibration_metadata.json",
-    "fitted_energy_threshold": 0.6931,
-    "checkpoint_sha256": "910ef46d69692ff3f3192855b1bb3123664275427c903fb2c870524fd5e3a596",
-    "git_commit": "ebf023c3e8469e818660a6dfa888d0e57fbde499",
-    "created_at_utc": "2026-09-15T11:52:05.073171+00:00"
+    "fitted_energy_threshold": 1.5598,
+    "checkpoint_sha256": "62ab00e0c1ba37bad1f6a2ab7e2557a23911f65b4030c78618e938387e6c0ea5",
+    "git_commit": "cb60921beed59596c3574cdb060ea37a7e6ab228",
+    "created_at_utc": "2026-09-16T18:54:15.714792+00:00"
   },
   "in_distribution": {
     "dataset_split": "data/splits/deepdrid_external_test.csv",
     "num_samples": 300,
-    "mean_energy_score": 0.6999858470757803,
-    "std_energy_score": 0.004718073482031329,
+    "mean_energy_score": 2.4437554426987966,
+    "std_energy_score": 0.7196970058941577,
     "modality_false_reject_rate": 0.0
   },
   "synthetic_noise_stress_test": {
     "type": "synthetic_uniform_noise",
     "num_samples": 300,
-    "auroc": 0.0,
-    "auprc": 0.3068521108010193,
-    "fpr_at_95_tpr": 1.0
+    "modality_gate_auroc": 1.0,
+    "modality_gate_rejection_rate": 1.0,
+    "energy_score_auroc": 0.07614444444444446,
+    "energy_score_auprc": 0.31712222780013855,
+    "energy_score_fpr_at_95_tpr": 1.0
   }
 }
