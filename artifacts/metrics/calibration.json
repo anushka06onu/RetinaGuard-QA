@@ -1,41 +1,42 @@
 {
-  "dataset": "DeepDRiD",
-  "task": "deepdrid_overall",
-  "output_head": "overall_quality_logits",
+  "dataset": "EyeQ",
+  "task": "eyeq_quality",
+  "output_head": "quality_logits",
   "class_order": [
     "good",
-    "poor_reject"
+    "usable",
+    "reject"
   ],
   "valid_sample_count": 400,
   "split_path": "data/splits/deepdrid_val.csv",
   "split_sha256": "c7d600f26a5624d59b00541252be8ca7b679543f5cf2732d7fb26d610c2b3c05",
   "source_checkpoint": "artifacts/models/best.ckpt",
-  "source_checkpoint_sha256": "910ef46d69692ff3f3192855b1bb3123664275427c903fb2c870524fd5e3a596",
-  "onnx_model_sha256": "5a899698cfe2177be7379c5c1209f2ab46ad400ec40e21d4b4d82928f30d73ec",
-  "optimal_temperature": 1.0,
+  "source_checkpoint_sha256": "62ab00e0c1ba37bad1f6a2ab7e2557a23911f65b4030c78618e938387e6c0ea5",
+  "onnx_model_sha256": "ae29db7ea64c3921411082cee1f44d7491b5781d04d6104815bb3c97af3a4125",
+  "optimal_temperature": 1.3442,
   "uncertainty_definition": "predictive_entropy_base_2_bits",
-  "uncertainty_threshold": 1.0,
-  "ood_energy_threshold": 0.6931,
+  "uncertainty_threshold": 1.5025,
+  "ood_energy_threshold": 1.5598,
   "threshold_selection_method": "temperature_scaling_lbfgs_and_empirical_percentiles",
   "uncalibrated_ece": {
-    "ece": 0.0404,
-    "mce": 0.6403,
-    "avg_confidence": 0.5034,
-    "accuracy": 0.535
+    "ece": 0.142,
+    "mce": 0.3661,
+    "avg_confidence": 0.8057,
+    "accuracy": 0.6775
   },
   "calibrated_ece": {
-    "ece": 0.0404,
-    "mce": 0.6403,
-    "avg_confidence": 0.5034,
-    "accuracy": 0.535
+    "ece": 0.1032,
+    "mce": 0.3635,
+    "avg_confidence": 0.7456,
+    "accuracy": 0.6775
   },
-  "uncalibrated_brier": 0.5005,
-  "calibrated_brier": 0.5005,
-  "aurc": 0.4287,
+  "uncalibrated_brier": 0.498,
+  "calibrated_brier": 0.4803,
+  "aurc": 0.2461,
   "selective_abstention_at_0_75": {
-    "coverage": 0.0,
-    "abstention_rate": 1.0,
-    "selective_accuracy": 0.0,
-    "selective_error": 0.0
+    "coverage": 0.54,
+    "abstention_rate": 0.46,
+    "selective_accuracy": 0.7546,
+    "selective_error": 0.2454
   }
 }
