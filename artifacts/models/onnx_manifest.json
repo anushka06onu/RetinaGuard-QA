@@ -2,8 +2,8 @@
   "schema_version": "1.0.0",
   "status": "completed",
   "source_checkpoint_path": "artifacts/models/best.ckpt",
-  "source_checkpoint_sha256": "910ef46d69692ff3f3192855b1bb3123664275427c903fb2c870524fd5e3a596",
-  "onnx_model_sha256": "5a899698cfe2177be7379c5c1209f2ab46ad400ec40e21d4b4d82928f30d73ec",
+  "source_checkpoint_sha256": "62ab00e0c1ba37bad1f6a2ab7e2557a23911f65b4030c78618e938387e6c0ea5",
+  "onnx_model_sha256": "ae29db7ea64c3921411082cee1f44d7491b5781d04d6104815bb3c97af3a4125",
   "image_size": [
     384,
     384
@@ -16,7 +16,6 @@
     "field_definition_logits"
   ],
   "training_datasets": [
-    "EyeQ",
     "DeepDRiD"
   ],
   "class_order": [
@@ -24,5 +23,5 @@
     "usable",
     "reject"
   ],
-  "created_at_utc": "2026-09-15T11:46:20.167680+00:00"
+  "created_at_utc": "2026-09-16T12:31:22.928497+00:00"
 }

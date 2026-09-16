@@ -2,13 +2,13 @@
   "status": "completed_parity",
   "eligible_as_deployment_evidence": true,
   "eligible_as_predictive_performance_result": false,
-  "overall_max_error": 2.9802322387695312e-08,
+  "overall_max_error": 1.1682510375976562e-05,
   "parity_tolerance": 0.0001,
   "parity_passed": true,
   "heads": {
     "quality_logits": {
-      "max_absolute_error": 1.862645149230957e-09,
-      "mean_absolute_error": 1.862645149230957e-09,
+      "max_absolute_error": 1.1444091796875e-05,
+      "mean_absolute_error": 7.62939453125e-06,
       "shape": [
         1,
         3
@@ -16,8 +16,8 @@
       "parity_passed": true
     },
     "overall_quality_logits": {
-      "max_absolute_error": 3.725290298461914e-09,
-      "mean_absolute_error": 2.3283064365386963e-09,
+      "max_absolute_error": 7.3909759521484375e-06,
+      "mean_absolute_error": 6.318092346191406e-06,
       "shape": [
         1,
         2
@@ -25,8 +25,8 @@
       "parity_passed": true
     },
     "artifact_logits": {
-      "max_absolute_error": 9.313225746154785e-10,
-      "mean_absolute_error": 9.313225746154785e-10,
+      "max_absolute_error": 1.1682510375976562e-05,
+      "mean_absolute_error": 5.602836608886719e-06,
       "shape": [
         1,
         3
@@ -34,8 +34,8 @@
       "parity_passed": true
     },
     "clarity_logits": {
-      "max_absolute_error": 3.725290298461914e-09,
-      "mean_absolute_error": 2.1730859334212482e-09,
+      "max_absolute_error": 8.58306884765625e-06,
+      "mean_absolute_error": 3.655751470432733e-06,
       "shape": [
         1,
         3
@@ -43,8 +43,8 @@
       "parity_passed": true
     },
     "field_definition_logits": {
-      "max_absolute_error": 5.587935447692871e-09,
-      "mean_absolute_error": 2.7939677238464355e-09,
+      "max_absolute_error": 1.1324882507324219e-05,
+      "mean_absolute_error": 8.622805580671411e-06,
       "shape": [
         1,
         3
@@ -52,8 +52,8 @@
       "parity_passed": true
     },
     "latent_features": {
-      "max_absolute_error": 2.9802322387695312e-08,
-      "mean_absolute_error": 6.117147677286994e-09,
+      "max_absolute_error": 1.7434358596801758e-06,
+      "mean_absolute_error": 4.7329177732535754e-07,
       "shape": [
         1,
         128
@@ -63,13 +63,13 @@
   },
   "opset_version": 18,
   "checkpoint_path": "artifacts/models/best.ckpt",
-  "checkpoint_sha256": "910ef46d69692ff3f3192855b1bb3123664275427c903fb2c870524fd5e3a596",
+  "checkpoint_sha256": "62ab00e0c1ba37bad1f6a2ab7e2557a23911f65b4030c78618e938387e6c0ea5",
   "onnx_model_path": "artifacts/models/model.onnx",
-  "onnx_model_sha256": "5a899698cfe2177be7379c5c1209f2ab46ad400ec40e21d4b4d82928f30d73ec",
+  "onnx_model_sha256": "ae29db7ea64c3921411082cee1f44d7491b5781d04d6104815bb3c97af3a4125",
   "software_versions": {
     "torch": "2.14.0",
     "onnx": "1.22.0",
     "onnxruntime": "1.23.2"
   },
-  "verified_at_utc": "2026-09-15T11:46:20.168324+00:00"
+  "verified_at_utc": "2026-09-16T12:31:22.929013+00:00"
 }
