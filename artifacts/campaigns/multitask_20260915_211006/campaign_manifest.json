@@ -1,0 +1,33 @@
+{
+  "status": "completed",
+  "eligible_for_aggregation": true,
+  "data_origin": "authorized_dataset",
+  "campaign_mode": "multitask",
+  "seeds": [
+    2026,
+    2027,
+    2028
+  ],
+  "deployment_checkpoint_selection": {
+    "selection_metric": "primary_macro_f1",
+    "selection_rule": "max",
+    "selected_seed": 2028,
+    "selected_epoch": 14,
+    "validation_score": 0.6534,
+    "checkpoint_path": "artifacts/models/best.ckpt",
+    "checkpoint_sha256": "62ab00e0c1ba37bad1f6a2ab7e2557a23911f65b4030c78618e938387e6c0ea5",
+    "selection_note": "Selected strictly by validation set objective performance across independent training seeds."
+  },
+  "config_path": "config.yaml",
+  "config_sha256": "461f197de216059f87d2d44f4a2ef3a15e146c0a7abb21f666e4c1095c7883b0",
+  "git_commit": "05a9e344be8345e43c2987ac848286709df5e228",
+  "created_at_utc": "2026-09-15T21:10:06.986907+00:00",
+  "archived_seed_directories": [
+    "seed_2026",
+    "seed_2027",
+    "seed_2028"
+  ],
+  "splits_directory": "splits",
+  "per_seed_csv": "per_seed_metrics.csv",
+  "summary_csv": "campaign_summary.csv"
+}

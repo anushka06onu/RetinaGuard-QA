@@ -1,0 +1,56 @@
+# Multi-Task Quality & Attribute Training Configuration
+experiment:
+  name: "retinaguard_multitask"
+  seed: 2026
+  seeds: [2026, 2027, 2028]
+
+data:
+  datasets:
+    eyeq:
+      enabled: false
+    deepdrid:
+      enabled: true
+      train_split: "data/splits/deepdrid_train.csv"
+      val_split: "data/splits/deepdrid_val.csv"
+
+model:
+  backbone: "mobilenetv3_large_100" # options: "mobilenetv3_large_100", "efficientnet_b0"
+  pretrained: true
+  dropout: 0.2
+  latent_dim: 128
+  
+  heads:
+    quality:
+      num_classes: 3 # Good / Usable / Reject
+      weight: 1.0
+    overall_quality:
+      num_classes: 2 # Good / Poor-Reject (Binary in DeepDRiD)
+      weight: 1.0
+    artifact:
+      num_classes: 3 # Ordinal levels (0=None, 1=Mild, 2=Severe)
+      weight: 0.5
+    clarity:
+      num_classes: 3 # Ordinal levels (0=High, 1=Moderate, 2=Low)
+      weight: 0.5
+    field_definition:
+      num_classes: 3 # Ordinal levels (0=Adequate, 1=Acceptable, 2=Poor)
+      weight: 0.5
+
+training:
+  image_size: 384
+  epochs: 25
+  batch_size: 32
+  num_workers: 2
+  optimizer: "adamw"
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  scheduler: "cosine"
+  mixed_precision: true
+  early_stopping_patience: 7
+  selection_metric: "primary_macro_f1"
+
+loss:
+  quality_loss: "cross_entropy"
+  attribute_loss: "cross_entropy"
+  label_smoothing: 0.05
+

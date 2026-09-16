@@ -1,10 +1,10 @@
 {
   "selection_metric": "primary_macro_f1",
   "selection_rule": "max",
-  "selected_seed": 2026,
-  "selected_epoch": 35,
-  "validation_score": 0.6842,
+  "selected_seed": 2028,
+  "selected_epoch": 14,
+  "validation_score": 0.6534,
   "checkpoint_path": "artifacts/models/best.ckpt",
-  "checkpoint_sha256": "910ef46d69692ff3f3192855b1bb3123664275427c903fb2c870524fd5e3a596",
+  "checkpoint_sha256": "62ab00e0c1ba37bad1f6a2ab7e2557a23911f65b4030c78618e938387e6c0ea5",
   "selection_note": "Selected strictly by validation set objective performance across independent training seeds."
 }

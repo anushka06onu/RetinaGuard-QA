@@ -22,14 +22,14 @@
     "status": "completed",
     "eligible_as_final_result": true,
     "generated_by": "scripts/train_baselines.py",
-    "git_commit": "56a3be2f25f5fd0ec395b7a201c59c8013131170",
+    "git_commit": "06cdd884245dce95be987ac46ffaec8f69687c84",
     "train_split_path": "data/splits/deepdrid_train.csv",
     "train_split_sha256": "d7d85b2b8a8ca99ecc2a45310b1068cd3fe332ed2aec5b346900e3d796a29d54",
     "test_split_path": "data/splits/deepdrid_external_test.csv",
     "test_split_sha256": "ed61d43d2b41dda38b7ccd38ed78623f4452ddf2a122963f1a704c186050922e",
     "prediction_file": "artifacts/predictions/majority_baseline_predictions.csv",
     "prediction_file_sha256": "c07ba0b2408a7cdcd4327032ad9b54aa8cb11a95b1e8da45146d0d2106298dc6",
-    "created_at_utc": "2026-09-15T10:39:41.413468+00:00"
+    "created_at_utc": "2026-09-15T19:42:38.985849+00:00"
   },
   {
     "model": "Classical Handcrafted Features + Random Forest",
@@ -55,14 +55,14 @@
     "status": "completed",
     "eligible_as_final_result": true,
     "generated_by": "scripts/train_baselines.py",
-    "git_commit": "56a3be2f25f5fd0ec395b7a201c59c8013131170",
+    "git_commit": "06cdd884245dce95be987ac46ffaec8f69687c84",
     "train_split_path": "data/splits/deepdrid_train.csv",
     "train_split_sha256": "d7d85b2b8a8ca99ecc2a45310b1068cd3fe332ed2aec5b346900e3d796a29d54",
     "test_split_path": "data/splits/deepdrid_external_test.csv",
     "test_split_sha256": "ed61d43d2b41dda38b7ccd38ed78623f4452ddf2a122963f1a704c186050922e",
     "prediction_file": "artifacts/predictions/classical_rf_predictions.csv",
     "prediction_file_sha256": "2eb3f28cebdb6a83220afe004585d642fb6ff7b757e1fff23758ad20f1ec61d1",
-    "created_at_utc": "2026-09-15T10:39:41.413468+00:00"
+    "created_at_utc": "2026-09-15T19:42:38.985849+00:00"
   },
   {
     "model": "Classical Handcrafted Features + Logistic Regression",
@@ -88,13 +88,13 @@
     "status": "completed",
     "eligible_as_final_result": true,
     "generated_by": "scripts/train_baselines.py",
-    "git_commit": "56a3be2f25f5fd0ec395b7a201c59c8013131170",
+    "git_commit": "06cdd884245dce95be987ac46ffaec8f69687c84",
     "train_split_path": "data/splits/deepdrid_train.csv",
     "train_split_sha256": "d7d85b2b8a8ca99ecc2a45310b1068cd3fe332ed2aec5b346900e3d796a29d54",
     "test_split_path": "data/splits/deepdrid_external_test.csv",
     "test_split_sha256": "ed61d43d2b41dda38b7ccd38ed78623f4452ddf2a122963f1a704c186050922e",
     "prediction_file": "artifacts/predictions/classical_lr_predictions.csv",
     "prediction_file_sha256": "94476f7743f16970575607a88caf44811f03e5b2507ea9f5d45d80eeb591e069",
-    "created_at_utc": "2026-09-15T10:39:41.413468+00:00"
+    "created_at_utc": "2026-09-15T19:42:38.985849+00:00"
   }
 ]

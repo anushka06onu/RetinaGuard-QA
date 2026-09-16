@@ -1,0 +1,54 @@
+data:
+  datasets:
+    deepdrid:
+      enabled: true
+      train_split: data/splits/deepdrid_train.csv
+      val_split: data/splits/deepdrid_val.csv
+    eyeq:
+      enabled: false
+      train_split: null
+      val_split: null
+experiment:
+  name: retinaguard_multitask
+  seed: 2026
+  seeds:
+  - 2026
+  - 2027
+  - 2028
+loss:
+  attribute_loss: cross_entropy
+  label_smoothing: 0.05
+  quality_loss: cross_entropy
+model:
+  backbone: mobilenetv3_large_100
+  dropout: 0.2
+  heads:
+    artifact:
+      num_classes: 3
+      weight: 0.5
+    clarity:
+      num_classes: 3
+      weight: 0.5
+    field_definition:
+      num_classes: 3
+      weight: 0.5
+    overall_quality:
+      num_classes: 2
+      weight: 1.0
+    quality:
+      num_classes: 3
+      weight: 1.0
+  latent_dim: 128
+  pretrained: true
+training:
+  batch_size: 32
+  early_stopping_patience: 7
+  epochs: 25
+  image_size: 384
+  learning_rate: 0.0003
+  mixed_precision: true
+  num_workers: 2
+  optimizer: adamw
+  scheduler: cosine
+  selection_metric: primary_macro_f1
+  weight_decay: 0.0001

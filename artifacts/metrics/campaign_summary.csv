@@ -1,0 +1,10 @@
+metric,mean,std_sample,ci_95_lower,ci_95_upper,min,max,successful_seeds,expected_seeds,missing_seeds
+best_validation_objective,0.6351,0.0165,0.5941,0.6761,0.6214,0.6534,3,3,0
+best_val_macro_f1,0.6351,0.0165,0.5941,0.6761,0.6214,0.6534,3,3,0
+epochs_trained,10.3333,3.2146,2.3479,18.3187,8.0,14.0,3,3,0
+deepdrid_macro_f1,0.7446,0.0191,0.6973,0.7919,0.7264,0.7644,3,3,0
+deepdrid_balanced_accuracy,0.746,0.0199,0.6964,0.7955,0.7285,0.7677,3,3,0
+deepdrid_accuracy,0.7467,0.0188,0.7001,0.7933,0.7275,0.765,3,3,0
+deepdrid_qwk,0.49,0.0383,0.3948,0.5852,0.4536,0.53,3,3,0
+deepdrid_ci_lower,0.6965,0.0185,0.6507,0.7424,0.6799,0.7164,3,3,0
+deepdrid_ci_upper,0.7906,0.0178,0.7464,0.8349,0.7748,0.8099,3,3,0
