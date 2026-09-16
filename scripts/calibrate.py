@@ -3,7 +3,11 @@
 import argparse
 import datetime
 import json
+import sys
 from pathlib import Path
+
+# Ensure local package in src/ takes precedence over any installed egg
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
 import pandas as pd
