@@ -108,6 +108,22 @@ def main():
 
     for idx, row in test_df.iterrows():
         raw_val = row.get(target_col, row.get(alt_col, None))
+        if (pd.isna(raw_val) or raw_val not in active_map) and args.task == "eyeq_quality":
+            oq_c = row.get("overall_quality_canonical", row.get("overall_quality_raw", row.get("overall_quality", None)))
+            if oq_c == "reject" or str(oq_c) == "0":
+                raw_val = "reject"
+            elif oq_c == "good" or str(oq_c) == "1":
+                try:
+                    art = int(row.get("artifact", 0)) if pd.notna(row.get("artifact", None)) else 0
+                    cla = int(row.get("clarity", 0)) if pd.notna(row.get("clarity", None)) else 0
+                    fld = int(row.get("field_definition", 0)) if pd.notna(row.get("field_definition", None)) else 0
+                    if art == 0 and cla == 0 and fld == 0:
+                        raw_val = "good"
+                    else:
+                        raw_val = "usable"
+                except Exception:
+                    raw_val = "usable"
+
         if pd.isna(raw_val) or raw_val not in active_map:
             excluded_missing_count += 1
             continue
