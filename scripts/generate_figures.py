@@ -255,11 +255,20 @@ def plot_corruption_robustness(output_path: Path, corrupt_json_path: Path):
     severities = [1, 2, 3, 4, 5]
 
     for c_name, c_res in corruptions.items():
-        if isinstance(c_res, dict) and "f1_by_severity" in c_res:
-            scores = [c_res["f1_by_severity"].get(str(s), 0.0) for s in severities]
-            ax.plot(severities, scores, "-o", label=c_name, linewidth=1.5)
+        if isinstance(c_res, dict):
+            if "f1_by_severity" in c_res:
+                scores = [c_res["f1_by_severity"].get(str(s), 0.0) for s in severities]
+            else:
+                scores = []
+                for s in severities:
+                    val = c_res.get(str(s), 0.0)
+                    if isinstance(val, dict):
+                        scores.append(val.get("macro_f1", 0.0))
+                    else:
+                        scores.append(float(val))
+            ax.plot(severities, scores, "-o", label=c_name.replace("_", " ").title(), linewidth=1.5)
 
-    clean_f1 = data.get("clean_macro_f1", None)
+    clean_f1 = data.get("clean_macro_f1", data.get("clean_baseline", {}).get("macro_f1", None))
     if clean_f1 is not None:
         ax.axhline(clean_f1, color="k", linestyle="--", label=f"Clean Baseline ({clean_f1:.3f})")
 
