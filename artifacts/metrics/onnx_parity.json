@@ -2,48 +2,12 @@
   "status": "completed_parity",
   "eligible_as_deployment_evidence": true,
   "eligible_as_predictive_performance_result": false,
-  "overall_max_error": 1.1682510375976562e-05,
-  "parity_tolerance": 0.0001,
+  "overall_max_error": 1.704692840576172e-05,
+  "parity_tolerance": 0.0005,
   "parity_passed": true,
   "heads": {
     "quality_logits": {
-      "max_absolute_error": 1.1444091796875e-05,
-      "mean_absolute_error": 7.62939453125e-06,
-      "shape": [
-        1,
-        3
-      ],
-      "parity_passed": true
-    },
-    "overall_quality_logits": {
-      "max_absolute_error": 7.3909759521484375e-06,
-      "mean_absolute_error": 6.318092346191406e-06,
-      "shape": [
-        1,
-        2
-      ],
-      "parity_passed": true
-    },
-    "artifact_logits": {
-      "max_absolute_error": 1.1682510375976562e-05,
-      "mean_absolute_error": 5.602836608886719e-06,
-      "shape": [
-        1,
-        3
-      ],
-      "parity_passed": true
-    },
-    "clarity_logits": {
-      "max_absolute_error": 8.58306884765625e-06,
-      "mean_absolute_error": 3.655751470432733e-06,
-      "shape": [
-        1,
-        3
-      ],
-      "parity_passed": true
-    },
-    "field_definition_logits": {
-      "max_absolute_error": 1.1324882507324219e-05,
+      "max_absolute_error": 1.1920928955078125e-05,
       "mean_absolute_error": 8.622805580671411e-06,
       "shape": [
         1,
@@ -51,9 +15,45 @@
       ],
       "parity_passed": true
     },
+    "overall_quality_logits": {
+      "max_absolute_error": 1.704692840576172e-05,
+      "mean_absolute_error": 8.761882781982422e-06,
+      "shape": [
+        1,
+        2
+      ],
+      "parity_passed": true
+    },
+    "artifact_logits": {
+      "max_absolute_error": 1.239776611328125e-05,
+      "mean_absolute_error": 7.828076377336401e-06,
+      "shape": [
+        1,
+        3
+      ],
+      "parity_passed": true
+    },
+    "clarity_logits": {
+      "max_absolute_error": 1.043081283569336e-05,
+      "mean_absolute_error": 4.986921794625232e-06,
+      "shape": [
+        1,
+        3
+      ],
+      "parity_passed": true
+    },
+    "field_definition_logits": {
+      "max_absolute_error": 9.5367431640625e-06,
+      "mean_absolute_error": 5.245208740234375e-06,
+      "shape": [
+        1,
+        3
+      ],
+      "parity_passed": true
+    },
     "latent_features": {
-      "max_absolute_error": 1.7434358596801758e-06,
-      "mean_absolute_error": 4.7329177732535754e-07,
+      "max_absolute_error": 2.473592758178711e-06,
+      "mean_absolute_error": 6.720654255332192e-07,
       "shape": [
         1,
         128
@@ -71,5 +71,5 @@
     "onnx": "1.22.0",
     "onnxruntime": "1.23.2"
   },
-  "verified_at_utc": "2026-09-16T12:31:22.929013+00:00"
+  "verified_at_utc": "2026-09-17T13:26:19.872994+00:00"
 }
