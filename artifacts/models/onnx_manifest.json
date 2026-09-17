@@ -8,8 +8,14 @@
     384,
     384
   ],
+  "primary_task": "deepdrid_overall",
+  "primary_output": "overall_quality_logits",
+  "num_classes": 2,
+  "class_order": [
+    "good",
+    "poor_or_reject"
+  ],
   "trained_heads": [
-    "quality_logits",
     "overall_quality_logits",
     "artifact_logits",
     "clarity_logits",
@@ -18,10 +24,5 @@
   "training_datasets": [
     "DeepDRiD"
   ],
-  "class_order": [
-    "good",
-    "usable",
-    "reject"
-  ],
-  "created_at_utc": "2026-09-17T13:26:19.872518+00:00"
+  "created_at_utc": "2026-09-17T14:03:22.681460+00:00"
 }
