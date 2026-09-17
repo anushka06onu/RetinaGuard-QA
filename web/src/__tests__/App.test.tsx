@@ -158,7 +158,7 @@ describe('RetinaGuard-QA Web Frontend', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('decision-badge')).toBeInTheDocument();
-      expect(screen.getByText(/Poor \/ Reject/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Poor \/ Reject/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/88.0% Conf/i)).toBeInTheDocument();
       expect(screen.getByText(/0.529/i)).toBeInTheDocument();
       expect(screen.getByText(/Possible blur or focus defect detected/i)).toBeInTheDocument();
