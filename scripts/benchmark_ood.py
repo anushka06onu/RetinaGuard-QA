@@ -292,7 +292,7 @@ def main():
         y_scores = np.concatenate([id_scores_arr, syn_arr])
 
         precision, recall, _ = precision_recall_curve(y_true, y_scores)
-        
+
         # Modality Gate metric (ID=1, OOD=0)
         id_mod_labels = np.ones(len(id_records))
         syn_mod_labels = np.zeros(len(syn_arr))
