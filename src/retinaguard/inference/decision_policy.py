@@ -123,7 +123,7 @@ class DecisionPolicyEngine:
             decision = DecisionAction.UNSUPPORTED_INPUT
         elif is_ood or uncertainty > self.uncertainty_threshold:
             decision = DecisionAction.MANUAL_REVIEW
-        elif pred_class == "reject":
+        elif pred_class in ["reject", "poor_or_reject", "poor_reject"]:
             decision = DecisionAction.RECAPTURE
         elif pred_class == "usable":
             decision = DecisionAction.MANUAL_REVIEW
@@ -138,21 +138,27 @@ class DecisionPolicyEngine:
             field_def_code,
         )
 
-        p_good = round(probs.get("good", 0.0), 4)
-        p_usable = round(probs.get("usable", 0.0), 4)
-        p_reject = round(1.0 - p_good - p_usable, 4)
-        if p_reject < 0.0:
-            p_reject = 0.0
-            p_usable = round(1.0 - p_good, 4)
+        if "poor_or_reject" in probs or "poor_reject" in probs:
+            p_good = round(probs.get("good", 0.0), 4)
+            p_poor = round(1.0 - p_good, 4)
+            prob_obj = QualityProbabilities(good=p_good, poor_or_reject=p_poor)
+        elif "usable" in probs and "reject" in probs:
+            p_good = round(probs.get("good", 0.0), 4)
+            p_usable = round(probs.get("usable", 0.0), 4)
+            p_reject = round(1.0 - p_good - p_usable, 4)
+            if p_reject < 0.0:
+                p_reject = 0.0
+                p_usable = round(1.0 - p_good, 4)
+            prob_obj = QualityProbabilities(good=p_good, usable=p_usable, reject=p_reject)
+        else:
+            p_good = round(probs.get("good", 0.0), 4)
+            p_poor = round(1.0 - p_good, 4)
+            prob_obj = QualityProbabilities(good=p_good, poor_or_reject=p_poor)
 
         return PredictionResponse(
             model_version=self.model_version,
-            quality=cast(Literal["good", "usable", "reject"], pred_class),
-            probabilities=QualityProbabilities(
-                good=p_good,
-                usable=p_usable,
-                reject=p_reject,
-            ),
+            quality=cast(Literal["good", "poor_or_reject", "usable", "reject"], pred_class),
+            probabilities=prob_obj,
             calibrated_confidence=round(cal_conf, 4),
             uncertainty=round(uncertainty, 4),
             ood_score=round(ood_score, 4),
