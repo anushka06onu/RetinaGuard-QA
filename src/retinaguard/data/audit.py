@@ -456,16 +456,15 @@ def run_leakage_and_duplicate_audit(
         all_phash_reasons.extend(d["image_integrity"]["phash_failure_reasons"])
 
     unadjudicated_cross_split_dups = [
-        p for p in cross_split_near_duplicates
+        p
+        for p in cross_split_near_duplicates
         if p.get("adjudication_status") != "visually_distinct_false_positive"
     ]
     near_duplicate_isolation_passed = (
         len(unadjudicated_cross_split_dups) == 0 and total_phash_failed == 0
     )
     cross_split_isolation_passed = (
-        (len(patient_leaks) == 0)
-        and (len(sha_leaks) == 0)
-        and near_duplicate_isolation_passed
+        (len(patient_leaks) == 0) and (len(sha_leaks) == 0) and near_duplicate_isolation_passed
     )
     intra_split_uniqueness_passed = all(
         len(d["intra_split_duplicates"]) == 0 for d in split_details.values()
