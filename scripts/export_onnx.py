@@ -46,6 +46,24 @@ def main():
     parser.add_argument("--output-onnx", type=str, default="artifacts/models/model.onnx")
     parser.add_argument("--opset-version", type=int, default=18)
     parser.add_argument(
+        "--primary-task",
+        type=str,
+        default=None,
+        help="Primary task name (e.g. 'deepdrid_overall' or 'eyeq_quality')",
+    )
+    parser.add_argument(
+        "--primary-output",
+        type=str,
+        default=None,
+        help="Primary output head name (e.g. 'overall_quality_logits' or 'quality_logits')",
+    )
+    parser.add_argument(
+        "--class-order",
+        type=str,
+        default=None,
+        help="Comma-separated class names (e.g. 'good,poor_or_reject' or 'good,usable,reject')",
+    )
+    parser.add_argument(
         "--parity-tolerance",
         type=float,
         default=5e-4,
@@ -70,12 +88,64 @@ def main():
         ckpt_state = torch.load(ckpt_p, map_location="cpu")
     ckpt_meta = ckpt_state.get("metadata", {}) if isinstance(ckpt_state, dict) else {}
     img_size = ckpt_meta.get("resolved_config", {}).get("training", {}).get("image_size", 384)
-    trained_heads = ckpt_meta.get("trained_heads", ["quality_logits"])
-    training_datasets = ckpt_meta.get("training_datasets", ["EyeQ"])
+    training_datasets = ckpt_meta.get("training_datasets", ["DeepDRiD"])
+
+    # Determine trained heads strictly based on enabled datasets
+    if "trained_heads" in ckpt_meta:
+        trained_heads = list(ckpt_meta["trained_heads"])
+    else:
+        trained_heads = []
+        if "EyeQ" in training_datasets:
+            trained_heads.append("quality_logits")
+        if "DeepDRiD" in training_datasets:
+            trained_heads.extend(
+                [
+                    "overall_quality_logits",
+                    "artifact_logits",
+                    "clarity_logits",
+                    "field_definition_logits",
+                ]
+            )
+        if not trained_heads:
+            trained_heads = ["overall_quality_logits"]
+
+    # Determine primary head & task
+    if args.primary_output:
+        primary_output = args.primary_output
+    elif "primary_head" in ckpt_meta:
+        primary_output = ckpt_meta["primary_head"]
+    elif "overall_quality_logits" in trained_heads and "quality_logits" not in trained_heads:
+        primary_output = "overall_quality_logits"
+    elif "quality_logits" in trained_heads:
+        primary_output = "quality_logits"
+    else:
+        primary_output = trained_heads[0]
+
+    if args.primary_task:
+        primary_task = args.primary_task
+    elif primary_output == "overall_quality_logits":
+        primary_task = "deepdrid_overall"
+    elif primary_output == "quality_logits":
+        primary_task = "eyeq_quality"
+    else:
+        primary_task = "quality"
+
+    if args.class_order:
+        class_order = [c.strip() for c in args.class_order.split(",") if c.strip()]
+    elif primary_output == "overall_quality_logits":
+        class_order = ["good", "poor_or_reject"]
+    elif primary_output == "quality_logits":
+        class_order = ["good", "usable", "reject"]
+    else:
+        class_order = ["class_0", "class_1"]
 
     print(
         f"=== Exporting Trained RetinaGuard Checkpoint ({ckpt_p}) to ONNX ({out_p}) [Size: {img_size}x{img_size}] ==="
     )
+    print(
+        f"Configured Primary Head: '{primary_output}' (Task: '{primary_task}', Classes: {class_order})"
+    )
+    print(f"Trained Heads: {trained_heads}")
     model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_p)
     model.eval()
 
@@ -151,9 +221,12 @@ def main():
         "source_checkpoint_sha256": ckpt_sha,
         "onnx_model_sha256": onnx_sha,
         "image_size": [img_size, img_size],
+        "primary_task": primary_task,
+        "primary_output": primary_output,
+        "num_classes": len(class_order),
+        "class_order": class_order,
         "trained_heads": trained_heads,
         "training_datasets": training_datasets,
-        "class_order": ["good", "usable", "reject"],
         "created_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
     sidecar_path = out_p.parent / "onnx_manifest.json"
