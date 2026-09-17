@@ -17,16 +17,33 @@ class QualityProbabilities(BaseModel):
     good: float = Field(
         ..., ge=0.0, le=1.0, description="Calibrated probability of Good quality [0.0, 1.0]"
     )
-    usable: float = Field(
-        ..., ge=0.0, le=1.0, description="Calibrated probability of Usable quality [0.0, 1.0]"
+    poor_or_reject: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Calibrated probability of Poor/Reject quality (binary task) [0.0, 1.0]",
     )
-    reject: float = Field(
-        ..., ge=0.0, le=1.0, description="Calibrated probability of Reject quality [0.0, 1.0]"
+    usable: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Calibrated probability of Usable quality (3-class task) [0.0, 1.0]",
+    )
+    reject: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Calibrated probability of Reject quality (3-class task) [0.0, 1.0]",
     )
 
     @model_validator(mode="after")
     def check_sum(self) -> "QualityProbabilities":
-        total = self.good + self.usable + self.reject
+        if self.poor_or_reject is not None:
+            total = self.good + self.poor_or_reject
+        elif self.usable is not None and self.reject is not None:
+            total = self.good + self.usable + self.reject
+        else:
+            total = self.good + (self.reject if self.reject is not None else 0.0)
         if abs(total - 1.0) > 1e-3:
             raise ValueError(
                 f"Probabilities must sum to 1.0 within numerical tolerance 1e-3, got {total}"
@@ -48,8 +65,9 @@ class QualityAttributes(BaseModel):
 
 class PredictionResponse(BaseModel):
     model_version: str = Field("0.2.0", description="Model architecture & checkpoint version")
-    quality: Literal["good", "usable", "reject"] = Field(
-        ..., description="Predicted canonical quality: 'good', 'usable', or 'reject'"
+    quality: Literal["good", "poor_or_reject", "usable", "reject"] = Field(
+        ...,
+        description="Predicted canonical quality: 'good', 'poor_or_reject', 'usable', or 'reject'",
     )
     probabilities: QualityProbabilities
     calibrated_confidence: float = Field(
