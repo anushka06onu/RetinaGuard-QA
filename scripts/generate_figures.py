@@ -323,12 +323,13 @@ def main():
     print("=== Generating Scientific Figures from Recorded Outputs ===")
 
     # Generate figures only if corresponding data files exist; report status honestly
-    if (metrics_dir / "held_out_deepdrid.json").is_file():
+    dd_path = metrics_dir / "deepdrid_heldout.json" if (metrics_dir / "deepdrid_heldout.json").is_file() else metrics_dir / "held_out_deepdrid.json"
+    if dd_path.is_file() or (metrics_dir / "eyeq_test.json").is_file():
         try:
             plot_confusion_matrices(
                 fig_dir / "confusion_matrices.png",
                 eyeq_res_path=metrics_dir / "eyeq_test.json",
-                dd_res_path=metrics_dir / "held_out_deepdrid.json",
+                dd_res_path=dd_path,
             )
         except Exception as e:
             print(f"Notice (confusion matrices): {e}")
