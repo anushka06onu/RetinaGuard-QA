@@ -124,6 +124,47 @@ describe('RetinaGuard-QA Web Frontend', () => {
     });
   });
 
+  it('handles binary DeepDRiD prediction response and renders quality and attributes', async () => {
+    const mockBinaryPrediction = {
+      model_version: '0.2.0',
+      quality: 'poor_or_reject',
+      probabilities: { good: 0.12, poor_or_reject: 0.88 },
+      calibrated_confidence: 0.88,
+      uncertainty: 0.529,
+      ood_score: -1.2,
+      decision: 'recapture',
+      quality_attributes: {
+        artifact: 'mild',
+        clarity: 'low',
+        field_definition: 'adequate'
+      },
+      feedback: ['Possible blur or focus defect detected. Stabilize and refocus camera before recapture.'],
+      disclaimer: 'Technical image-quality assessment only; not a clinical diagnosis or treatment recommendation.',
+      latency_ms: 8.2
+    };
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockBinaryPrediction,
+    } as Response);
+
+    render(<App />);
+    const fileInput = screen.getByTestId('file-input');
+    const validFile = new File(['fake-bytes'], 'fundus.jpg', { type: 'image/jpeg' });
+    fireEvent.change(fileInput, { target: { files: [validFile] } });
+
+    const predictBtn = screen.getByTestId('predict-button');
+    fireEvent.click(predictBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('decision-badge')).toBeInTheDocument();
+      expect(screen.getByText(/Poor \/ Reject/i)).toBeInTheDocument();
+      expect(screen.getByText(/88.0% Conf/i)).toBeInTheDocument();
+      expect(screen.getByText(/0.529/i)).toBeInTheDocument();
+      expect(screen.getByText(/Possible blur or focus defect detected/i)).toBeInTheDocument();
+    });
+  });
+
   it('renders recapture badge correctly on recapture decision', async () => {
     const mockRecapture = {
       model_version: '0.2.0',
