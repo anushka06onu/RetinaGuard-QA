@@ -591,10 +591,10 @@ def main():
             required_checks.append(deepdrid_completed)
 
         all_required_done = (
-            all(required_checks)
-            if not is_exploratory
-            else any(required_checks)
-        ) if required_checks else False
+            (all(required_checks) if not is_exploratory else any(required_checks))
+            if required_checks
+            else False
+        )
 
         if not is_exploratory and not all_required_done:
             raise RuntimeError(
@@ -688,7 +688,11 @@ def main():
         seed_records,
         key=lambda r: float(r.get("best_validation_objective", 0.0) or 0.0),
     )
-    models_dir = campaigns_dir.parent / "models" if campaigns_dir.name == "campaigns" else campaigns_dir / "models"
+    models_dir = (
+        campaigns_dir.parent / "models"
+        if campaigns_dir.name == "campaigns"
+        else campaigns_dir / "models"
+    )
     models_dir.mkdir(parents=True, exist_ok=True)
     best_ckpt_dst = models_dir / "best.ckpt"
 
