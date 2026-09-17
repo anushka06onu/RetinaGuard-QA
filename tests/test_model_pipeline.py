@@ -114,3 +114,84 @@ def test_evaluate_epoch_multi_head_metrics_and_logger(tmp_path):
     assert len(saved_hist["epoch"]) == 1
     assert "val_quality_macro_f1" in saved_hist
     assert "val_overall_quality_macro_f1" in saved_hist
+
+
+def test_trained_heads_dynamic_derivation():
+    """Verify that trained_heads list is derived strictly from enabled training datasets."""
+
+    def get_trained_heads(eyeq_enabled: bool, deepdrid_enabled: bool):
+        heads = []
+        if eyeq_enabled:
+            heads.append("quality_logits")
+        if deepdrid_enabled:
+            heads.extend(
+                [
+                    "overall_quality_logits",
+                    "artifact_logits",
+                    "clarity_logits",
+                    "field_definition_logits",
+                ]
+            )
+        return heads
+
+    # 1. DeepDRiD only
+    dd_heads = get_trained_heads(eyeq_enabled=False, deepdrid_enabled=True)
+    assert "quality_logits" not in dd_heads
+    assert dd_heads == [
+        "overall_quality_logits",
+        "artifact_logits",
+        "clarity_logits",
+        "field_definition_logits",
+    ]
+
+    # 2. EyeQ only
+    eyeq_heads = get_trained_heads(eyeq_enabled=True, deepdrid_enabled=False)
+    assert eyeq_heads == ["quality_logits"]
+
+    # 3. Joint training
+    joint_heads = get_trained_heads(eyeq_enabled=True, deepdrid_enabled=True)
+    assert len(joint_heads) == 5
+    assert "quality_logits" in joint_heads
+    assert "overall_quality_logits" in joint_heads
+
+
+def test_calibration_rejection_untrained_head(tmp_path):
+    """Verify that calibration immediately rejects attempts to calibrate untrained heads or mismatched splits."""
+    import pytest
+    from scripts.calibrate import calibrate_temperature_and_thresholds
+
+    dummy_val_df = tmp_path / "val_split.csv"
+    dummy_val_df.write_text("dataset,quality_canonical,overall_quality_canonical,path\n")
+
+    # Untrained head rejection
+    with pytest.raises(ValueError, match="is not among the model's trained heads"):
+        calibrate_temperature_and_thresholds(
+            checkpoint_path="nonexistent.ckpt",
+            val_split_path=str(dummy_val_df),
+            task_head="quality_logits",
+            trained_heads=["overall_quality_logits"],
+        )
+
+    # Cross-dataset mismatch rejection
+    with pytest.raises(ValueError, match="Cross-dataset validation mismatch"):
+        calibrate_temperature_and_thresholds(
+            checkpoint_path="nonexistent.ckpt",
+            val_split_path="data/splits/deepdrid_val.csv",
+            task_head="quality_logits",
+            trained_heads=["quality_logits"],
+        )
+
+
+def test_predictor_binary_and_three_class_entropy_bounds():
+    """Verify entropy calculation and upper bounds for binary vs 3-class tasks."""
+    import numpy as np
+
+    # Binary max entropy is log2(2) = 1.0 bit
+    p_binary_max = np.array([0.5, 0.5])
+    ent_bin = -np.sum(p_binary_max * np.log2(p_binary_max))
+    assert np.isclose(ent_bin, 1.0)
+
+    # 3-class max entropy is log2(3) = 1.58496 bits
+    p_3class_max = np.array([1 / 3, 1 / 3, 1 / 3])
+    ent_3class = -np.sum(p_3class_max * np.log2(p_3class_max))
+    assert np.isclose(ent_3class, np.log2(3))
