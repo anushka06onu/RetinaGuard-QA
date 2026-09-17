@@ -149,6 +149,75 @@ def verify_checksum_manifest(
             except Exception as exc:
                 report["lineage_errors"].append(f"Failed to parse onnx_parity.json: {exc}")
 
+        # Campaign manifests & nested SHA256SUMS recursive verification
+        campaigns_dir = artifacts_dir / "campaigns"
+        if campaigns_dir.is_dir():
+            for c_dir in campaigns_dir.iterdir():
+                if not c_dir.is_dir():
+                    continue
+
+                # Check nested campaign SHA256SUMS if present
+                c_sha = c_dir / "SHA256SUMS"
+                if c_sha.is_file():
+                    with open(c_sha, "r") as csf:
+                        for line in csf:
+                            line = line.strip()
+                            if not line or line.startswith("#"):
+                                continue
+                            c_parts = line.split(maxsplit=1)
+                            if len(c_parts) == 2:
+                                exp_h, r_path = c_parts[0], c_parts[1].strip()
+                                # Check path containment
+                                if ".." in r_path or r_path.startswith("/"):
+                                    report["errors"].append(
+                                        f"Path containment violation in {c_sha}: {r_path}"
+                                    )
+                                target_f = c_dir / r_path
+                                if target_f.is_file():
+                                    act_h = compute_sha256(target_f)
+                                    if act_h != exp_h:
+                                        report["mismatched_files"] += 1
+                                        report["errors"].append(
+                                            f"Campaign checksum mismatch in {c_sha} for '{r_path}': actual {act_h}, expected {exp_h}"
+                                        )
+
+                # Check campaign_manifest.json
+                c_manifest = c_dir / "campaign_manifest.json"
+                if c_manifest.is_file():
+                    try:
+                        with open(c_manifest, "r") as cmf:
+                            cm_data = json.load(cmf)
+
+                        # Deployment checkpoint selection validation
+                        dep_sel = cm_data.get("deployment_checkpoint_selection", {})
+                        dep_ckpt_str = dep_sel.get("checkpoint_path")
+                        dep_ckpt_sha = dep_sel.get("checkpoint_sha256")
+                        if dep_ckpt_str and dep_ckpt_sha:
+                            dep_ckpt_p = repo_root / dep_ckpt_str
+                            if dep_ckpt_p.is_file():
+                                actual_dep_sha = compute_sha256(dep_ckpt_p)
+                                if actual_dep_sha != dep_ckpt_sha:
+                                    err = f"Campaign deployment checkpoint sha mismatch: {actual_dep_sha} vs {dep_ckpt_sha}"
+                                    report["lineage_errors"].append(err)
+                                    report["errors"].append(err)
+                            else:
+                                err = f"Campaign referenced deployment checkpoint missing at {dep_ckpt_p}"
+                                report["missing_files"] += 1
+                                report["errors"].append(err)
+
+                        # Check referenced CSV summaries
+                        for key in ["summary_csv", "per_seed_csv"]:
+                            ref_f = cm_data.get(key)
+                            if ref_f and not (c_dir / ref_f).is_file():
+                                report["missing_files"] += 1
+                                report["errors"].append(
+                                    f"Campaign manifest references missing file: {c_dir / ref_f}"
+                                )
+                    except Exception as exc:
+                        report["lineage_errors"].append(
+                            f"Failed to verify campaign manifest {c_manifest}: {exc}"
+                        )
+
     report["passed"] = (
         report["mismatched_files"] == 0
         and report["missing_files"] == 0
