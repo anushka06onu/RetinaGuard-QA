@@ -209,8 +209,10 @@ def model_info(service: QualityAssessmentService = Depends(get_service)) -> Dict
         "runtime_engine": (
             "onnxruntime_cpu" if p.ort_session else ("pytorch_cpu" if p.pt_model else "none")
         ),
-        "trained_heads": getattr(p, "supported_heads", ["quality_logits"]),
-        "quality_classes": ["good", "usable", "reject"],
+        "trained_heads": getattr(p, "supported_heads", ["overall_quality_logits"]),
+        "primary_head": getattr(p, "primary_output", "overall_quality_logits"),
+        "primary_task": getattr(p, "primary_task", "deepdrid_overall"),
+        "quality_classes": getattr(p, "class_order", ["good", "poor_or_reject"]),
         "quality_attributes": ["artifact", "clarity", "field_definition"],
         "triage_decisions": ["accept", "recapture", "manual_review", "unsupported_input"],
         "calibration_status": "loaded" if p.calibration_metadata_loaded else "uncalibrated",
