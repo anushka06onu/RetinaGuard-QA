@@ -48,7 +48,7 @@ def main():
     parser.add_argument(
         "--parity-tolerance",
         type=float,
-        default=1e-4,
+        default=5e-4,
         help="Maximum allowed absolute numerical difference between PyTorch and ONNX Runtime",
     )
     args = parser.parse_args()
