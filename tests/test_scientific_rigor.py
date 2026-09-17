@@ -64,6 +64,7 @@ def test_production_artifacts_contain_no_unsupported_metrics():
         "latency.json",
         "onnx_parity.json",
         "baselines.json",
+        "ablations.json",
     }
     metrics_files = [
         f for f in Path("artifacts/metrics").glob("*.json") if f.name not in allowed_metric_names
