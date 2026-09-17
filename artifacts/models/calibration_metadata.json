@@ -3,22 +3,21 @@
   "status": "completed",
   "eligible_as_final_result": true,
   "generated_by": "scripts/calibrate.py",
-  "git_commit": "f277e180ad4a109f37a366b3527b9ee49515fb30",
-  "dataset": "EyeQ",
-  "task": "eyeq_quality",
-  "output_head": "quality_logits",
+  "git_commit": "ad2e78890a381b253224d118a33bdab65da5e710",
+  "dataset": "DeepDRiD",
+  "task": "deepdrid_overall",
+  "output_head": "overall_quality_logits",
   "class_order": [
     "good",
-    "usable",
-    "reject"
+    "poor_or_reject"
   ],
   "valid_sample_count": 400,
-  "temperature": 1.3442,
-  "uncertainty_threshold": 1.5025,
+  "temperature": 1.3956,
+  "uncertainty_threshold": 0.9943,
   "uncertainty_unit": "bits",
   "uncertainty_definition": "predictive_entropy_base_2_bits",
-  "entropy_max": 1.58496,
-  "ood_energy_threshold": 1.5598,
+  "entropy_max": 1.0,
+  "ood_energy_threshold": 0.8473,
   "ood_score_type": "energy",
   "ood_direction": "lower_is_ood",
   "validation_split": "data/splits/deepdrid_val.csv",
@@ -28,5 +27,5 @@
   "model_checkpoint_sha256": "62ab00e0c1ba37bad1f6a2ab7e2557a23911f65b4030c78618e938387e6c0ea5",
   "onnx_model_sha256": "ae29db7ea64c3921411082cee1f44d7491b5781d04d6104815bb3c97af3a4125",
   "fitting_method": "temperature_scaling_lbfgs_and_empirical_percentiles",
-  "created_at_utc": "2026-09-16T17:59:24.029683+00:00"
+  "created_at_utc": "2026-09-17T14:04:25.383581+00:00"
 }
