@@ -18,40 +18,40 @@
     "num_test_images": 50
   },
   "model_file_size_mb": 19.27,
-  "peak_resident_memory_mb": 1387.48,
-  "throughput_images_per_sec": 19.43,
+  "peak_resident_memory_mb": 1535.22,
+  "throughput_images_per_sec": 20.14,
   "latency_breakdown": {
     "preprocessing": {
-      "median_ms": 27.84,
-      "mean_ms": 32.17,
-      "p95_ms": 54.22,
-      "p99_ms": 58.97,
-      "min_ms": 20.21,
-      "max_ms": 62.56
+      "median_ms": 26.59,
+      "mean_ms": 29.66,
+      "p95_ms": 50.73,
+      "p99_ms": 52.49,
+      "min_ms": 20.36,
+      "max_ms": 53.69
     },
     "onnx_inference": {
-      "median_ms": 8.02,
-      "mean_ms": 8.45,
-      "p95_ms": 12.1,
-      "p99_ms": 13.08,
-      "min_ms": 7.69,
-      "max_ms": 15.14
+      "median_ms": 8.42,
+      "mean_ms": 8.49,
+      "p95_ms": 10.54,
+      "p99_ms": 15.25,
+      "min_ms": 7.67,
+      "max_ms": 16.45
     },
     "postprocessing_and_policy": {
-      "median_ms": 11.01,
-      "mean_ms": 10.89,
-      "p95_ms": 15.18,
-      "p99_ms": 18.25,
-      "min_ms": 0.0,
-      "max_ms": 18.74
+      "median_ms": 11.7,
+      "mean_ms": 11.5,
+      "p95_ms": 14.86,
+      "p99_ms": 15.41,
+      "min_ms": 4.5,
+      "max_ms": 15.98
     },
     "end_to_end_total": {
-      "median_ms": 48.61,
-      "mean_ms": 51.47,
-      "p95_ms": 74.32,
-      "p99_ms": 76.51,
-      "min_ms": 35.74,
-      "max_ms": 85.77
+      "median_ms": 47.84,
+      "mean_ms": 49.65,
+      "p95_ms": 71.06,
+      "p99_ms": 72.62,
+      "min_ms": 35.4,
+      "max_ms": 73.21
     }
   }
 }
