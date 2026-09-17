@@ -297,7 +297,14 @@ def main():
         id_mod_labels = np.ones(len(id_records))
         syn_mod_labels = np.zeros(len(syn_arr))
         y_mod_true = np.concatenate([id_mod_labels, syn_mod_labels])
-        y_mod_pred = np.concatenate([np.ones(id_modality_passes), np.zeros(len(id_records) - id_modality_passes), np.ones(syn_modality_passed), np.zeros(len(syn_arr) - syn_modality_passed)])
+        y_mod_pred = np.concatenate(
+            [
+                np.ones(id_modality_passes),
+                np.zeros(len(id_records) - id_modality_passes),
+                np.ones(syn_modality_passed),
+                np.zeros(len(syn_arr) - syn_modality_passed),
+            ]
+        )
         modality_auroc = float(roc_auc_score(y_mod_true, y_mod_pred))
 
         benchmarks["synthetic_noise_stress_test"] = {
