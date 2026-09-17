@@ -1,11 +1,10 @@
 {
-  "dataset": "EyeQ",
-  "task": "eyeq_quality",
-  "output_head": "quality_logits",
+  "dataset": "DeepDRiD",
+  "task": "deepdrid_overall",
+  "output_head": "overall_quality_logits",
   "class_order": [
     "good",
-    "usable",
-    "reject"
+    "poor_or_reject"
   ],
   "valid_sample_count": 400,
   "split_path": "data/splits/deepdrid_val.csv",
@@ -13,30 +12,30 @@
   "source_checkpoint": "artifacts/models/best.ckpt",
   "source_checkpoint_sha256": "62ab00e0c1ba37bad1f6a2ab7e2557a23911f65b4030c78618e938387e6c0ea5",
   "onnx_model_sha256": "ae29db7ea64c3921411082cee1f44d7491b5781d04d6104815bb3c97af3a4125",
-  "optimal_temperature": 1.3442,
+  "optimal_temperature": 1.3956,
   "uncertainty_definition": "predictive_entropy_base_2_bits",
-  "uncertainty_threshold": 1.5025,
-  "ood_energy_threshold": 1.5598,
+  "uncertainty_threshold": 0.9943,
+  "ood_energy_threshold": 0.8473,
   "threshold_selection_method": "temperature_scaling_lbfgs_and_empirical_percentiles",
   "uncalibrated_ece": {
-    "ece": 0.142,
-    "mce": 0.3661,
-    "avg_confidence": 0.8057,
-    "accuracy": 0.6775
+    "ece": 0.1295,
+    "mce": 0.2154,
+    "avg_confidence": 0.8702,
+    "accuracy": 0.7425
   },
   "calibrated_ece": {
-    "ece": 0.1032,
-    "mce": 0.3635,
-    "avg_confidence": 0.7456,
-    "accuracy": 0.6775
+    "ece": 0.1018,
+    "mce": 0.1405,
+    "avg_confidence": 0.8244,
+    "accuracy": 0.7425
   },
-  "uncalibrated_brier": 0.498,
-  "calibrated_brier": 0.4803,
-  "aurc": 0.2461,
+  "uncalibrated_brier": 0.3997,
+  "calibrated_brier": 0.38,
+  "aurc": 0.1729,
   "selective_abstention_at_0_75": {
-    "coverage": 0.54,
-    "abstention_rate": 0.46,
-    "selective_accuracy": 0.7546,
-    "selective_error": 0.2454
+    "coverage": 0.715,
+    "abstention_rate": 0.285,
+    "selective_accuracy": 0.7902,
+    "selective_error": 0.2098
   }
 }
