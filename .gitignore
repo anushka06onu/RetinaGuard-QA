@@ -33,8 +33,10 @@ data/processed/*
 !data/processed/.gitkeep
 data/manifests/*
 !data/manifests/.gitkeep
+!data/manifests/*.csv
 data/splits/*
 !data/splits/.gitkeep
+!data/splits/*.csv
 
 # Environment variables & secrets
 .env
