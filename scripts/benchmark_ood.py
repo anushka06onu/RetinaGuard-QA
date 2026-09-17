@@ -305,6 +305,8 @@ def main():
             "num_samples": len(syn_arr),
             "modality_gate_auroc": modality_auroc,
             "modality_gate_rejection_rate": float(1.0 - (syn_modality_passed / len(syn_arr))),
+            "auroc": float(roc_auc_score(y_true, y_scores)),
+            "fpr_at_95_tpr": float(compute_fpr_at_95_tpr(y_true, y_scores)),
             "energy_score_auroc": float(roc_auc_score(y_true, y_scores)),
             "energy_score_auprc": float(auc(recall, precision)),
             "energy_score_fpr_at_95_tpr": float(compute_fpr_at_95_tpr(y_true, y_scores)),
