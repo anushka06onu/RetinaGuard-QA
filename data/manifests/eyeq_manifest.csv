@@ -1,0 +1,1 @@
+dataset,image_id,patient_id,eye,path,width,height,sha256,quality_raw,quality_canonical,overall_quality_raw,overall_quality_canonical,artifact,clarity,field_definition,source_split,label_available
