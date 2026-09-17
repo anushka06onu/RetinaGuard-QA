@@ -210,8 +210,8 @@ def test_deepdrid_adapter_label_validations_and_exclusions(tmp_path):
     assert df_manifest.iloc[0]["overall_quality_canonical"] == "good"
     assert df_manifest.iloc[1]["overall_quality_canonical"] == "good"
     assert df_manifest.iloc[2]["overall_quality_canonical"] == "reject"
-    # Ensure quality_raw and quality_canonical are None for DeepDRiD
-    assert df_manifest.iloc[0]["quality_canonical"] is None
+    # Ensure quality_canonical is mapped to canonical 3-class for DeepDRiD
+    assert df_manifest.iloc[0]["quality_canonical"] == "good"
 
     ex_df = pd.read_csv(ex_csv)
     assert len(ex_df) == 1
