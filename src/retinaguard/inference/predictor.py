@@ -78,6 +78,17 @@ class RetinaGuardPredictor:
                     self.image_size = img_sz[0]
                 self.preprocessing_metadata_loaded = True
 
+        self.supported_heads: List[str] = [
+            "overall_quality_logits",
+            "artifact_logits",
+            "clarity_logits",
+            "field_definition_logits",
+        ]
+        self.primary_task: str = "deepdrid_overall"
+        self.primary_output: str = "overall_quality_logits"
+        self.class_order: List[str] = ["good", "poor_or_reject"]
+        self.num_classes: int = 2
+
         # Load authoritative calibration temperature and decision thresholds if present
         if calibration_config_path:
             cal_path = Path(calibration_config_path)
@@ -149,8 +160,9 @@ class RetinaGuardPredictor:
                             f"Invalid uncertainty_threshold format in {calibration_config_path}: {u_val}"
                         ) from exc
 
-                    # For 3-class classification, base-2 Shannon entropy upper bound is log2(3) ≈ 1.58496 bits
-                    max_entropy = np.log2(3.0) + 1e-3
+                    # Upper bound is log2(num_classes) bits (1.0 for binary, ~1.585 for 3-class)
+                    num_cls = len(cal_cfg.get("class_order", self.class_order))
+                    max_entropy = np.log2(float(max(num_cls, 2))) + 1e-3
                     if not np.isfinite(u_thresh) or u_thresh <= 0.0 or u_thresh > max_entropy:
                         raise ValueError(
                             f"Invalid uncertainty_threshold in {calibration_config_path}: {u_thresh}. Must be finite and in range (0.0, {max_entropy:.4f}] bits."
@@ -208,14 +220,6 @@ class RetinaGuardPredictor:
                             f"Model hash mismatch in production mode: loaded {model_path} ({actual_sha}) != metadata expected ({expected_sha})"
                         )
                     self.model_hash_verified = True
-
-        self.supported_heads = [
-            "quality_logits",
-            "overall_quality_logits",
-            "artifact_logits",
-            "clarity_logits",
-            "field_definition_logits",
-        ]
 
         if allow_test_fallback:
             self.artifact_status_valid = True
@@ -349,6 +353,28 @@ class RetinaGuardPredictor:
                         )
                     self.supported_heads = sidecar_heads
 
+                # Read primary output and class order
+                if "primary_output" in sidecar_data:
+                    self.primary_output = sidecar_data["primary_output"]
+                elif "overall_quality_logits" in self.supported_heads and "quality_logits" not in self.supported_heads:
+                    self.primary_output = "overall_quality_logits"
+                elif "quality_logits" in self.supported_heads:
+                    self.primary_output = "quality_logits"
+
+                if "primary_task" in sidecar_data:
+                    self.primary_task = sidecar_data["primary_task"]
+                elif self.primary_output == "overall_quality_logits":
+                    self.primary_task = "deepdrid_overall"
+
+                if self.primary_output not in out_names:
+                    raise ValueError(
+                        f"ONNX contract violation: primary output '{self.primary_output}' not found in model outputs {out_names}"
+                    )
+                if self.primary_output not in self.supported_heads:
+                    raise ValueError(
+                        f"ONNX contract violation: primary output '{self.primary_output}' is not in trained heads {self.supported_heads}"
+                    )
+
                 # 3. Verify image size equals input dimensions
                 if "image_size" in sidecar_data:
                     sidecar_sz = sidecar_data["image_size"]
@@ -360,11 +386,11 @@ class RetinaGuardPredictor:
 
                 # 4. Verify class order matches inference schema
                 if "class_order" in sidecar_data:
-                    expected_order = ["good", "usable", "reject"]
-                    if list(sidecar_data["class_order"]) != expected_order:
-                        raise ValueError(
-                            f"ONNX sidecar class_order mismatch: expected {expected_order}, got {sidecar_data['class_order']}"
-                        )
+                    self.class_order = list(sidecar_data["class_order"])
+                    self.num_classes = len(self.class_order)
+                elif self.primary_output == "overall_quality_logits":
+                    self.class_order = ["good", "poor_or_reject"]
+                    self.num_classes = 2
 
                 # 5. Verify source checkpoint matches preprocessing metadata if available
                 if self.preprocessing_metadata and "source_checkpoint_sha256" in sidecar_data:
@@ -396,15 +422,21 @@ class RetinaGuardPredictor:
                 if "trained_heads" in metadata:
                     self.supported_heads = list(metadata["trained_heads"])
                 elif "training_datasets" in metadata:
-                    trained_heads = ["quality_logits"]
+                    trained_heads = []
+                    if "EyeQ" in metadata["training_datasets"]:
+                        trained_heads.append("quality_logits")
                     if "DeepDRiD" in metadata["training_datasets"]:
-                        trained_heads += [
-                            "overall_quality_logits",
-                            "artifact_logits",
-                            "clarity_logits",
-                            "field_definition_logits",
-                        ]
-                    self.supported_heads = trained_heads
+                        trained_heads.extend(
+                            [
+                                "overall_quality_logits",
+                                "artifact_logits",
+                                "clarity_logits",
+                                "field_definition_logits",
+                            ]
+                        )
+                    self.supported_heads = (
+                        trained_heads if trained_heads else ["overall_quality_logits"]
+                    )
                 elif (
                     metadata.get("resolved_config", {})
                     .get("data", {})
@@ -414,6 +446,20 @@ class RetinaGuardPredictor:
                     is False
                 ):
                     self.supported_heads = ["quality_logits"]
+
+                if "primary_head" in metadata:
+                    self.primary_output = metadata["primary_head"]
+                elif "overall_quality_logits" in self.supported_heads:
+                    self.primary_output = "overall_quality_logits"
+
+                if self.primary_output == "overall_quality_logits":
+                    self.primary_task = "deepdrid_overall"
+                    self.class_order = ["good", "poor_or_reject"]
+                    self.num_classes = 2
+                else:
+                    self.primary_task = "eyeq_quality"
+                    self.class_order = ["good", "usable", "reject"]
+                    self.num_classes = 3
             else:
                 model = RetinaGuardMultiTaskModel(pretrained=False)
             if isinstance(state, dict) and "state_dict" in state:
@@ -460,10 +506,14 @@ class RetinaGuardPredictor:
             ort_outs = self.ort_session.run(None, {inp_name: tensor.numpy()})
             out_dict = dict(zip(out_names, ort_outs))
 
-            if "quality_logits" in out_dict:
+            if self.primary_output in out_dict:
+                q_logits = out_dict[self.primary_output][0][: self.num_classes]
+            elif "overall_quality_logits" in out_dict and self.num_classes == 2:
+                q_logits = out_dict["overall_quality_logits"][0][:2]
+            elif "quality_logits" in out_dict and self.num_classes == 3:
                 q_logits = out_dict["quality_logits"][0][:3]
             else:
-                q_logits = ort_outs[0][0][:3]
+                q_logits = ort_outs[0][0][: self.num_classes]
 
             if "artifact_logits" in out_dict and "artifact_logits" in self.supported_heads:
                 attributes_raw["artifact"] = int(np.argmax(out_dict["artifact_logits"][0]))
@@ -487,7 +537,13 @@ class RetinaGuardPredictor:
         else:
             with torch.no_grad():
                 out = self.pt_model(tensor)
-                q_logits = out["quality_logits"][0].cpu().numpy()
+                if self.primary_output in out:
+                    q_logits = out[self.primary_output][0][: self.num_classes].cpu().numpy()
+                elif "overall_quality_logits" in out and self.num_classes == 2:
+                    q_logits = out["overall_quality_logits"][0][:2].cpu().numpy()
+                else:
+                    q_logits = out["quality_logits"][0][: self.num_classes].cpu().numpy()
+
                 if "artifact_logits" in self.supported_heads:
                     attributes_raw["artifact"] = int(torch.argmax(out["artifact_logits"][0]).item())
                 if "clarity_logits" in self.supported_heads:
@@ -501,9 +557,8 @@ class RetinaGuardPredictor:
         scaled_logits = q_logits / max(self.temperature, 1e-4)
         probs_arr = softmax(scaled_logits, axis=-1)
         probs_dict = {
-            "good": float(probs_arr[0]),
-            "usable": float(probs_arr[1]),
-            "reject": float(probs_arr[2]),
+            self.class_order[i]: float(probs_arr[i])
+            for i in range(min(len(self.class_order), len(probs_arr)))
         }
         uncertainty = compute_entropy(probs_arr)
         ood_score = float(compute_energy_score(q_logits[None, :], temperature=self.temperature)[0])
