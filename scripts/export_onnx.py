@@ -91,23 +91,27 @@ def main():
     training_datasets = ckpt_meta.get("training_datasets", ["DeepDRiD"])
 
     # Determine trained heads strictly based on enabled datasets
-    if "trained_heads" in ckpt_meta:
+    if "EyeQ" in training_datasets and "DeepDRiD" in training_datasets:
+        trained_heads = [
+            "quality_logits",
+            "overall_quality_logits",
+            "artifact_logits",
+            "clarity_logits",
+            "field_definition_logits",
+        ]
+    elif "DeepDRiD" in training_datasets:
+        trained_heads = [
+            "overall_quality_logits",
+            "artifact_logits",
+            "clarity_logits",
+            "field_definition_logits",
+        ]
+    elif "EyeQ" in training_datasets:
+        trained_heads = ["quality_logits"]
+    elif "trained_heads" in ckpt_meta:
         trained_heads = list(ckpt_meta["trained_heads"])
     else:
-        trained_heads = []
-        if "EyeQ" in training_datasets:
-            trained_heads.append("quality_logits")
-        if "DeepDRiD" in training_datasets:
-            trained_heads.extend(
-                [
-                    "overall_quality_logits",
-                    "artifact_logits",
-                    "clarity_logits",
-                    "field_definition_logits",
-                ]
-            )
-        if not trained_heads:
-            trained_heads = ["overall_quality_logits"]
+        trained_heads = ["overall_quality_logits"]
 
     # Determine primary head & task
     if args.primary_output:
