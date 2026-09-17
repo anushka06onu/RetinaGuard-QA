@@ -2,13 +2,13 @@
   "status": "completed_parity",
   "eligible_as_deployment_evidence": true,
   "eligible_as_predictive_performance_result": false,
-  "overall_max_error": 1.704692840576172e-05,
+  "overall_max_error": 1.990795135498047e-05,
   "parity_tolerance": 0.0005,
   "parity_passed": true,
   "heads": {
     "quality_logits": {
-      "max_absolute_error": 1.1920928955078125e-05,
-      "mean_absolute_error": 8.622805580671411e-06,
+      "max_absolute_error": 4.76837158203125e-06,
+      "mean_absolute_error": 3.6756198369403137e-06,
       "shape": [
         1,
         3
@@ -16,8 +16,8 @@
       "parity_passed": true
     },
     "overall_quality_logits": {
-      "max_absolute_error": 1.704692840576172e-05,
-      "mean_absolute_error": 8.761882781982422e-06,
+      "max_absolute_error": 9.98377799987793e-06,
+      "mean_absolute_error": 7.614493370056152e-06,
       "shape": [
         1,
         2
@@ -25,8 +25,8 @@
       "parity_passed": true
     },
     "artifact_logits": {
-      "max_absolute_error": 1.239776611328125e-05,
-      "mean_absolute_error": 7.828076377336401e-06,
+      "max_absolute_error": 1.990795135498047e-05,
+      "mean_absolute_error": 1.4801819816057105e-05,
       "shape": [
         1,
         3
@@ -34,8 +34,8 @@
       "parity_passed": true
     },
     "clarity_logits": {
-      "max_absolute_error": 1.043081283569336e-05,
-      "mean_absolute_error": 4.986921794625232e-06,
+      "max_absolute_error": 1.728534698486328e-05,
+      "mean_absolute_error": 8.553266525268555e-06,
       "shape": [
         1,
         3
@@ -43,8 +43,8 @@
       "parity_passed": true
     },
     "field_definition_logits": {
-      "max_absolute_error": 9.5367431640625e-06,
-      "mean_absolute_error": 5.245208740234375e-06,
+      "max_absolute_error": 1.4781951904296875e-05,
+      "mean_absolute_error": 1.2973944649274927e-05,
       "shape": [
         1,
         3
@@ -52,8 +52,8 @@
       "parity_passed": true
     },
     "latent_features": {
-      "max_absolute_error": 2.473592758178711e-06,
-      "mean_absolute_error": 6.720654255332192e-07,
+      "max_absolute_error": 3.2708048820495605e-06,
+      "mean_absolute_error": 7.092673968145391e-07,
       "shape": [
         1,
         128
@@ -71,5 +71,5 @@
     "onnx": "1.22.0",
     "onnxruntime": "1.23.2"
   },
-  "verified_at_utc": "2026-09-17T13:26:19.872994+00:00"
+  "verified_at_utc": "2026-09-17T14:03:22.681676+00:00"
 }
