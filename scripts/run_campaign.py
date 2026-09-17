@@ -691,7 +691,7 @@ def main():
     models_dir = campaigns_dir.parent / "models" if campaigns_dir.name == "campaigns" else campaigns_dir / "models"
     models_dir.mkdir(parents=True, exist_ok=True)
     best_ckpt_dst = models_dir / "best.ckpt"
-    
+
     src_ckpt_p = Path(selected_seed_entry.get("checkpoint_path", ""))
     if not args.fixture_mode and src_ckpt_p.is_file():
         shutil.copy2(src_ckpt_p, best_ckpt_dst)
