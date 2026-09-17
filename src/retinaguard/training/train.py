@@ -373,14 +373,20 @@ def run_training_experiment(
         if is_best:
             best_val_score = float(val_score or 0.0)
 
-            trained_heads = ["quality_logits"]
+            trained_heads = []
+            if "EyeQ" in training_dataset_names:
+                trained_heads.append("quality_logits")
             if "DeepDRiD" in training_dataset_names:
-                trained_heads += [
-                    "overall_quality_logits",
-                    "artifact_logits",
-                    "clarity_logits",
-                    "field_definition_logits",
-                ]
+                trained_heads.extend(
+                    [
+                        "overall_quality_logits",
+                        "artifact_logits",
+                        "clarity_logits",
+                        "field_definition_logits",
+                    ]
+                )
+            if not trained_heads:
+                trained_heads = ["overall_quality_logits"]
 
             # Rich Checkpoint Provenance (Item 12 & Item 13)
             checkpoint_metadata = {
@@ -398,13 +404,18 @@ def run_training_experiment(
                 },
                 "class_mappings": {
                     "quality": ["good", "usable", "reject"],
-                    "overall_quality": ["good", "poor_reject"],
+                    "overall_quality": ["good", "poor_or_reject"],
                     "artifact": [0, 1, 2],
                     "clarity": [0, 1, 2],
                     "field_definition": [0, 1, 2],
                 },
                 "training_datasets": training_dataset_names,
                 "trained_heads": trained_heads,
+                "primary_head": (
+                    "quality_logits"
+                    if "quality_logits" in trained_heads
+                    else "overall_quality_logits"
+                ),
                 "seed": seed,
                 "epoch": epoch,
                 "selection_metric": train_cfg.get("selection_metric", "primary_macro_f1"),
@@ -436,14 +447,20 @@ def run_training_experiment(
             print(f"Early stopping triggered at epoch {epoch}")
             break
 
-    trained_heads_final = ["quality_logits"]
+    trained_heads_final = []
+    if "EyeQ" in training_dataset_names:
+        trained_heads_final.append("quality_logits")
     if "DeepDRiD" in training_dataset_names:
-        trained_heads_final += [
-            "overall_quality_logits",
-            "artifact_logits",
-            "clarity_logits",
-            "field_definition_logits",
-        ]
+        trained_heads_final.extend(
+            [
+                "overall_quality_logits",
+                "artifact_logits",
+                "clarity_logits",
+                "field_definition_logits",
+            ]
+        )
+    if not trained_heads_final:
+        trained_heads_final = ["overall_quality_logits"]
 
     return {
         "best_validation_objective": best_val_score,
