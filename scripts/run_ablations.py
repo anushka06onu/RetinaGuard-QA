@@ -149,7 +149,7 @@ def run_ablation_experiment(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Run essential ablation studies (Single-Task vs Multi-Task, Attribute Losses)."
+        description="Run essential ablation studies (Single-Task vs Multi-Task, Attribute Losses, Smoothing)."
     )
     parser.add_argument("--base-config", type=str, default="configs/train_multitask.yaml")
     parser.add_argument("--eyeq-split", type=str, default="data/splits/eyeq_test.csv")
@@ -163,7 +163,7 @@ def main():
         default=[2026, 2027, 2028],
         help="List of random seeds to execute per ablation variant",
     )
-    parser.add_argument("--output-dir", type=str, default="artifacts/ablations")
+    parser.add_argument("--output-dir", type=str, default="artifacts/metrics")
     parser.add_argument("--smoke-test", action="store_true")
     args = parser.parse_args()
 
@@ -182,17 +182,11 @@ def main():
             {},
         ),
         (
-            "singletask_eyeq",
-            "configs/train_eyeq.yaml",
-            {},
-        ),
-        (
-            "no_attribute_losses",
+            "singletask_overall_quality",
             args.base_config,
             {
                 "model": {
                     "heads": {
-                        "quality": {"num_classes": 3, "weight": 1.0},
                         "overall_quality": {"num_classes": 2, "weight": 1.0},
                         "artifact": {"num_classes": 3, "weight": 0.0},
                         "clarity": {"num_classes": 3, "weight": 0.0},
@@ -201,11 +195,34 @@ def main():
                 }
             },
         ),
+        (
+            "no_label_smoothing",
+            args.base_config,
+            {
+                "loss": {
+                    "label_smoothing": 0.0,
+                }
+            },
+        ),
+        (
+            "aux_weight_1_0",
+            args.base_config,
+            {
+                "model": {
+                    "heads": {
+                        "overall_quality": {"num_classes": 2, "weight": 1.0},
+                        "artifact": {"num_classes": 3, "weight": 1.0},
+                        "clarity": {"num_classes": 3, "weight": 1.0},
+                        "field_definition": {"num_classes": 3, "weight": 1.0},
+                    }
+                }
+            },
+        ),
     ]
 
     all_seed_results = []
     for name, cfg_path, overrides in ablations:
-        variant_dir = out_base / name
+        variant_dir = out_base / "ablations_runs" / name
         variant_dir.mkdir(parents=True, exist_ok=True)
         for seed in args.seeds:
             print(f"\n>>> Running Ablation Variant: {name} (Seed {seed})...")
@@ -235,8 +252,6 @@ def main():
         variant_df = df_seed_ablations[df_seed_ablations["variant"] == name]
         row: Dict[str, Any] = {"variant": name, "num_seeds": len(variant_df)}
         for metric in [
-            "eyeq_macro_f1",
-            "eyeq_accuracy",
             "deepdrid_macro_f1",
             "deepdrid_accuracy",
             "best_val_macro_f1",
