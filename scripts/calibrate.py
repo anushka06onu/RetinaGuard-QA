@@ -70,6 +70,26 @@ def main():
             f"Validation split file not found at {args.val_split}. Calibration requires verified validation data."
         )
 
+    ckpt_state = torch.load(ckpt_p, map_location="cpu", weights_only=False) if hasattr(torch, "load") else {}
+    ckpt_meta = ckpt_state.get("metadata", {}) if isinstance(ckpt_state, dict) else {}
+    trained_heads = ckpt_meta.get("trained_heads", [])
+
+    output_head = "quality_logits" if args.task == "eyeq_quality" else "overall_quality_logits"
+    if trained_heads and output_head not in trained_heads:
+        raise ValueError(
+            f"Calibration error: requested head '{output_head}' for task '{args.task}' is not among trained heads: {trained_heads}."
+        )
+
+    # Reject mismatched dataset/split combinations
+    if args.task == "eyeq_quality" and "deepdrid" in str(val_p).lower():
+        raise ValueError(
+            f"Mismatched task and validation split: task '{args.task}' requested with DeepDRiD split '{val_p}'."
+        )
+    if args.task == "deepdrid_overall" and "eyeq" in str(val_p).lower():
+        raise ValueError(
+            f"Mismatched task and validation split: task '{args.task}' requested with EyeQ split '{val_p}'."
+        )
+
     out_p = Path(args.output_dir)
     out_p.mkdir(parents=True, exist_ok=True)
 
@@ -116,7 +136,7 @@ def main():
 
     num_classes = 3 if args.task == "eyeq_quality" else 2
     class_order = (
-        ["good", "usable", "reject"] if args.task == "eyeq_quality" else ["good", "poor_reject"]
+        ["good", "usable", "reject"] if args.task == "eyeq_quality" else ["good", "poor_or_reject"]
     )
 
     # 1. Evaluate uncalibrated predictions
