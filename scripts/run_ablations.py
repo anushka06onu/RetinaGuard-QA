@@ -53,8 +53,9 @@ def run_ablation_experiment(
     if ckpt_path.is_file() and history_p.is_file():
         with open(history_p, "r", encoding="utf-8") as f:
             hist = json.load(f)
-        best_val = max((ep.get("val_macro_f1", 0.0) for ep in hist), default=0.0)
-        epochs_trained = len(hist)
+        val_f1_list = hist.get("val_macro_f1", [0.0])
+        best_val = max(val_f1_list) if val_f1_list else 0.0
+        epochs_trained = len(hist.get("epoch", []))
         train_res = {
             "checkpoint_path": str(ckpt_path),
             "best_val_macro_f1": best_val,
