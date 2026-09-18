@@ -116,12 +116,12 @@
   },
   "eligible_as_final_result": true,
   "generated_by": "scripts/evaluate.py",
-  "git_commit": "e488636c72c331646e22f8c1f90b45fde91d65f9",
+  "git_commit": "ffd37ee14059f865a8c7e241c7241332ec3e96ab",
   "checkpoint_path": "artifacts/models/best.ckpt",
   "checkpoint_sha256": "62ab00e0c1ba37bad1f6a2ab7e2557a23911f65b4030c78618e938387e6c0ea5",
   "split_path": "data/splits/deepdrid_external_test.csv",
   "split_sha256": "ed61d43d2b41dda38b7ccd38ed78623f4452ddf2a122963f1a704c186050922e",
   "prediction_file": "artifacts/predictions/deepdrid_heldout_predictions.csv",
-  "prediction_file_sha256": "75fe44f57b39a76f25b5c6e07bc852bd1bdb4c6775f7aa0608d86bfa90068ced",
-  "created_at_utc": "2026-09-16T18:00:18.684679+00:00"
+  "prediction_file_sha256": "4736259b044103959a2a9ccddbfeb0eaa828d60618133da887ae453eb53451dc",
+  "created_at_utc": "2026-09-18T17:29:38.967000+00:00"
 }
