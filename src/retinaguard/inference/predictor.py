@@ -3,7 +3,7 @@
 import json
 import time
 from pathlib import Path
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import numpy as np
 import torch
