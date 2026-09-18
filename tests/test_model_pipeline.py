@@ -1,6 +1,7 @@
 """Unit tests for models, masked multi-task losses, and baselines."""
 
 import numpy as np
+import pytest
 import torch
 from PIL import Image
 
@@ -157,7 +158,6 @@ def test_trained_heads_dynamic_derivation():
 
 def test_calibration_rejection_untrained_head(tmp_path):
     """Verify that calibration immediately rejects attempts to calibrate untrained heads or mismatched splits."""
-    import pytest
     from scripts.calibrate import calibrate_temperature_and_thresholds
 
     dummy_val_df = tmp_path / "val_split.csv"
