@@ -1,0 +1,5 @@
+variant,num_seeds,deepdrid_macro_f1_mean,deepdrid_macro_f1_std,deepdrid_accuracy_mean,deepdrid_accuracy_std,best_val_macro_f1_mean,best_val_macro_f1_std
+proposed_multitask,3,0.7446,0.0191,0.7467,0.0188,0.6351,0.0165
+singletask_overall_quality,3,0.7419,0.0053,0.7425,0.005,0.4586,0.0321
+no_label_smoothing,3,0.7319,0.0226,0.7333,0.024,0.6418,0.01
+aux_weight_1_0,3,0.7178,0.034,0.7217,0.0338,0.6318,0.0114
