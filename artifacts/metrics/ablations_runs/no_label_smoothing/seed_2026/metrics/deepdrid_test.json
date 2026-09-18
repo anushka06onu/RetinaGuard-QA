@@ -1,0 +1,128 @@
+{
+  "macro_f1": 0.7514,
+  "weighted_f1": 0.7544,
+  "balanced_accuracy": 0.7505,
+  "accuracy": 0.755,
+  "quadratic_weighted_kappa": 0.503,
+  "confusion_matrix": [
+    [
+      127,
+      53
+    ],
+    [
+      45,
+      175
+    ]
+  ],
+  "per_class_f1": {
+    "good": 0.7215909090909091,
+    "poor_reject": 0.78125
+  },
+  "per_class_precision": {
+    "good": 0.7383720930232558,
+    "poor_reject": 0.7675438596491229
+  },
+  "per_class_recall": {
+    "good": 0.7055555555555556,
+    "poor_reject": 0.7954545454545454
+  },
+  "ovr_auroc": null,
+  "macro_f1_95_ci": {
+    "point_estimate": 0.7514,
+    "observed_metric": 0.7514,
+    "bootstrap_mean": 0.75,
+    "ci_lower": 0.7034,
+    "ci_upper": 0.7936,
+    "ci_level": 0.95,
+    "num_bootstraps": 1000,
+    "num_patients": 100,
+    "seed": 2026
+  },
+  "num_samples": 400,
+  "num_patients": 100,
+  "dataset": "DeepDRiD Test (no_label_smoothing_seed_2026)",
+  "total_records_in_split": 400,
+  "status": "completed",
+  "attribute_metrics": {
+    "artifact": {
+      "macro_f1": 0.7407,
+      "qwk": 0.7815,
+      "mae": 0.2575,
+      "confusion_matrix": [
+        [
+          167,
+          13,
+          12
+        ],
+        [
+          15,
+          44,
+          26
+        ],
+        [
+          5,
+          15,
+          103
+        ]
+      ],
+      "num_samples": 400
+    },
+    "clarity": {
+      "macro_f1": 0.6197,
+      "qwk": 0.6649,
+      "mae": 0.1825,
+      "confusion_matrix": [
+        [
+          224,
+          31,
+          0
+        ],
+        [
+          28,
+          102,
+          0
+        ],
+        [
+          1,
+          12,
+          2
+        ]
+      ],
+      "num_samples": 400
+    },
+    "field_definition": {
+      "macro_f1": 0.4619,
+      "qwk": 0.3384,
+      "mae": 0.2,
+      "confusion_matrix": [
+        [
+          302,
+          21,
+          0
+        ],
+        [
+          34,
+          28,
+          0
+        ],
+        [
+          10,
+          5,
+          0
+        ]
+      ],
+      "num_samples": 400
+    }
+  },
+  "eligible_as_final_result": true,
+  "generated_by": "scripts/run_ablations.py",
+  "git_commit": "2a11c7b87e236bf784ab4a99153533461c175879",
+  "seed": 2026,
+  "checkpoint_path": "artifacts/metrics/ablations_runs/no_label_smoothing/seed_2026/best.ckpt",
+  "checkpoint_sha256": "2eb2d5fe01e8b9cb74f71f9e4d45213162ba079d7ed2c6ae7e3dd497e40c14ae",
+  "split_path": "data/splits/deepdrid_external_test.csv",
+  "split_sha256": "ed61d43d2b41dda38b7ccd38ed78623f4452ddf2a122963f1a704c186050922e",
+  "prediction_file": "artifacts/metrics/ablations_runs/no_label_smoothing/seed_2026/predictions/deepdrid_test_predictions.csv",
+  "prediction_file_sha256": "36a43d659d19356dd31ac85f081af1501a452711a299f8951e7dcf13a31fdd4b",
+  "created_at_utc": "2026-09-18T08:13:55.974951+00:00"
+}

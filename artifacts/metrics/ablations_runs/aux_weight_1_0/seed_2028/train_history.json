@@ -1,0 +1,66 @@
+{
+  "epoch": [
+    1,
+    2
+  ],
+  "train_loss": [
+    3.7773,
+    2.8525
+  ],
+  "val_loss": [
+    3.1792,
+    3.0208
+  ],
+  "val_macro_f1": [
+    0.6187,
+    0.6067
+  ],
+  "val_quality_macro_f1": [
+    0.5884,
+    0.5893
+  ],
+  "val_overall_quality_macro_f1": [
+    0.7395,
+    0.7219
+  ],
+  "val_artifact_macro_f1": [
+    0.7248,
+    0.7075
+  ],
+  "val_artifact_qwk": [
+    0.7358,
+    0.7724
+  ],
+  "val_artifact_mae": [
+    0.2975,
+    0.2875
+  ],
+  "val_clarity_macro_f1": [
+    0.6168,
+    0.6115
+  ],
+  "val_clarity_qwk": [
+    0.6036,
+    0.5869
+  ],
+  "val_clarity_mae": [
+    0.185,
+    0.1975
+  ],
+  "val_field_definition_macro_f1": [
+    0.4818,
+    0.4404
+  ],
+  "val_field_definition_qwk": [
+    0.4263,
+    0.3169
+  ],
+  "val_field_definition_mae": [
+    0.2125,
+    0.2125
+  ],
+  "val_primary_macro_f1": [
+    0.6187,
+    0.6067
+  ]
+}
