@@ -11,14 +11,15 @@ from .schemas import (
 
 
 class DecisionPolicyEngine:
-    """Triage decision engine enforcing uncertainty bounds, OOD gating, and actionable capture advice."""
+    """Triage decision engine enforcing uncertainty bounds, modality gating, and actionable capture advice."""
 
     def __init__(
         self,
         uncertainty_threshold: float = 0.85,  # bits
         ood_energy_threshold: float = 1.0,
         ood_direction: str = "lower_is_ood",
-        model_version: str = "0.2.0",
+        energy_ood_enabled: bool = False,
+        model_version: str = "1.0.1",
         supported_heads: Optional[List[str]] = None,
     ):
         if ood_direction not in ["lower_is_ood", "higher_is_ood"]:
@@ -28,6 +29,7 @@ class DecisionPolicyEngine:
         self.uncertainty_threshold = uncertainty_threshold
         self.ood_energy_threshold = ood_energy_threshold
         self.ood_direction = ood_direction
+        self.energy_ood_enabled = energy_ood_enabled
         self.model_version = model_version
         self.supported_heads = supported_heads
 
@@ -65,9 +67,11 @@ class DecisionPolicyEngine:
                 "Possible field centering/definition defect. Adjust patient fixation before recapture."
             )
 
-        if quality == "reject" and not feedback:
+        if quality in {"reject", "poor_or_reject", "poor_reject"} and not feedback:
             feedback.append(
-                "Overall technical acquisition quality is inadequate. Recapture with proper optical alignment."
+                "Overall technical acquisition quality is inadequate. "
+                "Recapture the image with appropriate focus, illumination, "
+                "centering, and optical alignment."
             )
 
         if not feedback:
@@ -112,16 +116,18 @@ class DecisionPolicyEngine:
             ),
         }
 
-        # OOD determination based on direction
+        # OOD determination based on direction (retained for diagnostics)
         if self.ood_direction == "higher_is_ood":
             is_ood = ood_score > self.ood_energy_threshold
         else:
             is_ood = ood_score < self.ood_energy_threshold
 
-        # Blueprint decision hierarchy
+        is_ood_active = is_ood if self.energy_ood_enabled else False
+
+        # Production decision hierarchy
         if not is_valid_modality:
             decision = DecisionAction.UNSUPPORTED_INPUT
-        elif is_ood or uncertainty > self.uncertainty_threshold:
+        elif is_ood_active or uncertainty > self.uncertainty_threshold:
             decision = DecisionAction.MANUAL_REVIEW
         elif pred_class in ["reject", "poor_or_reject", "poor_reject"]:
             decision = DecisionAction.RECAPTURE
@@ -141,7 +147,7 @@ class DecisionPolicyEngine:
         if "poor_or_reject" in probs or "poor_reject" in probs:
             p_good = round(probs.get("good", 0.0), 4)
             p_poor = round(1.0 - p_good, 4)
-            prob_obj = QualityProbabilities(good=p_good, poor_or_reject=p_poor)
+            prob_obj = QualityProbabilities(good=p_good, poor_or_reject=p_poor, usable=None, reject=None)
         elif "usable" in probs and "reject" in probs:
             p_good = round(probs.get("good", 0.0), 4)
             p_usable = round(probs.get("usable", 0.0), 4)
@@ -149,11 +155,11 @@ class DecisionPolicyEngine:
             if p_reject < 0.0:
                 p_reject = 0.0
                 p_usable = round(1.0 - p_good, 4)
-            prob_obj = QualityProbabilities(good=p_good, usable=p_usable, reject=p_reject)
+            prob_obj = QualityProbabilities(good=p_good, poor_or_reject=None, usable=p_usable, reject=p_reject)
         else:
             p_good = round(probs.get("good", 0.0), 4)
             p_poor = round(1.0 - p_good, 4)
-            prob_obj = QualityProbabilities(good=p_good, poor_or_reject=p_poor)
+            prob_obj = QualityProbabilities(good=p_good, poor_or_reject=p_poor, usable=None, reject=None)
 
         return PredictionResponse(
             model_version=self.model_version,
