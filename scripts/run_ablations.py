@@ -48,13 +48,27 @@ def run_ablation_experiment(
     with open(ablation_config_p, "w", encoding="utf-8") as f:
         yaml.safe_dump(cfg, f)
 
-    train_res = run_training_experiment(
-        config_path=ablation_config_p,
-        smoke_test=smoke_test,
-        fixture_mode=False,
-        override_seed=seed,
-        output_dir=output_dir,
-    )
+    ckpt_path = output_dir / "best.ckpt"
+    history_p = output_dir / "train_history.json"
+    if ckpt_path.is_file() and history_p.is_file():
+        with open(history_p, "r", encoding="utf-8") as f:
+            hist = json.load(f)
+        best_val = max((ep.get("val_macro_f1", 0.0) for ep in hist), default=0.0)
+        epochs_trained = len(hist)
+        train_res = {
+            "checkpoint_path": str(ckpt_path),
+            "best_val_macro_f1": best_val,
+            "epochs_trained": epochs_trained,
+            "training_datasets": ["DeepDRiD"] if cfg.get("data", {}).get("deepdrid", {}).get("enabled", True) else ["EyeQ"],
+        }
+    else:
+        train_res = run_training_experiment(
+            config_path=ablation_config_p,
+            smoke_test=smoke_test,
+            fixture_mode=False,
+            override_seed=seed,
+            output_dir=output_dir,
+        )
 
     ckpt_path = Path(train_res["checkpoint_path"])
     ckpt_sha = compute_sha256(ckpt_path)
