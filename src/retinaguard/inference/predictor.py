@@ -356,7 +356,10 @@ class RetinaGuardPredictor:
                 # Read primary output and class order
                 if "primary_output" in sidecar_data:
                     self.primary_output = sidecar_data["primary_output"]
-                elif "overall_quality_logits" in self.supported_heads and "quality_logits" not in self.supported_heads:
+                elif (
+                    "overall_quality_logits" in self.supported_heads
+                    and "quality_logits" not in self.supported_heads
+                ):
                     self.primary_output = "overall_quality_logits"
                 elif "quality_logits" in self.supported_heads:
                     self.primary_output = "quality_logits"
