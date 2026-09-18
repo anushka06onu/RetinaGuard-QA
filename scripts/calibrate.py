@@ -29,71 +29,60 @@ from retinaguard.models.multitask import RetinaGuardMultiTaskModel
 from retinaguard.utils.hashing import compute_sha256
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Calibrate probability outputs and evaluate selective prediction on validation data."
-    )
-    parser.add_argument(
-        "--checkpoint", type=str, required=True, help="Path to trained PyTorch checkpoint (.ckpt)"
-    )
-    parser.add_argument(
-        "--val-split",
-        type=str,
-        default="data/splits/eyeq_val.csv",
-        help="Path to validation split CSV",
-    )
-    parser.add_argument(
-        "--task",
-        type=str,
-        default="eyeq_quality",
-        choices=["eyeq_quality", "deepdrid_overall"],
-        help="Explicit calibration task: 'eyeq_quality' (3-class) or 'deepdrid_overall' (2-class)",
-    )
-    parser.add_argument(
-        "--onnx-model",
-        type=str,
-        default="artifacts/models/model.onnx",
-        help="Optional path to exported ONNX model to record onnx_model_sha256",
-    )
-    parser.add_argument("--output-dir", type=str, default="artifacts/metrics")
-    args = parser.parse_args()
+def calibrate_temperature_and_thresholds(
+    checkpoint_path: str,
+    val_split_path: str,
+    task: str = "deepdrid_overall",
+    task_head: str = None,
+    trained_heads: list = None,
+    output_dir: str = "artifacts/metrics",
+    onnx_model_path: str = "artifacts/models/model.onnx",
+) -> dict:
+    """Run temperature scaling and selective prediction calibration with rigorous validation checks."""
+    effective_head = task_head or ("quality_logits" if task == "eyeq_quality" else "overall_quality_logits")
 
-    ckpt_p = Path(args.checkpoint)
-    if not ckpt_p.is_file():
-        raise FileNotFoundError(
-            f"Trained checkpoint not found at {args.checkpoint}. Calibration requires a genuine trained model."
+    # Untrained head rejection check
+    if trained_heads is not None and effective_head not in trained_heads:
+        raise ValueError(
+            f"Calibration error: requested head '{effective_head}' is not among the model's trained heads: {trained_heads}."
         )
 
-    val_p = Path(args.val_split)
+    # Cross-dataset validation split mismatch checks
+    val_str = str(val_split_path).lower()
+    if effective_head == "quality_logits" and "deepdrid" in val_str:
+        raise ValueError(
+            f"Cross-dataset validation mismatch: cannot calibrate EyeQ quality_logits on DeepDRiD split '{val_split_path}'."
+        )
+    if effective_head != "quality_logits" and "eyeq" in val_str:
+        raise ValueError(
+            f"Cross-dataset validation mismatch: cannot calibrate DeepDRiD head '{effective_head}' on EyeQ split '{val_split_path}'."
+        )
+
+    ckpt_p = Path(checkpoint_path)
+    if not ckpt_p.is_file():
+        raise FileNotFoundError(
+            f"Trained checkpoint not found at {checkpoint_path}. Calibration requires a genuine trained model."
+        )
+
+    val_p = Path(val_split_path)
     if not val_p.is_file():
         raise FileNotFoundError(
-            f"Validation split file not found at {args.val_split}. Calibration requires verified validation data."
+            f"Validation split file not found at {val_split_path}. Calibration requires verified validation data."
         )
 
     ckpt_state = torch.load(ckpt_p, map_location="cpu", weights_only=False) if hasattr(torch, "load") else {}
     ckpt_meta = ckpt_state.get("metadata", {}) if isinstance(ckpt_state, dict) else {}
-    trained_heads = ckpt_meta.get("trained_heads", [])
+    model_trained_heads = ckpt_meta.get("trained_heads", [])
 
-    output_head = "quality_logits" if args.task == "eyeq_quality" else "overall_quality_logits"
-    if trained_heads and output_head not in trained_heads:
+    if model_trained_heads and effective_head not in model_trained_heads:
         raise ValueError(
-            f"Calibration error: requested head '{output_head}' for task '{args.task}' is not among trained heads: {trained_heads}."
+            f"Calibration error: requested head '{effective_head}' is not among the model's trained heads: {model_trained_heads}."
         )
 
-    # Reject mismatched dataset/split combinations
-    if args.task == "eyeq_quality" and "deepdrid" in str(val_p).lower():
-        raise ValueError(
-            f"Mismatched task and validation split: task '{args.task}' requested with DeepDRiD split '{val_p}'."
-        )
-    if args.task == "deepdrid_overall" and "eyeq" in str(val_p).lower():
-        raise ValueError(
-            f"Mismatched task and validation split: task '{args.task}' requested with EyeQ split '{val_p}'."
-        )
-
-    out_p = Path(args.output_dir)
+    out_p = Path(output_dir)
     out_p.mkdir(parents=True, exist_ok=True)
 
-    print(f"=== Running Probability Calibration [Task: {args.task}] on {val_p} with {ckpt_p} ===")
+    print(f"=== Running Probability Calibration [Head: {effective_head}] on {val_p} with {ckpt_p} ===")
     model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_p)
     model.eval()
 
@@ -105,7 +94,7 @@ def main():
     with torch.no_grad():
         for b in loader:
             out = model(b["image"])
-            if args.task == "eyeq_quality":
+            if effective_head == "quality_logits":
                 logits = out["quality_logits"].cpu().numpy()
                 targets = b["quality_target"].numpy()
                 masks = b["quality_mask"].numpy()
@@ -122,21 +111,21 @@ def main():
     targets_all = np.concatenate(all_targets, axis=0)
     masks_all = np.concatenate(all_masks, axis=0)
 
-    # Filter strictly by valid mask (> 0.5) (Item 4)
+    # Filter strictly by valid mask (> 0.5)
     valid_idx = masks_all > 0.5
     valid_count = int(np.sum(valid_idx))
     if valid_count == 0:
         raise ValueError(
-            f"Zero valid examples found for task '{args.task}' in validation split {val_p}. "
+            f"Zero valid examples found for head '{effective_head}' in validation split {val_p}. "
             "Calibration cannot proceed without valid ground-truth labels."
         )
 
     raw_logits = raw_logits_all[valid_idx]
     labels = targets_all[valid_idx]
 
-    num_classes = 3 if args.task == "eyeq_quality" else 2
+    num_classes = 3 if effective_head == "quality_logits" else 2
     class_order = (
-        ["good", "usable", "reject"] if args.task == "eyeq_quality" else ["good", "poor_or_reject"]
+        ["good", "usable", "reject"] if effective_head == "quality_logits" else ["good", "poor_or_reject"]
     )
 
     # 1. Evaluate uncalibrated predictions
@@ -171,15 +160,13 @@ def main():
 
     ckpt_sha = compute_sha256(ckpt_p) if ckpt_p.is_file() else None
     split_sha = compute_sha256(val_p) if val_p.is_file() else None
-    onnx_p = Path(args.onnx_model)
+    onnx_p = Path(onnx_model_path)
     onnx_sha = compute_sha256(onnx_p) if onnx_p.is_file() else None
 
     cal_results = {
-        "dataset": "EyeQ" if args.task == "eyeq_quality" else "DeepDRiD",
-        "task": args.task,
-        "output_head": (
-            "quality_logits" if args.task == "eyeq_quality" else "overall_quality_logits"
-        ),
+        "dataset": "EyeQ" if effective_head == "quality_logits" else "DeepDRiD",
+        "task": task,
+        "output_head": effective_head,
         "class_order": class_order,
         "valid_sample_count": valid_count,
         "split_path": str(val_p),
@@ -216,7 +203,7 @@ def main():
             indent=2,
         )
 
-    # Save complete production calibration & decision metadata (Item 4 & 13)
+    # Save complete production calibration & decision metadata
     import subprocess
 
     def get_git_commit_sha() -> str:
@@ -233,11 +220,9 @@ def main():
         "eligible_as_final_result": True,
         "generated_by": "scripts/calibrate.py",
         "git_commit": get_git_commit_sha(),
-        "dataset": "EyeQ" if args.task == "eyeq_quality" else "DeepDRiD",
-        "task": args.task,
-        "output_head": (
-            "quality_logits" if args.task == "eyeq_quality" else "overall_quality_logits"
-        ),
+        "dataset": "EyeQ" if effective_head == "quality_logits" else "DeepDRiD",
+        "task": task,
+        "output_head": effective_head,
         "class_order": class_order,
         "valid_sample_count": valid_count,
         "temperature": round(float(best_temp), 4),
@@ -268,7 +253,47 @@ def main():
     print(
         "Exported results to artifacts/metrics/calibration.json and artifacts/models/calibration_metadata.json"
     )
+    return cal_results
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Calibrate probability outputs and evaluate selective prediction on validation data."
+    )
+    parser.add_argument(
+        "--checkpoint", type=str, required=True, help="Path to trained PyTorch checkpoint (.ckpt)"
+    )
+    parser.add_argument(
+        "--val-split",
+        type=str,
+        default="data/splits/deepdrid_val.csv",
+        help="Path to validation split CSV",
+    )
+    parser.add_argument(
+        "--task",
+        type=str,
+        default="deepdrid_overall",
+        choices=["eyeq_quality", "deepdrid_overall"],
+        help="Explicit calibration task: 'eyeq_quality' (3-class) or 'deepdrid_overall' (2-class)",
+    )
+    parser.add_argument(
+        "--onnx-model",
+        type=str,
+        default="artifacts/models/model.onnx",
+        help="Optional path to exported ONNX model to record onnx_model_sha256",
+    )
+    parser.add_argument("--output-dir", type=str, default="artifacts/metrics")
+    args = parser.parse_args()
+
+    calibrate_temperature_and_thresholds(
+        checkpoint_path=args.checkpoint,
+        val_split_path=args.val_split,
+        task=args.task,
+        output_dir=args.output_dir,
+        onnx_model_path=args.onnx_model,
+    )
 
 
 if __name__ == "__main__":
     main()
+
