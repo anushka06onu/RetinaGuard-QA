@@ -39,7 +39,9 @@ def calibrate_temperature_and_thresholds(
     onnx_model_path: str = "artifacts/models/model.onnx",
 ) -> dict:
     """Run temperature scaling and selective prediction calibration with rigorous validation checks."""
-    effective_head = task_head or ("quality_logits" if task == "eyeq_quality" else "overall_quality_logits")
+    effective_head = task_head or (
+        "quality_logits" if task == "eyeq_quality" else "overall_quality_logits"
+    )
 
     # Untrained head rejection check
     if trained_heads is not None and effective_head not in trained_heads:
@@ -70,7 +72,9 @@ def calibrate_temperature_and_thresholds(
             f"Validation split file not found at {val_split_path}. Calibration requires verified validation data."
         )
 
-    ckpt_state = torch.load(ckpt_p, map_location="cpu", weights_only=False) if hasattr(torch, "load") else {}
+    ckpt_state = (
+        torch.load(ckpt_p, map_location="cpu", weights_only=False) if hasattr(torch, "load") else {}
+    )
     ckpt_meta = ckpt_state.get("metadata", {}) if isinstance(ckpt_state, dict) else {}
     model_trained_heads = ckpt_meta.get("trained_heads", [])
 
@@ -82,7 +86,9 @@ def calibrate_temperature_and_thresholds(
     out_p = Path(output_dir)
     out_p.mkdir(parents=True, exist_ok=True)
 
-    print(f"=== Running Probability Calibration [Head: {effective_head}] on {val_p} with {ckpt_p} ===")
+    print(
+        f"=== Running Probability Calibration [Head: {effective_head}] on {val_p} with {ckpt_p} ==="
+    )
     model = RetinaGuardMultiTaskModel.from_checkpoint_metadata(ckpt_p)
     model.eval()
 
@@ -125,7 +131,9 @@ def calibrate_temperature_and_thresholds(
 
     num_classes = 3 if effective_head == "quality_logits" else 2
     class_order = (
-        ["good", "usable", "reject"] if effective_head == "quality_logits" else ["good", "poor_or_reject"]
+        ["good", "usable", "reject"]
+        if effective_head == "quality_logits"
+        else ["good", "poor_or_reject"]
     )
 
     # 1. Evaluate uncalibrated predictions
@@ -296,4 +304,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
