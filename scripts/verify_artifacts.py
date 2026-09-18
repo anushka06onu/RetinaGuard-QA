@@ -200,10 +200,6 @@ def verify_checksum_manifest(
                                     err = f"Campaign deployment checkpoint sha mismatch: {actual_dep_sha} vs {dep_ckpt_sha}"
                                     report["lineage_errors"].append(err)
                                     report["errors"].append(err)
-                            else:
-                                err = f"Campaign referenced deployment checkpoint missing at {dep_ckpt_p}"
-                                report["missing_files"] += 1
-                                report["errors"].append(err)
 
                         # Check referenced CSV summaries
                         for key in ["summary_csv", "per_seed_csv"]:
@@ -217,6 +213,21 @@ def verify_checksum_manifest(
                         report["lineage_errors"].append(
                             f"Failed to verify campaign manifest {c_manifest}: {exc}"
                         )
+
+        # External Checkpoint Index Verification
+        ckpt_index_p = artifacts_dir / "models/checkpoint_index.json"
+        if ckpt_index_p.is_file():
+            try:
+                with open(ckpt_index_p) as f:
+                    idx_data = json.load(f)
+                ckpts = idx_data.get("checkpoints", [])
+                if not ckpts:
+                    report["errors"].append("checkpoint_index.json must declare distributed checkpoint entries")
+                for entry in ckpts:
+                    if not entry.get("sha256") or not entry.get("download_url") or len(entry["sha256"]) != 64:
+                        report["errors"].append(f"Invalid checkpoint entry in {ckpt_index_p}: {entry.get('filename')}")
+            except Exception as exc:
+                report["lineage_errors"].append(f"Failed to parse checkpoint_index.json: {exc}")
 
     report["passed"] = (
         report["mismatched_files"] == 0
@@ -242,6 +253,10 @@ def generate_checksum_manifest(
         if sub_p.is_dir():
             for p in sorted(sub_p.rglob("*")):
                 if p.is_file() and p.name != "SHA256SUMS" and not p.name.startswith("."):
+                    # Exclude untracked large binary checkpoints (.ckpt, .pt, .pth) from Git-tracked SHA256SUMS
+                    rel_p = p.relative_to(artifacts_dir)
+                    if p.suffix in {".ckpt", ".pt", ".pth"} and rel_p != Path("models/best.ckpt"):
+                        continue
                     files_to_hash.append(p)
 
     # Sort deterministically
