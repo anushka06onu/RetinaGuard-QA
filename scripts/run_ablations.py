@@ -60,7 +60,11 @@ def run_ablation_experiment(
             "checkpoint_path": str(ckpt_path),
             "best_val_macro_f1": best_val,
             "epochs_trained": epochs_trained,
-            "training_datasets": ["DeepDRiD"] if cfg.get("data", {}).get("deepdrid", {}).get("enabled", True) else ["EyeQ"],
+            "training_datasets": (
+                ["DeepDRiD"]
+                if cfg.get("data", {}).get("deepdrid", {}).get("enabled", True)
+                else ["EyeQ"]
+            ),
         }
     else:
         train_res = run_training_experiment(
