@@ -12,7 +12,7 @@
 ## Project Status & Scientific Scope
 
 > [!IMPORTANT]
-> **DeepDRiD-Focused Empirical Release (v1.0.0):**
+> **DeepDRiD-Focused Empirical Release (v1.0.1):**
 > This repository implements and evaluates a multi-task quality assessment model trained and validated on the **DeepDRiD** fundus benchmark across three independent random seeds (`[2026, 2027, 2028]`).
 >
 > - **Primary Deployed Task:** Binary overall acquisition quality assessment (`good` vs `poor_or_reject`) via the trained `overall_quality_logits` head.
@@ -32,7 +32,7 @@ $$\text{Retinal Image} \longrightarrow \text{Modality Gate} \longrightarrow \tex
 It outputs one of four deterministic operational decisions:
 1. **`accept`**: Image satisfies technical quality criteria (`good` overall quality).
 2. **`recapture`**: Optical or physical degradation detected (`poor_or_reject`); actionable attribute guidance provided (e.g. clean objective lens, adjust flash, reposition patient).
-3. **`manual_review`**: Elevated predictive entropy near decision boundary ($> 0.811$ bits for binary task); routed for human review.
+3. **`manual_review`**: Elevated predictive entropy near decision boundary ($> 0.9943$ bits for binary task); routed for human review.
 4. **`unsupported_input`**: Non-fundus modality, synthetic noise, or severe optical corruption rejected by the modality gate.
 
 > [!NOTE]
@@ -49,13 +49,13 @@ All reported metrics reflect authentic local executions across patient-isolated 
 
 | Model Architecture / Method | Supervision / Strategy | Macro-F1 (Mean $\pm$ Std) | 95% Confidence Interval | Balanced Accuracy | QWK |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Proposed Multi-Task MobileNetV3 (3 Seeds)** | Overall Quality + 3 Auxiliary Heads ($\lambda_{\text{aux}}=0.3$) | **0.7446 ± 0.0191** | **[0.6973, 0.7919]** | **0.7460 ± 0.0199** | **0.4900 ± 0.0383** |
+| **Proposed Multi-Task MobileNetV3 (3 Seeds)** | Overall Quality + 3 Auxiliary Heads ($\lambda_{\text{aux}}=0.5$ per head) | **0.7446 ± 0.0191** | **[0.6973, 0.7919]** | **0.7460 ± 0.0199** | **0.4900 ± 0.0383** |
 | Single-Task MobileNetV3 (3 Seeds) | Overall Quality Only ($\lambda_{\text{aux}}=0.0$) | 0.7419 ± 0.0053 | [0.7287, 0.7551] | 0.7425 ± 0.0050 | 0.4850 ± 0.0100 |
 | Classical Handcrafted + Random Forest | Color & Texture Descriptors (RF) | 0.6539 | — | 0.6538 | 0.3077 |
 | Classical Handcrafted + Logistic Reg. | Color & Texture Descriptors (LR) | 0.6209 | — | 0.6207 | 0.2441 |
 | Majority Class Baseline | Mode Class Predictor | 0.3548 | — | 0.5000 | 0.0000 |
 
-*Campaign seeds: `[2026, 2027, 2028]`. Selected deployed checkpoint (Seed 2026) achieves held-out **Macro-F1: 0.7264**, **Balanced Accuracy: 0.7285**.*
+*Campaign seeds: `[2026, 2027, 2028]`. Selected deployed checkpoint (Seed 2028, Epoch 14) achieves held-out **Macro-F1: 0.7264**, **Balanced Accuracy: 0.7285**.*
 
 ### B. Controlled Ablation Study (3 Seeds per Variant)
 
@@ -63,12 +63,12 @@ To isolate architectural and training contributions, 4 configurations were train
 
 | Ablation Configuration | Description / Purpose | Test Macro-F1 (Mean $\pm$ Std) | Test Accuracy (Mean $\pm$ Std) | Best Val Macro-F1 (Mean $\pm$ Std) |
 | :--- | :--- | :--- | :--- | :--- |
-| **Proposed Multi-Task Model** | Full multitask ($\lambda_{\text{aux}}=0.3$, label smoothing $=0.1$) | **0.7446 ± 0.0191** | **0.7467 ± 0.0188** | 0.6351 ± 0.0165 |
+| **Proposed Multi-Task Model** | Full multitask ($\lambda_{\text{aux}}=0.5$ per head, label smoothing $=0.05$) | **0.7446 ± 0.0191** | **0.7467 ± 0.0188** | 0.6351 ± 0.0165 |
 | **Single-Task Overall Quality** | Single-task baseline ($\lambda_{\text{aux}}=0.0$) | 0.7419 ± 0.0053 | 0.7425 ± 0.0050 | 0.4586 ± 0.0321 |
 | **No Label Smoothing** | Full multitask without label smoothing ($ls=0.0$) | 0.7319 ± 0.0226 | 0.7333 ± 0.0240 | 0.6418 ± 0.0100 |
-| **Auxiliary Weight 1.0** | Full multitask with equal loss weights ($\lambda_{\text{aux}}=1.0$) | 0.7178 ± 0.0340 | 0.7217 ± 0.0338 | 0.6318 ± 0.0114 |
+| **Auxiliary Weight 1.0** | Full multitask with increased auxiliary loss weights ($\lambda_{\text{aux}}=1.0$) | 0.7178 ± 0.0340 | 0.7217 ± 0.0338 | 0.6318 ± 0.0114 |
 
-*Findings: Multi-task learning matches/slightly improves overall quality classification while yielding three fine-grained acquisition attribute heads with zero latency overhead. Label smoothing improves generalization on fundus imagery.*
+*Findings: In this three-seed experiment, the multi-task configuration achieved comparable overall-quality performance to the single-task model (+0.0027 difference in mean test macro-F1) while additionally producing artifact, clarity, and field-definition assessments with minimal additional head-level computation. In this three-seed experiment, the label-smoothed configuration achieved a higher mean test macro-F1 than the no-smoothing variant.*
 
 ### C. Fine-Grained Acquisition Attribute Degradation Heads
 
@@ -80,25 +80,29 @@ To isolate architectural and training contributions, 4 configurations were train
 
 ### D. Post-Hoc Probability Calibration & Selective Prediction
 
-Calibration evaluated on the trained binary head `overall_quality_logits` using `deepdrid_val.csv`:
+Calibration evaluated on the trained binary head `overall_quality_logits` using `deepdrid_val.csv` ($N=400$):
 
-| Calibration Stage | Temperature ($T$) | Expected Calibration Error (ECE) | Maximum Calibration Error (MCE) | Brier Score |
-| :--- | :--- | :--- | :--- | :--- |
-| **Uncalibrated Model** | $1.0000$ | 0.1295 | 0.2078 | 0.3667 |
-| **Temperature Scaled (Validation Fit)** | $\mathbf{1.3956}$ | $\mathbf{0.1018}$ *(-21.4% error)* | $\mathbf{0.2064}$ | $\mathbf{0.3533}$ |
+| Calibration Stage | Temperature ($T$) | Expected Calibration Error (ECE) | Maximum Calibration Error (MCE) | Brier Score | Accuracy |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Uncalibrated Model** | $1.0000$ | 0.1295 | 0.2154 | 0.3997 | 0.7425 |
+| **Temperature Scaled (Validation Fit)** | $\mathbf{1.3956}$ | $\mathbf{0.1018}$ *(-21.4% error)* | $\mathbf{0.1405}$ | $\mathbf{0.3800}$ | $\mathbf{0.7425}$ |
 
-*Selective prediction: Evaluated across coverage levels $0.50 \to 1.00$ with Area Under the Risk-Coverage Curve ($\text{AURC}) = \mathbf{0.1729}$.*
+*Selective prediction: Evaluated across coverage levels $0.50 \to 1.00$ with Area Under the Risk-Coverage Curve ($\text{AURC}) = \mathbf{0.1729}$ on the validation split.*
 
 ### E. Input Validation & Modality Defense
 
 | Defense Layer | Tested Input / Anomaly | AUROC | False Reject Rate (ID) | Rejection Rate (OOD) |
 | :--- | :--- | :--- | :--- | :--- |
-| **Retinal Modality Gate** | Uniform Synthetic Noise / Non-Fundus | **1.0000** | **0.00%** | **100.0%** |
-| **Free-Energy Metric ($T=1.3956$)** | Synthetic Noise Stress Test | 0.1048 | — | *Transparent baseline (unregularized)* |
+| **Heuristic Retinal Modality Gate** | Uniform Synthetic Noise Stress Test | **1.0000** | **0.00%** | **100.0%** |
+| **Free-Energy Metric ($T=1.3956$)** | Uniform Synthetic Noise Stress Test | 0.1048 | — | *Research baseline (unregularized)* |
 
-*Note: Free energy on standard architectures without explicit energy regularization does not provide standalone OOD separation; the heuristic retinal modality gate acts as the primary input-validity defense.*
+*Note: Free energy on standard convolutional architectures without explicit energy regularization does not provide reliable OOD separation (AUROC 0.1048 on uniform synthetic noise); free-energy scoring is therefore retained solely for diagnostic research logging and disabled from production triage decisions (`energy_ood_enabled: false`). The heuristic retinal modality gate provides a baseline input-validity check demonstrated against synthetic noise stress sets.*
 
-### F. Edge Deployment & CPU Inference Footprint
+### F. Optical Degradation & Corruption Robustness Benchmark
+
+Evaluated across 5 physical and optical corruption families (defocus blur, Gaussian blur, illumination shift, contrast reduction, saturation distortion) across 5 severity levels on a deterministic held-out subset of $N=200$ test images (clean baseline macro-F1: $0.6797$, balanced accuracy: $0.6850$ vs full held-out test macro-F1 of $0.7264$). Full per-severity breakdown is documented in `artifacts/metrics/corruptions.json`.
+
+### G. Edge Deployment & CPU Inference Footprint
 
 | Deployment Metric | Measurement (Apple M4, 4 Threads) | Notes |
 | :--- | :--- | :--- |
@@ -207,7 +211,7 @@ retinaguard-qa/
 ├── artifacts/           # Versioned metrics JSONs, reports, and SHA256SUMS
 │   ├── figures/         # Figure plots generated strictly from recorded JSON metrics
 │   ├── metrics/         # Recorded evaluation metrics, ablations, and training histories
-│   ├── models/          # Exported ONNX model, calibration JSONs, preprocessing configs
+│   ├── models/          # Exported ONNX model, checkpoint index, calibration JSONs, preprocessing configs
 │   ├── provenance/      # Automated environment.txt and SHA256SUMS
 │   └── reports/         # Audited data integrity and isolation reports
 ├── docs/                # Architecture, data card, methodology, limitations, user guide
@@ -232,7 +236,7 @@ retinaguard-qa/
   author = {Fateha Hossain Anushka},
   title = {RetinaGuard-QA: An Uncertainty-Aware, Multi-Task Quality Assurance and Capture-Feedback System for Retinal Fundus Imaging},
   year = {2026},
-  version = {1.0.0},
+  version = {1.0.1},
   url = {https://github.com/anushka06onu/RetinaGuard-QA}
 }
 ```
