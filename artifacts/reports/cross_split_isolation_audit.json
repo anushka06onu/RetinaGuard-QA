@@ -22,6 +22,7 @@
     "ambiguous_patient_ids": 0
   },
   "near_duplicate_audit": {
+    "audit_type": "perceptual_hash_collision_audit",
     "phash_algorithm": "phash",
     "distance_threshold": 0,
     "phash_attempted": 2000,
@@ -31,6 +32,7 @@
     "total_images_scanned": 2000,
     "near_duplicate_pairs_count": 28,
     "cross_split_near_duplicates_count": 3,
+    "unresolved_cross_split_candidates": 0,
     "cross_dataset_near_duplicates_count": 0,
     "cross_split_near_duplicates": [
       {
