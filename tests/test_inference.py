@@ -202,11 +202,12 @@ def test_predictor_production_mode_requirements(tmp_path, monkeypatch):
 
 
 def test_decision_engine_ood_directions():
-    # Test lower_is_ood (default)
+    # Test lower_is_ood when energy_ood_enabled=True
     engine_lower = DecisionPolicyEngine(
         uncertainty_threshold=0.85,
         ood_energy_threshold=1.0,
         ood_direction="lower_is_ood",
+        energy_ood_enabled=True,
     )
     # ood_score 0.5 < 1.0 -> should trigger MANUAL_REVIEW (OOD)
     res_ood_lower = engine_lower.evaluate(
@@ -224,11 +225,12 @@ def test_decision_engine_ood_directions():
     )
     assert res_in_lower.decision == DecisionAction.ACCEPT
 
-    # Test higher_is_ood
+    # Test higher_is_ood when energy_ood_enabled=True
     engine_higher = DecisionPolicyEngine(
         uncertainty_threshold=0.85,
         ood_energy_threshold=1.0,
         ood_direction="higher_is_ood",
+        energy_ood_enabled=True,
     )
     # ood_score 1.5 > 1.0 -> should trigger MANUAL_REVIEW (OOD)
     res_ood_higher = engine_higher.evaluate(
@@ -245,6 +247,45 @@ def test_decision_engine_ood_directions():
         ood_score=0.5,
     )
     assert res_in_higher.decision == DecisionAction.ACCEPT
+
+
+def test_energy_score_disabled_from_manual_review():
+    # Default engine has energy_ood_enabled=False
+    engine = DecisionPolicyEngine(
+        uncertainty_threshold=0.85,
+        ood_energy_threshold=1.0,
+        ood_direction="lower_is_ood",
+        energy_ood_enabled=False,
+    )
+    # ood_score -5.0 is below threshold, but energy OOD is disabled, so good image -> ACCEPT
+    res = engine.evaluate(
+        probs={"good": 0.95, "poor_or_reject": 0.05},
+        uncertainty=0.20,
+        ood_score=-5.0,
+        is_valid_modality=True,
+    )
+    assert res.decision == DecisionAction.ACCEPT
+    assert res.ood_score == -5.0
+
+
+def test_binary_poor_or_reject_feedback_with_normal_attributes():
+    engine = DecisionPolicyEngine(uncertainty_threshold=0.85)
+    # Case: binary poor_or_reject with all normal/mild auxiliary attributes (0)
+    res = engine.evaluate(
+        probs={"good": 0.10, "poor_or_reject": 0.90},
+        uncertainty=0.30,
+        ood_score=2.0,
+        is_valid_modality=True,
+        attributes_raw={"artifact": 0, "clarity": 0, "field_definition": 0},
+    )
+    assert res.decision == DecisionAction.RECAPTURE
+    assert res.quality == "poor_or_reject"
+    assert any(
+        "Overall technical acquisition quality is inadequate" in fb
+        and "focus, illumination, centering, and optical alignment" in fb
+        for fb in res.feedback
+    )
+    assert not any("technically acceptable" in fb for fb in res.feedback)
 
 
 def test_decision_engine_unsupported_heads():
