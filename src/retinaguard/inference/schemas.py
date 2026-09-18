@@ -18,19 +18,19 @@ class QualityProbabilities(BaseModel):
         ..., ge=0.0, le=1.0, description="Calibrated probability of Good quality [0.0, 1.0]"
     )
     poor_or_reject: Optional[float] = Field(
-        None,
+        default=None,
         ge=0.0,
         le=1.0,
         description="Calibrated probability of Poor/Reject quality (binary task) [0.0, 1.0]",
     )
     usable: Optional[float] = Field(
-        None,
+        default=None,
         ge=0.0,
         le=1.0,
         description="Calibrated probability of Usable quality (3-class task) [0.0, 1.0]",
     )
     reject: Optional[float] = Field(
-        None,
+        default=None,
         ge=0.0,
         le=1.0,
         description="Calibrated probability of Reject quality (3-class task) [0.0, 1.0]",
