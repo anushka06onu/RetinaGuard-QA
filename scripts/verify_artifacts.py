@@ -222,10 +222,18 @@ def verify_checksum_manifest(
                     idx_data = json.load(f)
                 ckpts = idx_data.get("checkpoints", [])
                 if not ckpts:
-                    report["errors"].append("checkpoint_index.json must declare distributed checkpoint entries")
+                    report["errors"].append(
+                        "checkpoint_index.json must declare distributed checkpoint entries"
+                    )
                 for entry in ckpts:
-                    if not entry.get("sha256") or not entry.get("download_url") or len(entry["sha256"]) != 64:
-                        report["errors"].append(f"Invalid checkpoint entry in {ckpt_index_p}: {entry.get('filename')}")
+                    if (
+                        not entry.get("sha256")
+                        or not entry.get("download_url")
+                        or len(entry["sha256"]) != 64
+                    ):
+                        report["errors"].append(
+                            f"Invalid checkpoint entry in {ckpt_index_p}: {entry.get('filename')}"
+                        )
             except Exception as exc:
                 report["lineage_errors"].append(f"Failed to parse checkpoint_index.json: {exc}")
 

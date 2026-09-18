@@ -147,7 +147,9 @@ class DecisionPolicyEngine:
         if "poor_or_reject" in probs or "poor_reject" in probs:
             p_good = round(probs.get("good", 0.0), 4)
             p_poor = round(1.0 - p_good, 4)
-            prob_obj = QualityProbabilities(good=p_good, poor_or_reject=p_poor, usable=None, reject=None)
+            prob_obj = QualityProbabilities(
+                good=p_good, poor_or_reject=p_poor, usable=None, reject=None
+            )
         elif "usable" in probs and "reject" in probs:
             p_good = round(probs.get("good", 0.0), 4)
             p_usable = round(probs.get("usable", 0.0), 4)
@@ -155,11 +157,15 @@ class DecisionPolicyEngine:
             if p_reject < 0.0:
                 p_reject = 0.0
                 p_usable = round(1.0 - p_good, 4)
-            prob_obj = QualityProbabilities(good=p_good, poor_or_reject=None, usable=p_usable, reject=p_reject)
+            prob_obj = QualityProbabilities(
+                good=p_good, poor_or_reject=None, usable=p_usable, reject=p_reject
+            )
         else:
             p_good = round(probs.get("good", 0.0), 4)
             p_poor = round(1.0 - p_good, 4)
-            prob_obj = QualityProbabilities(good=p_good, poor_or_reject=p_poor, usable=None, reject=None)
+            prob_obj = QualityProbabilities(
+                good=p_good, poor_or_reject=p_poor, usable=None, reject=None
+            )
 
         return PredictionResponse(
             model_version=self.model_version,
