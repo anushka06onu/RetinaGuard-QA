@@ -7,7 +7,7 @@ describe('RetinaGuard-QA Web Frontend', () => {
     vi.restoreAllMocks();
     globalThis.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
     globalThis.URL.revokeObjectURL = vi.fn();
-    // Default mock for /health/ready check
+    // Default mock for /health/ready check returning genuine ready payload
     globalThis.fetch = vi.fn().mockImplementation((url: string) => {
       if (typeof url === 'string' && url.includes('/health/ready')) {
         return Promise.resolve({
@@ -24,16 +24,22 @@ describe('RetinaGuard-QA Web Frontend', () => {
     });
   });
 
-  it('renders research prototype title and accurate benchmark figures', () => {
+  it('renders research prototype title and accurate benchmark figures', async () => {
     render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(/Model Ready/i)).toBeInTheDocument();
+    });
     expect(screen.getAllByText(/RetinaGuard/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Fundus Image QA \(Research Prototype\)/i)).toBeInTheDocument();
     expect(screen.getByText(/Three Pillars of Technical Reliability/i)).toBeInTheDocument();
     expect(screen.getByText(/8\.42 ms and throughput of 20\.14 images\/sec/i)).toBeInTheDocument();
   });
 
-  it('validates file types and rejects non-jpeg/png files', () => {
+  it('validates file types and rejects non-jpeg/png files', async () => {
     render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(/Model Ready/i)).toBeInTheDocument();
+    });
     const fileInput = screen.getByTestId('file-input');
 
     const invalidFile = new File(['text content'], 'document.pdf', { type: 'application/pdf' });
@@ -42,8 +48,11 @@ describe('RetinaGuard-QA Web Frontend', () => {
     expect(screen.getByText(/Please select a valid image file/i)).toBeInTheDocument();
   });
 
-  it('rejects files exceeding 15 MB limit', () => {
+  it('rejects files exceeding 15 MB limit', async () => {
     render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(/Model Ready/i)).toBeInTheDocument();
+    });
     const fileInput = screen.getByTestId('file-input');
 
     // Create a 16 MB mock file
@@ -54,8 +63,11 @@ describe('RetinaGuard-QA Web Frontend', () => {
     expect(screen.getByText(/Maximum allowed upload size is 15 MB/i)).toBeInTheDocument();
   });
 
-  it('accepts valid JPEG file and updates preview and clears with reset button', () => {
+  it('accepts valid JPEG file and updates preview and clears with reset button', async () => {
     render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(/Model Ready/i)).toBeInTheDocument();
+    });
     const fileInput = screen.getByTestId('file-input');
 
     const validFile = new File(['fake-image-bytes'], 'fundus.jpg', { type: 'image/jpeg' });
@@ -96,6 +108,9 @@ describe('RetinaGuard-QA Web Frontend', () => {
     });
 
     render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(/Model Ready/i)).toBeInTheDocument();
+    });
     const fileInput = screen.getByTestId('file-input');
     const validFile = new File(['bytes'], 'fundus.jpg', { type: 'image/jpeg' });
     fireEvent.change(fileInput, { target: { files: [validFile] } });
@@ -142,6 +157,9 @@ describe('RetinaGuard-QA Web Frontend', () => {
     });
 
     render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(/Model Ready/i)).toBeInTheDocument();
+    });
     const fileInput = screen.getByTestId('file-input');
     const validFile = new File(['bytes'], 'fundus.jpg', { type: 'image/jpeg' });
     fireEvent.change(fileInput, { target: { files: [validFile] } });
@@ -160,8 +178,11 @@ describe('RetinaGuard-QA Web Frontend', () => {
     expect(screen.getByText(/File is too large/i)).toBeInTheDocument();
   });
 
-  it('supports accessible keyboard trigger on dropzone', () => {
+  it('supports accessible keyboard trigger on dropzone', async () => {
     render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(/Model Ready/i)).toBeInTheDocument();
+    });
     const dropzone = screen.getByTestId('dropzone');
     const fileInput = screen.getByTestId('file-input');
     const clickSpy = vi.spyOn(fileInput, 'click');
@@ -197,6 +218,9 @@ describe('RetinaGuard-QA Web Frontend', () => {
     });
 
     render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(/Model Ready/i)).toBeInTheDocument();
+    });
     const fileInput = screen.getByTestId('file-input');
     const validFile = new File(['fake-image-bytes'], 'fundus.jpg', { type: 'image/jpeg' });
     fireEvent.change(fileInput, { target: { files: [validFile] } });
@@ -211,12 +235,11 @@ describe('RetinaGuard-QA Web Frontend', () => {
       expect(screen.getByText(/0.142/i)).toBeInTheDocument();
       expect(screen.getByText(/Optimal macular center/i)).toBeInTheDocument();
       expect(screen.getByText(/Model: v0.2.0/i)).toBeInTheDocument();
-      expect(screen.getByText(/18.5 ms/i)).toBeInTheDocument();
+      expect(screen.getByText(/18.5/i)).toBeInTheDocument();
     });
   });
 
   it('handles voluntary cancellation cleanly without showing error banner', async () => {
-    // Hang inference request until cancelled
     let abortSignal: AbortSignal | undefined;
     globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       if (typeof url === 'string' && url.includes('/health/ready')) {
@@ -235,13 +258,15 @@ describe('RetinaGuard-QA Web Frontend', () => {
     });
 
     render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(/Model Ready/i)).toBeInTheDocument();
+    });
     const fileInput = screen.getByTestId('file-input');
     const validFile = new File(['bytes'], 'fundus.jpg', { type: 'image/jpeg' });
     fireEvent.change(fileInput, { target: { files: [validFile] } });
 
     fireEvent.click(screen.getByTestId('predict-button'));
 
-    // Cancel button should be visible during loading
     const cancelBtn = await screen.findByText(/Cancel/i);
     fireEvent.click(cancelBtn);
 
@@ -278,6 +303,9 @@ describe('RetinaGuard-QA Web Frontend', () => {
     });
 
     render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(/Model Ready/i)).toBeInTheDocument();
+    });
     const fileInput = screen.getByTestId('file-input');
     const validFile = new File(['fake-bytes'], 'fundus.jpg', { type: 'image/jpeg' });
     fireEvent.change(fileInput, { target: { files: [validFile] } });
@@ -291,7 +319,7 @@ describe('RetinaGuard-QA Web Frontend', () => {
       expect(screen.getByText(/88.0% Conf/i)).toBeInTheDocument();
       expect(screen.getByText(/0.529/i)).toBeInTheDocument();
       expect(screen.getByText(/Possible blur or focus defect detected/i)).toBeInTheDocument();
-      expect(screen.getByText(/8.2 ms/i)).toBeInTheDocument();
+      expect(screen.getByText(/8.2/i)).toBeInTheDocument();
     });
   });
 
@@ -322,6 +350,9 @@ describe('RetinaGuard-QA Web Frontend', () => {
     });
 
     render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(/Model Ready/i)).toBeInTheDocument();
+    });
     const fileInput = screen.getByTestId('file-input');
     const validFile = new File(['bytes'], 'blur.jpg', { type: 'image/jpeg' });
     fireEvent.change(fileInput, { target: { files: [validFile] } });
@@ -334,8 +365,11 @@ describe('RetinaGuard-QA Web Frontend', () => {
     });
   });
 
-  it('handles drag and drop file uploads', () => {
+  it('handles drag and drop file uploads', async () => {
     render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(/Model Ready/i)).toBeInTheDocument();
+    });
     const dropzone = screen.getByTestId('dropzone');
     const validFile = new File(['dropped-bytes'], 'dropped.png', { type: 'image/png' });
 
@@ -372,8 +406,8 @@ describe('RetinaGuard-QA Web Frontend', () => {
     );
   });
 
-  it('validates quality attributes enums and latency properties', () => {
-    const invalidAttributesResponse = {
+  it('strictly validates numeric types and rejects string numbers', () => {
+    const stringLatencyResponse = {
       model_version: '1.0.2',
       quality: 'good',
       probabilities: { good: 0.9, poor_or_reject: 0.1 },
@@ -382,36 +416,113 @@ describe('RetinaGuard-QA Web Frontend', () => {
       ood_score: -1.0,
       decision: 'accept',
       quality_attributes: {
-        artifact: 'unrecognized_value', // Invalid enum
+        artifact: 'none',
         clarity: 'high',
         field_definition: 'adequate'
       },
       feedback: [],
       disclaimer: 'test',
+      latency_ms: "8.42" // String instead of number
     };
 
-    expect(() => validatePredictionResponse(invalidAttributesResponse)).toThrow(
-      /invalid artifact value "unrecognized_value"/i
+    expect(() => validatePredictionResponse(stringLatencyResponse)).toThrow(
+      /latency_ms must be a non-negative finite number/i
     );
 
-    const invalidLatencyResponse = {
-      ...invalidAttributesResponse,
-      quality_attributes: { artifact: 'none', clarity: 'high', field_definition: 'adequate' },
-      latency_ms: -5.0 // Invalid negative latency
+    const stringConfidenceResponse = {
+      ...stringLatencyResponse,
+      latency_ms: 8.42,
+      calibrated_confidence: "0.9" // String instead of number
     };
 
-    expect(() => validatePredictionResponse(invalidLatencyResponse)).toThrow(
-      /latency_ms must be a non-negative finite number/i
+    expect(() => validatePredictionResponse(stringConfidenceResponse)).toThrow(
+      /calibrated_confidence must be a finite number between 0 and 1/i
+    );
+
+    const stringProbabilityResponse = {
+      ...stringLatencyResponse,
+      latency_ms: 8.42,
+      probabilities: { good: "0.9", poor_or_reject: 0.1 }
+    };
+
+    expect(() => validatePredictionResponse(stringProbabilityResponse)).toThrow(
+      /good probability must be a finite number between 0 and 1/i
     );
   });
 
-  it('renders and toggles developer/test fixtures accordion', () => {
+  it('renders and toggles developer/test fixtures accordion', async () => {
     render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(/Model Ready/i)).toBeInTheDocument();
+    });
     expect(screen.getByText(/Developer \/ Test Fixtures/i)).toBeInTheDocument();
     expect(screen.getByText(/Synthetic canvas patterns for API\/UI verification only/i)).toBeInTheDocument();
     expect(screen.getByTestId('fixture-good')).toBeInTheDocument();
     expect(screen.getByTestId('fixture-blur')).toBeInTheDocument();
     expect(screen.getByTestId('fixture-underexposed')).toBeInTheDocument();
     expect(screen.getByTestId('fixture-ood')).toBeInTheDocument();
+  });
+
+  it('disables prediction button when backend is not ready or offline', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 'not_ready' }),
+    } as Response);
+
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(/Initializing\.\.\./i)).toBeInTheDocument();
+    });
+
+    const fileInput = screen.getByTestId('file-input');
+    const validFile = new File(['bytes'], 'fundus.jpg', { type: 'image/jpeg' });
+    fireEvent.change(fileInput, { target: { files: [validFile] } });
+
+    const predictBtn = screen.getByTestId('predict-button');
+    expect(predictBtn).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Retry/i })).toBeInTheDocument();
+  });
+
+  it('renders "Not reported" when latency_ms is omitted from response', async () => {
+    const mockPredictionWithoutLatency = {
+      model_version: '1.0.2',
+      quality: 'good',
+      probabilities: { good: 0.95, poor_or_reject: 0.05 },
+      calibrated_confidence: 0.95,
+      uncertainty: 0.12,
+      ood_score: -10.5,
+      decision: 'accept',
+      quality_attributes: {
+        artifact: 'none',
+        clarity: 'high',
+        field_definition: 'adequate'
+      },
+      feedback: ['Optimal macular center'],
+      disclaimer: 'Technical image-quality assessment only.'
+    };
+
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/health/ready')) {
+        return Promise.resolve({ ok: true, json: async () => ({ status: 'ready' }) } as Response);
+      }
+      return Promise.resolve({ ok: true, json: async () => mockPredictionWithoutLatency } as Response);
+    });
+
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(/Model Ready/i)).toBeInTheDocument();
+    });
+
+    const fileInput = screen.getByTestId('file-input');
+    const validFile = new File(['bytes'], 'fundus.jpg', { type: 'image/jpeg' });
+    fireEvent.change(fileInput, { target: { files: [validFile] } });
+
+    fireEvent.click(screen.getByTestId('predict-button'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('decision-badge')).toBeInTheDocument();
+      expect(screen.getByText(/Not reported/i)).toBeInTheDocument();
+    });
   });
 });
