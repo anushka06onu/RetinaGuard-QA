@@ -77,62 +77,67 @@ export function validatePredictionResponse(raw: unknown): PredictionResponse {
     throw new Error('Malformed backend response: disclaimer must be a string.');
   }
   const validQualities = ['good', 'poor_or_reject', 'poor_reject', 'usable', 'reject'];
-  if (!validQualities.includes(String(data.quality))) {
+  if (typeof data.quality !== 'string' || !validQualities.includes(data.quality)) {
     throw new Error(`Malformed backend response: invalid quality "${String(data.quality)}".`);
   }
   const validDecisions = ['accept', 'recapture', 'manual_review', 'unsupported_input'];
-  if (!validDecisions.includes(String(data.decision))) {
+  if (typeof data.decision !== 'string' || !validDecisions.includes(data.decision)) {
     throw new Error(`Malformed backend response: invalid decision "${String(data.decision)}".`);
   }
   const probs = data.probabilities as Record<string, unknown>;
   if (typeof probs !== 'object' || probs === null) {
     throw new Error('Malformed backend response: probabilities must be an object.');
   }
-  const good = Number(probs.good);
-  const poorOrReject = probs.poor_or_reject !== undefined ? Number(probs.poor_or_reject) : (probs.poor_reject !== undefined ? Number(probs.poor_reject) : undefined);
-  const usable = probs.usable !== undefined ? Number(probs.usable) : undefined;
-  const reject = probs.reject !== undefined ? Number(probs.reject) : undefined;
 
-  let probSum = 0;
-  const isBinary = poorOrReject !== undefined;
+  if (typeof probs.good !== 'number' || !Number.isFinite(probs.good) || probs.good < 0 || probs.good > 1) {
+    throw new Error('Malformed backend response: good probability must be a finite number between 0 and 1.');
+  }
+  const good = probs.good;
+
+  const rawPoorOrReject = probs.poor_or_reject !== undefined ? probs.poor_or_reject : probs.poor_reject;
+  const isBinary = rawPoorOrReject !== undefined;
   const classCount = isBinary ? 2 : 3;
 
+  let validatedProbabilities: QualityProbabilities;
+  let probSum = 0;
+
   if (isBinary) {
-    if (!Number.isFinite(good) || !Number.isFinite(poorOrReject)) {
-      throw new Error('Malformed backend response: probabilities must be finite numbers.');
+    if (typeof rawPoorOrReject !== 'number' || !Number.isFinite(rawPoorOrReject) || rawPoorOrReject < 0 || rawPoorOrReject > 1) {
+      throw new Error('Malformed backend response: poor_or_reject probability must be a finite number between 0 and 1.');
     }
-    if (good < 0 || good > 1 || poorOrReject < 0 || poorOrReject > 1) {
-      throw new Error('Malformed backend response: each class probability must satisfy 0 <= p <= 1.');
-    }
-    probSum = good + poorOrReject;
-  } else if (usable !== undefined && reject !== undefined) {
-    if (!Number.isFinite(good) || !Number.isFinite(usable) || !Number.isFinite(reject)) {
-      throw new Error('Malformed backend response: probabilities must be finite numbers.');
-    }
-    if (good < 0 || good > 1 || usable < 0 || usable > 1 || reject < 0 || reject > 1) {
-      throw new Error('Malformed backend response: each class probability must satisfy 0 <= p <= 1.');
-    }
-    probSum = good + usable + reject;
+    probSum = good + rawPoorOrReject;
+    validatedProbabilities = { good, poor_or_reject: rawPoorOrReject };
   } else {
-    probSum = good + (reject !== undefined ? reject : 0);
+    if (typeof probs.usable !== 'number' || !Number.isFinite(probs.usable) || probs.usable < 0 || probs.usable > 1) {
+      throw new Error('Malformed backend response: usable probability must be a finite number between 0 and 1.');
+    }
+    if (typeof probs.reject !== 'number' || !Number.isFinite(probs.reject) || probs.reject < 0 || probs.reject > 1) {
+      throw new Error('Malformed backend response: reject probability must be a finite number between 0 and 1.');
+    }
+    probSum = good + probs.usable + probs.reject;
+    validatedProbabilities = { good, usable: probs.usable, reject: probs.reject };
   }
 
   if (Math.abs(probSum - 1.0) > 1e-3) {
     throw new Error(`Malformed backend response: probabilities sum (${probSum.toFixed(4)}) diverges from 1.0.`);
   }
-  const confidence = Number(data.calibrated_confidence);
-  const uncertainty = Number(data.uncertainty);
-  const oodScore = Number(data.ood_score);
-  if (!Number.isFinite(confidence) || !Number.isFinite(uncertainty) || !Number.isFinite(oodScore)) {
-    throw new Error('Malformed backend response: numerical scores must be finite numbers.');
+
+  if (typeof data.calibrated_confidence !== 'number' || !Number.isFinite(data.calibrated_confidence) || data.calibrated_confidence < 0 || data.calibrated_confidence > 1) {
+    throw new Error('Malformed backend response: calibrated_confidence must be a finite number between 0 and 1.');
   }
-  if (confidence < 0 || confidence > 1) {
-    throw new Error('Malformed backend response: calibrated confidence must satisfy 0 <= confidence <= 1.');
-  }
+  const confidence = data.calibrated_confidence;
+
   const maxEntropy = Math.log2(classCount) + 1e-4;
-  if (uncertainty < 0 || uncertainty > maxEntropy) {
-    throw new Error(`Malformed backend response: uncertainty (${uncertainty.toFixed(4)}) must satisfy 0 <= uncertainty <= log2(${classCount}) (${maxEntropy.toFixed(4)} bits).`);
+  if (typeof data.uncertainty !== 'number' || !Number.isFinite(data.uncertainty) || data.uncertainty < 0 || data.uncertainty > maxEntropy) {
+    throw new Error(`Malformed backend response: uncertainty (${Number(data.uncertainty).toFixed(4)}) must satisfy 0 <= uncertainty <= log2(${classCount}) (${maxEntropy.toFixed(4)} bits).`);
   }
+  const uncertainty = data.uncertainty;
+
+  if (typeof data.ood_score !== 'number' || !Number.isFinite(data.ood_score)) {
+    throw new Error('Malformed backend response: ood_score must be a finite number.');
+  }
+  const oodScore = data.ood_score;
+
   if (!Array.isArray(data.feedback) || !data.feedback.every((x: unknown) => typeof x === 'string')) {
     throw new Error('Malformed backend response: feedback must be an array of strings.');
   }
@@ -152,10 +157,32 @@ export function validatePredictionResponse(raw: unknown): PredictionResponse {
   if (!validField.includes(attrs.field_definition as string | null | undefined)) {
     throw new Error(`Malformed backend response: invalid field_definition value "${String(attrs.field_definition)}".`);
   }
-  if (data.latency_ms !== undefined && (!Number.isFinite(Number(data.latency_ms)) || Number(data.latency_ms) < 0)) {
-    throw new Error('Malformed backend response: latency_ms must be a non-negative finite number.');
+
+  let latencyMs: number | undefined = undefined;
+  if (data.latency_ms !== undefined) {
+    if (typeof data.latency_ms !== 'number' || !Number.isFinite(data.latency_ms) || data.latency_ms < 0) {
+      throw new Error('Malformed backend response: latency_ms must be a non-negative finite number.');
+    }
+    latencyMs = data.latency_ms;
   }
-  return data as unknown as PredictionResponse;
+
+  return {
+    model_version: data.model_version,
+    quality: data.quality as PredictionResponse['quality'],
+    probabilities: validatedProbabilities,
+    calibrated_confidence: confidence,
+    uncertainty: uncertainty,
+    ood_score: oodScore,
+    decision: data.decision as PredictionResponse['decision'],
+    quality_attributes: {
+      artifact: attrs.artifact as QualityAttributes['artifact'],
+      clarity: attrs.clarity as QualityAttributes['clarity'],
+      field_definition: attrs.field_definition as QualityAttributes['field_definition'],
+    },
+    feedback: data.feedback as string[],
+    disclaimer: data.disclaimer,
+    latency_ms: latencyMs,
+  };
 }
 
 export default function App() {
@@ -170,20 +197,30 @@ export default function App() {
   const [backendStatus, setBackendStatus] = useState<'checking' | 'ready' | 'not_ready' | 'offline'>('checking');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const cancellationReasonRef = useRef<'user' | 'timeout' | 'clear' | null>(null);
 
   const checkBackendReadiness = useCallback(async () => {
     setBackendStatus('checking');
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 8000);
     try {
-      const resp = await fetch(`${API_BASE}/health/ready`);
-      if (resp.ok) {
+      const resp = await fetch(`${API_BASE}/health/ready`, { signal: controller.signal });
+      if (!resp.ok) {
+        setBackendStatus('offline');
+        return;
+      }
+      const body = await resp.json();
+      if (typeof body === 'object' && body !== null && body.status === 'ready') {
         setBackendStatus('ready');
       } else {
         setBackendStatus('not_ready');
       }
     } catch {
       setBackendStatus('offline');
+    } finally {
+      window.clearTimeout(timeout);
     }
   }, []);
 
@@ -191,11 +228,12 @@ export default function App() {
     checkBackendReadiness();
   }, [checkBackendReadiness]);
 
-  // Handle escape key to close mobile menu
+  // Handle escape key to close mobile menu and restore focus
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && mobileMenuOpen) {
         setMobileMenuOpen(false);
+        menuButtonRef.current?.focus();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -481,6 +519,7 @@ export default function App() {
           </nav>
           <div className="md:hidden flex items-center">
             <button
+              ref={menuButtonRef}
               type="button"
               aria-label="Toggle Navigation Menu"
               aria-expanded={mobileMenuOpen}
@@ -575,9 +614,17 @@ export default function App() {
                 </span>
               )}
               {backendStatus === 'not_ready' && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium">
-                  <span className="w-2 h-2 rounded-full bg-amber-500"></span> Initializing...
-                </span>
+                <div className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span> Initializing...
+                  </span>
+                  <button 
+                    onClick={checkBackendReadiness} 
+                    className="text-xs text-teal-800 underline hover:text-teal-950 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 rounded"
+                  >
+                    Retry
+                  </button>
+                </div>
               )}
               {backendStatus === 'offline' && (
                 <div className="inline-flex items-center gap-2">
@@ -648,6 +695,9 @@ export default function App() {
                       alt={`Preview of selected fundus image: ${selectedFile?.name ?? 'uploaded image'}`}
                       onError={() => {
                         setError('The selected file could not be decoded as a valid image.');
+                        if (previewUrl && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+                          URL.revokeObjectURL(previewUrl);
+                        }
                         setSelectedFile(null);
                         setPreviewUrl(null);
                         if (fileInputRef.current) {
@@ -713,7 +763,7 @@ export default function App() {
                 <button
                   data-testid="predict-button"
                   type="button"
-                  disabled={!selectedFile || loading || backendStatus === 'offline'}
+                  disabled={!selectedFile || loading || backendStatus !== 'ready'}
                   onClick={runPrediction}
                   className="flex-1 py-3 px-4 rounded-lg bg-teal-700 text-white font-bold text-sm hover:bg-teal-800 disabled:opacity-50 transition shadow-sm flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2"
                 >
@@ -796,8 +846,13 @@ export default function App() {
                     </div>
                     <div>
                       <span className="text-xs font-semibold text-slate-500 uppercase block">Inference Latency</span>
-                      <span className="text-xl font-bold text-slate-900">{(result.latency_ms ?? 8.42).toFixed(1)} <small className="text-xs font-normal">ms</small></span>
-                      <span className="text-xs text-slate-500 block">ONNX CPU Runtime</span>
+                      <span className="text-xl font-bold text-slate-900">
+                        {result.latency_ms !== undefined ? `${result.latency_ms.toFixed(1)} ` : '—'}
+                        {result.latency_ms !== undefined && <small className="text-xs font-normal">ms</small>}
+                      </span>
+                      <span className="text-xs text-slate-500 block">
+                        {result.latency_ms !== undefined ? 'ONNX CPU Runtime' : 'Not reported'}
+                      </span>
                     </div>
                   </div>
 
@@ -909,14 +964,9 @@ export default function App() {
                     <span className="font-semibold">Research Log:</span> Free Energy Score: {result.ood_score.toFixed(2)} (unregularized diagnostic metric; triage decisions are gated by calibrated predictive uncertainty and the retinal modality check).
                   </div>
 
-                  {/* Provenance & Latency Footer */}
+                  {/* Provenance Footer */}
                   <div className="flex justify-between items-center text-[11px] text-slate-500 border-t border-slate-100 pt-3">
                     <span>Model: v{result.model_version}</span>
-                    {result.latency_ms && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> {result.latency_ms.toFixed(1)} ms
-                      </span>
-                    )}
                   </div>
 
                   {/* Non-Diagnostic Disclaimer */}
