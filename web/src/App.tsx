@@ -13,7 +13,6 @@ import {
   ChevronRight,
   Info,
   X,
-  Clock,
   Menu,
   ChevronDown
 } from 'lucide-react';
