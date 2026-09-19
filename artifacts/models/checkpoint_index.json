@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "checkpoint_distribution": "github_release",
-  "release_tag": "v1.0.1",
+  "release_tag": "v1.0.2",
   "repository": "https://github.com/anushka06onu/RetinaGuard-QA",
   "selected_model": {
     "variant": "proposed_multitask",
@@ -12,153 +12,193 @@
   "checkpoints": [
     {
       "variant": "proposed_multitask",
+      "experiment_family": "primary_campaign",
       "seed": 2026,
       "filename": "multitask_seed_2026_best.ckpt",
       "sha256": "c1b082835f30e32faaa5ef2659b47b56269b0aeb403cc044ffc6586dce028032",
       "selected_epoch": 9,
       "best_val_macro_f1": 0.6304,
       "distribution_status": "external_release",
-      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.1/multitask_seed_2026_best.ckpt"
+      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.2/multitask_seed_2026_best.ckpt"
     },
     {
       "variant": "proposed_multitask",
+      "experiment_family": "primary_campaign",
       "seed": 2027,
       "filename": "multitask_seed_2027_best.ckpt",
       "sha256": "f8cf3bc82e802d8009aa5c4fa42ba5221f4649d43a1ea1ca91e981b75847eeb3",
       "selected_epoch": 8,
       "best_val_macro_f1": 0.6214,
       "distribution_status": "external_release",
-      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.1/multitask_seed_2027_best.ckpt"
+      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.2/multitask_seed_2027_best.ckpt"
     },
     {
       "variant": "proposed_multitask",
+      "experiment_family": "primary_campaign",
       "seed": 2028,
       "filename": "multitask_seed_2028_best.ckpt",
       "sha256": "62ab00e0c1ba37bad1f6a2ab7e2557a23911f65b4030c78618e938387e6c0ea5",
       "selected_epoch": 14,
       "best_val_macro_f1": 0.6534,
       "distribution_status": "external_release",
-      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.1/multitask_seed_2028_best.ckpt"
+      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.2/multitask_seed_2028_best.ckpt",
+      "note": "Selected production checkpoint (identical to artifacts/models/best.ckpt)"
     },
     {
       "variant": "aux_weight_1_0",
+      "experiment_family": "controlled_ablation_rerun",
       "seed": 2026,
       "filename": "aux_weight_1_0_seed_2026_best.ckpt",
       "sha256": "6a6400056fb92ebf68505406b6cae4060c1fa438be49f945d361b25a2e127d7a",
       "selected_epoch": 10,
       "best_val_macro_f1": 0.639,
-      "distribution_status": "external_release",
-      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.1/aux_weight_1_0_seed_2026_best.ckpt"
+      "distribution_status": "not_distributed",
+      "predictions_archived": true,
+      "metrics_archived": true,
+      "reason": "Intermediate ablation checkpoint excluded from release package; evaluation predictions and metrics archived in artifacts/metrics/ablations_runs/."
     },
     {
       "variant": "aux_weight_1_0",
+      "experiment_family": "controlled_ablation_rerun",
       "seed": 2027,
       "filename": "aux_weight_1_0_seed_2027_best.ckpt",
       "sha256": "75821036e8c09e56f03995d67ba8418c5ef6e52c99051972637ecf6eb30fb5a4",
       "selected_epoch": 10,
       "best_val_macro_f1": 0.6377,
-      "distribution_status": "external_release",
-      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.1/aux_weight_1_0_seed_2027_best.ckpt"
+      "distribution_status": "not_distributed",
+      "predictions_archived": true,
+      "metrics_archived": true,
+      "reason": "Intermediate ablation checkpoint excluded from release package; evaluation predictions and metrics archived in artifacts/metrics/ablations_runs/."
     },
     {
       "variant": "aux_weight_1_0",
+      "experiment_family": "controlled_ablation_rerun",
       "seed": 2028,
       "filename": "aux_weight_1_0_seed_2028_best.ckpt",
       "sha256": "7596120a80d2c96f43445c1a1b84aa88a042dc771096c4f65f3c5cbb76027101",
       "selected_epoch": 2,
       "best_val_macro_f1": 0.6187,
-      "distribution_status": "external_release",
-      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.1/aux_weight_1_0_seed_2028_best.ckpt"
+      "distribution_status": "not_distributed",
+      "predictions_archived": true,
+      "metrics_archived": true,
+      "reason": "Intermediate ablation checkpoint excluded from release package; evaluation predictions and metrics archived in artifacts/metrics/ablations_runs/."
     },
     {
       "variant": "no_label_smoothing",
+      "experiment_family": "controlled_ablation_rerun",
       "seed": 2026,
       "filename": "no_label_smoothing_seed_2026_best.ckpt",
       "sha256": "2eb2d5fe01e8b9cb74f71f9e4d45213162ba079d7ed2c6ae7e3dd497e40c14ae",
       "selected_epoch": 9,
       "best_val_macro_f1": 0.6389,
-      "distribution_status": "external_release",
-      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.1/no_label_smoothing_seed_2026_best.ckpt"
+      "distribution_status": "not_distributed",
+      "predictions_archived": true,
+      "metrics_archived": true,
+      "reason": "Intermediate ablation checkpoint excluded from release package; evaluation predictions and metrics archived in artifacts/metrics/ablations_runs/."
     },
     {
       "variant": "no_label_smoothing",
+      "experiment_family": "controlled_ablation_rerun",
       "seed": 2027,
       "filename": "no_label_smoothing_seed_2027_best.ckpt",
       "sha256": "55ae28b8e499cd32f6ba3fe42c14d247684d1fde3afdabd927413d34e55abf69",
       "selected_epoch": 12,
       "best_val_macro_f1": 0.6336,
-      "distribution_status": "external_release",
-      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.1/no_label_smoothing_seed_2027_best.ckpt"
+      "distribution_status": "not_distributed",
+      "predictions_archived": true,
+      "metrics_archived": true,
+      "reason": "Intermediate ablation checkpoint excluded from release package; evaluation predictions and metrics archived in artifacts/metrics/ablations_runs/."
     },
     {
       "variant": "no_label_smoothing",
+      "experiment_family": "controlled_ablation_rerun",
       "seed": 2028,
       "filename": "no_label_smoothing_seed_2028_best.ckpt",
       "sha256": "bac1ad5a574922f94ae67100bd83e363c0d8a07740805d05b594d4a6b63cfb1c",
       "selected_epoch": 14,
       "best_val_macro_f1": 0.653,
-      "distribution_status": "external_release",
-      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.1/no_label_smoothing_seed_2028_best.ckpt"
+      "distribution_status": "not_distributed",
+      "predictions_archived": true,
+      "metrics_archived": true,
+      "reason": "Intermediate ablation checkpoint excluded from release package; evaluation predictions and metrics archived in artifacts/metrics/ablations_runs/."
     },
     {
       "variant": "proposed_multitask",
+      "experiment_family": "controlled_ablation_rerun",
       "seed": 2026,
       "filename": "proposed_multitask_seed_2026_best.ckpt",
       "sha256": "418c4213b1c72399983205975e1d5d75b177a56f088a7a0f313a7d283a35ab0f",
       "selected_epoch": 9,
       "best_val_macro_f1": 0.6304,
-      "distribution_status": "external_release",
-      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.1/proposed_multitask_seed_2026_best.ckpt"
+      "distribution_status": "not_distributed",
+      "predictions_archived": true,
+      "metrics_archived": true,
+      "reason": "Intermediate ablation checkpoint excluded from release package; evaluation predictions and metrics archived in artifacts/metrics/ablations_runs/."
     },
     {
       "variant": "proposed_multitask",
+      "experiment_family": "controlled_ablation_rerun",
       "seed": 2027,
       "filename": "proposed_multitask_seed_2027_best.ckpt",
       "sha256": "b4b65805eebec5e62e484040d302f183129b108ef1f6aeaaca1fd8f2595b0eb9",
       "selected_epoch": 8,
       "best_val_macro_f1": 0.6214,
-      "distribution_status": "external_release",
-      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.1/proposed_multitask_seed_2027_best.ckpt"
+      "distribution_status": "not_distributed",
+      "predictions_archived": true,
+      "metrics_archived": true,
+      "reason": "Intermediate ablation checkpoint excluded from release package; evaluation predictions and metrics archived in artifacts/metrics/ablations_runs/."
     },
     {
       "variant": "proposed_multitask",
+      "experiment_family": "controlled_ablation_rerun",
       "seed": 2028,
       "filename": "proposed_multitask_seed_2028_best.ckpt",
       "sha256": "85947a83131bd1e237d15edca73c9d1582a17a4576791838f11ef81816b9ac30",
       "selected_epoch": 14,
       "best_val_macro_f1": 0.6534,
-      "distribution_status": "external_release",
-      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.1/proposed_multitask_seed_2028_best.ckpt"
+      "distribution_status": "not_distributed",
+      "predictions_archived": true,
+      "metrics_archived": true,
+      "reason": "Intermediate ablation checkpoint excluded from release package; evaluation predictions and metrics archived in artifacts/metrics/ablations_runs/."
     },
     {
       "variant": "singletask_overall_quality",
+      "experiment_family": "controlled_ablation_rerun",
       "seed": 2026,
       "filename": "singletask_overall_quality_seed_2026_best.ckpt",
       "sha256": "ef099ec907ae17392c0fce4ee97369432010d249c5d426f65f1631ab0c65c4d0",
       "selected_epoch": 20,
       "best_val_macro_f1": 0.4634,
-      "distribution_status": "external_release",
-      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.1/singletask_overall_quality_seed_2026_best.ckpt"
+      "distribution_status": "not_distributed",
+      "predictions_archived": true,
+      "metrics_archived": true,
+      "reason": "Intermediate ablation checkpoint excluded from release package; evaluation predictions and metrics archived in artifacts/metrics/ablations_runs/."
     },
     {
       "variant": "singletask_overall_quality",
+      "experiment_family": "controlled_ablation_rerun",
       "seed": 2027,
       "filename": "singletask_overall_quality_seed_2027_best.ckpt",
       "sha256": "fddab76840598c6cd1a9e1407048e9763ea139df5ac633ea2fa49a3335148b41",
       "selected_epoch": 8,
       "best_val_macro_f1": 0.488,
-      "distribution_status": "external_release",
-      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.1/singletask_overall_quality_seed_2027_best.ckpt"
+      "distribution_status": "not_distributed",
+      "predictions_archived": true,
+      "metrics_archived": true,
+      "reason": "Intermediate ablation checkpoint excluded from release package; evaluation predictions and metrics archived in artifacts/metrics/ablations_runs/."
     },
     {
       "variant": "singletask_overall_quality",
+      "experiment_family": "controlled_ablation_rerun",
       "seed": 2028,
       "filename": "singletask_overall_quality_seed_2028_best.ckpt",
       "sha256": "9a0f73f2a12e8c46e1829a02897d857f298f6a16fbae88848c2bdad173fddd5a",
       "selected_epoch": 8,
       "best_val_macro_f1": 0.4243,
-      "distribution_status": "external_release",
-      "download_url": "https://github.com/anushka06onu/RetinaGuard-QA/releases/download/v1.0.1/singletask_overall_quality_seed_2028_best.ckpt"
+      "distribution_status": "not_distributed",
+      "predictions_archived": true,
+      "metrics_archived": true,
+      "reason": "Intermediate ablation checkpoint excluded from release package; evaluation predictions and metrics archived in artifacts/metrics/ablations_runs/."
     }
   ]
 }

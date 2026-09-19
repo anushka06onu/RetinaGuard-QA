@@ -98,15 +98,21 @@ jobs:
 
   docker-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
     - uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: actions/setup-buildx-action@v3
 
     - name: Build API Container
       run: |
         docker build -f Dockerfile.api -t retinaguard-api:test .
+
+    - name: Test API Container Startup & Health
+      run: |
+        docker run -d --name retinaguard-api-test -p 8000:8000 retinaguard-api:test
+        sleep 5
+        curl --fail --retry 5 --retry-delay 2 http://localhost:8000/health/live
+        curl --fail --retry 5 --retry-delay 2 http://localhost:8000/health/ready
+        docker stop retinaguard-api-test && docker rm retinaguard-api-test
 
     - name: Build Web Container
       run: |

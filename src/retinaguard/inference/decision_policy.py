@@ -19,7 +19,7 @@ class DecisionPolicyEngine:
         ood_energy_threshold: float = 1.0,
         ood_direction: str = "lower_is_ood",
         energy_ood_enabled: bool = False,
-        model_version: str = "1.0.1",
+        model_version: str = "1.0.2",
         supported_heads: Optional[List[str]] = None,
     ):
         if ood_direction not in ["lower_is_ood", "higher_is_ood"]:

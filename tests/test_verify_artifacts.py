@@ -47,3 +47,66 @@ def test_verify_artifacts_synthetic(tmp_path):
     assert report["passed"] is True
     assert report["mismatched_files"] == 0
     assert report["missing_files"] == 0
+
+
+def test_verify_checkpoint_index_and_remote(tmp_path, monkeypatch):
+    from scripts.verify_artifacts import verify_remote_checkpoints
+
+    index_p = tmp_path / "checkpoint_index.json"
+    dummy_data = b"fake checkpoint binary content"
+    import hashlib
+
+    dummy_sha = hashlib.sha256(dummy_data).hexdigest()
+
+    index_p.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "release_tag": "v1.0.2",
+                "checkpoints": [
+                    {
+                        "filename": "model_2028.ckpt",
+                        "sha256": dummy_sha,
+                        "experiment_family": "primary_campaign",
+                        "distribution_status": "external_release",
+                        "download_url": "http://localhost:8000/model_2028.ckpt",
+                    },
+                    {
+                        "filename": "ablation_run.ckpt",
+                        "sha256": dummy_sha,
+                        "experiment_family": "controlled_ablation_rerun",
+                        "distribution_status": "not_distributed",
+                        "predictions_archived": True,
+                        "metrics_archived": True,
+                    },
+                ],
+            }
+        )
+    )
+
+    class MockResponse:
+        def __init__(self, data):
+            self.data = data
+            self.read_called = False
+
+        def read(self, chunk_size=1048576):
+            if not self.read_called:
+                self.read_called = True
+                return self.data
+            return b""
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    import urllib.request
+
+    monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout=30: MockResponse(dummy_data))
+
+    res = verify_remote_checkpoints(index_p)
+    assert res["passed"] is True
+    assert res["total_checkpoints"] == 2
+    assert res["distributed_checkpoints"] == 1
+    assert res["verified_remote_checkpoints"] == 1

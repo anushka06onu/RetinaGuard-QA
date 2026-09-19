@@ -222,17 +222,29 @@ def verify_checksum_manifest(
                     idx_data = json.load(f)
                 ckpts = idx_data.get("checkpoints", [])
                 if not ckpts:
-                    report["errors"].append(
-                        "checkpoint_index.json must declare distributed checkpoint entries"
-                    )
+                    report["errors"].append("checkpoint_index.json must declare checkpoint entries")
                 for entry in ckpts:
-                    if (
-                        not entry.get("sha256")
-                        or not entry.get("download_url")
-                        or len(entry["sha256"]) != 64
-                    ):
+                    c_sha = entry.get("sha256")
+                    if not c_sha or len(c_sha) != 64:
                         report["errors"].append(
-                            f"Invalid checkpoint entry in {ckpt_index_p}: {entry.get('filename')}"
+                            f"Invalid or missing SHA-256 in checkpoint entry {entry.get('filename')}"
+                        )
+                    dist_status = entry.get("distribution_status")
+                    if dist_status in ["external_release", "distributed"]:
+                        if not entry.get("download_url"):
+                            report["errors"].append(
+                                f"Distributed checkpoint {entry.get('filename')} missing download_url"
+                            )
+                    elif dist_status == "not_distributed":
+                        if not entry.get("predictions_archived") or not entry.get(
+                            "metrics_archived"
+                        ):
+                            report["errors"].append(
+                                f"Non-distributed checkpoint {entry.get('filename')} must indicate predictions_archived and metrics_archived"
+                            )
+                    else:
+                        report["errors"].append(
+                            f"Checkpoint {entry.get('filename')} has unknown distribution_status: {dist_status}"
                         )
             except Exception as exc:
                 report["lineage_errors"].append(f"Failed to parse checkpoint_index.json: {exc}")
@@ -246,6 +258,80 @@ def verify_checksum_manifest(
     )
 
     return report
+
+
+def verify_remote_checkpoints(
+    index_path: Path,
+    timeout_seconds: int = 30,
+) -> Dict[str, Any]:
+    """Optionally download and verify SHA-256 parity for published external checkpoints."""
+    import tempfile
+    import urllib.error
+    import urllib.request
+
+    results: Dict[str, Any] = {
+        "index_path": str(index_path),
+        "total_checkpoints": 0,
+        "distributed_checkpoints": 0,
+        "verified_remote_checkpoints": 0,
+        "failed_downloads": [],
+        "hash_mismatches": [],
+        "passed": False,
+    }
+
+    if not index_path.is_file():
+        raise FileNotFoundError(f"Checkpoint index not found: {index_path}")
+
+    with open(index_path) as f:
+        idx_data = json.load(f)
+
+    ckpts = idx_data.get("checkpoints", [])
+    results["total_checkpoints"] = len(ckpts)
+
+    for entry in ckpts:
+        if entry.get("distribution_status") not in ["external_release", "distributed"]:
+            continue
+
+        results["distributed_checkpoints"] += 1
+        url = entry.get("download_url")
+        expected_sha = entry.get("sha256")
+        filename = entry.get("filename", "unknown.ckpt")
+
+        print(f"Downloading release asset: {filename} from {url}...")
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".ckpt", delete=True) as tmp_f:
+                req = urllib.request.Request(
+                    url,
+                    headers={"User-Agent": "RetinaGuard-QA-Artifact-Verifier/1.0"},
+                )
+                with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
+                    while chunk := resp.read(1048576):  # 1MB chunks
+                        tmp_f.write(chunk)
+                tmp_f.flush()
+
+                actual_sha = compute_sha256(Path(tmp_f.name))
+                if actual_sha == expected_sha:
+                    results["verified_remote_checkpoints"] += 1
+                    print(f"  ✓ Verified SHA-256 ({actual_sha[:16]}...)")
+                else:
+                    err = f"Hash mismatch for remote asset {filename}: expected {expected_sha}, got {actual_sha}"
+                    results["hash_mismatches"].append(err)
+                    print(f"  ✗ {err}")
+        except urllib.error.HTTPError as http_err:
+            err = f"HTTP {http_err.code} error fetching {filename} from {url}: {http_err.reason}"
+            results["failed_downloads"].append(err)
+            print(f"  ✗ {err}")
+        except Exception as exc:
+            err = f"Network or download error for {filename} from {url}: {exc}"
+            results["failed_downloads"].append(err)
+            print(f"  ✗ {err}")
+
+    results["passed"] = (
+        len(results["failed_downloads"]) == 0
+        and len(results["hash_mismatches"]) == 0
+        and results["verified_remote_checkpoints"] == results["distributed_checkpoints"]
+    )
+    return results
 
 
 def generate_checksum_manifest(
@@ -311,12 +397,40 @@ def main() -> int:
         action="store_true",
         help="Regenerate SHA256SUMS manifest instead of verifying",
     )
+    parser.add_argument(
+        "--verify-remote-checkpoints",
+        action="store_true",
+        help="Download and verify cryptographic SHA-256 for all distributed release checkpoints",
+    )
     args = parser.parse_args()
 
     if args.generate:
         generate_checksum_manifest(args.artifacts_dir, args.manifest)
         print("Regeneration complete.")
         return 0
+
+    if args.verify_remote_checkpoints:
+        index_p = args.artifacts_dir / "models/checkpoint_index.json"
+        print(f"Starting remote checkpoint verification from index '{index_p}'...")
+        try:
+            remote_report = verify_remote_checkpoints(index_p)
+        except Exception as exc:
+            print(f"FAILED: Remote verification error: {exc}")
+            return 1
+
+        print("\n--- Remote Checkpoint Verification Summary ---")
+        print(f"Total entries in index:         {remote_report['total_checkpoints']}")
+        print(f"Distributed checkpoints:        {remote_report['distributed_checkpoints']}")
+        print(f"Verified remote downloads:      {remote_report['verified_remote_checkpoints']}")
+        print(f"Failed downloads:               {len(remote_report['failed_downloads'])}")
+        print(f"Hash mismatches:                {len(remote_report['hash_mismatches'])}")
+
+        if remote_report["passed"]:
+            print("SUCCESS: All published remote release checkpoints verified.")
+            return 0
+        else:
+            print("FAILED: Remote checkpoint verification failed.")
+            return 1
 
     print(f"Verifying artifacts using manifest '{args.manifest}'...")
     try:

@@ -12,12 +12,12 @@
 ## Project Status & Scientific Scope
 
 > [!IMPORTANT]
-> **DeepDRiD-Focused Empirical Release (v1.0.1):**
+> **DeepDRiD-Focused Empirical Release (v1.0.2):**
 > This repository implements and evaluates a multi-task quality assessment model trained and validated on the **DeepDRiD** fundus benchmark across three independent random seeds (`[2026, 2027, 2028]`).
 >
 > - **Primary Deployed Task:** Binary overall acquisition quality assessment (`good` vs `poor_or_reject`) via the trained `overall_quality_logits` head.
 > - **Auxiliary Acquisition Attributes:** Multiclass severity classification for **Artifacts** (`none`, `mild`, `severe`), **Clarity** (`good`, `borderline`, `poor`), and **Field Definition** (`good`, `borderline`, `poor`).
-> - **Scientific Rigor Standard:** Zero metric fabrication. All metric reports in `artifacts/metrics/`, figures in `artifacts/figures/`, and tables below strictly originate from verified local execution logs over patient-isolated splits (`data/splits/`) with SHA-256 provenance tracking (`artifacts/provenance/SHA256SUMS`).
+> - **Scientific Rigor Standard:** Zero metric fabrication. All metric reports in `artifacts/metrics/`, figures in `artifacts/figures/`, and tables below strictly originate from verified local execution logs over patient-isolated splits (`data/splits/`) with SHA-256 provenance tracking (`artifacts/provenance/SHA256SUMS`). Checkpoint hashes, external release locations, and lineage invariants are recorded in `artifacts/models/checkpoint_index.json` and verifiable via `scripts/verify_artifacts.py`.
 
 ---
 
@@ -236,7 +236,7 @@ retinaguard-qa/
   author = {Fateha Hossain Anushka},
   title = {RetinaGuard-QA: An Uncertainty-Aware, Multi-Task Quality Assurance and Capture-Feedback System for Retinal Fundus Imaging},
   year = {2026},
-  version = {1.0.1},
+  version = {1.0.2},
   url = {https://github.com/anushka06onu/RetinaGuard-QA}
 }
 ```
