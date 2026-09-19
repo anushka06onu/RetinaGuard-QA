@@ -14,22 +14,34 @@ test.describe('RetinaGuard-QA Full-Stack End-to-End Test', () => {
     // 3. Verify Backend Readiness indicator shows Model Ready
     await expect(page.getByText('Model Ready')).toBeVisible({ timeout: 15000 });
 
-    // 4. Create a mock synthetic fundus JPEG image buffer
-    const testImageBuffer = Buffer.from(
-      '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=',
-      'base64'
-    );
+    // 4. Create a 100x100 synthetic fundus-like image buffer (>32x32 minimum dimension)
+    const testImageBase64 = await page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 100;
+      canvas.height = 100;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(0, 0, 100, 100);
+        ctx.fillStyle = '#b43214';
+        ctx.beginPath();
+        ctx.arc(50, 50, 40, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      return canvas.toDataURL('image/png').split(',')[1];
+    });
+    const testImageBuffer = Buffer.from(testImageBase64, 'base64');
 
     // 5. Upload image using file chooser / input
     const fileInput = page.locator('input[data-testid="file-input"]');
     await fileInput.setInputFiles({
-      name: 'sample_fundus.jpg',
-      mimeType: 'image/jpeg',
+      name: 'sample_fundus.png',
+      mimeType: 'image/png',
       buffer: testImageBuffer,
     });
 
     // 6. Preview should be visible
-    await expect(page.locator('img[alt*="sample_fundus.jpg"]')).toBeVisible();
+    await expect(page.locator('img[alt*="sample_fundus.png"]')).toBeVisible();
 
     // 7. Predict button should now be enabled
     const predictBtn = page.locator('button[data-testid="predict-button"]');
@@ -43,12 +55,12 @@ test.describe('RetinaGuard-QA Full-Stack End-to-End Test', () => {
     await expect(decisionBadge).toBeVisible({ timeout: 15000 });
 
     // Verify key UI result cards
-    await expect(page.getByText('Quality Grade')).toBeVisible();
-    await expect(page.getByText('Uncertainty')).toBeVisible();
-    await expect(page.getByText('Inference Latency')).toBeVisible();
-    await expect(page.getByText('Class Probabilities')).toBeVisible();
-    await expect(page.getByText('Actionable Capture Guidance')).toBeVisible();
-    await expect(page.getByText('Research Log:')).toBeVisible();
+    await expect(page.getByText('Quality Grade', { exact: true })).toBeVisible();
+    await expect(page.getByText('Uncertainty', { exact: true })).toBeVisible();
+    await expect(page.getByText('Inference Latency', { exact: true })).toBeVisible();
+    await expect(page.getByText('Class Probabilities', { exact: true })).toBeVisible();
+    await expect(page.getByText('Actionable Capture Guidance', { exact: true })).toBeVisible();
+    await expect(page.getByText('Research Log:', { exact: false })).toBeVisible();
 
     // Verify non-diagnostic disclaimer
     await expect(page.getByText(/Technical image-quality assessment only/i)).toBeVisible();
