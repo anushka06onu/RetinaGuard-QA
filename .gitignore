@@ -70,6 +70,8 @@ mlruns/
 htmlcov/
 .mypy_cache/
 .ruff_cache/
+web/test-results/
+web/playwright-report/
 
 # OS Specific
 .DS_Store
