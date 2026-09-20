@@ -117,3 +117,51 @@ jobs:
     - name: Build Web Container
       run: |
         docker build -f web/Dockerfile -t retinaguard-web:test web/
+
+  full-stack-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+        cache: "npm"
+        cache-dependency-path: web/package-lock.json
+
+    - name: Install Frontend Dependencies
+      working-directory: web
+      run: npm ci
+
+    - name: Install Playwright Browsers
+      working-directory: web
+      run: npx playwright install --with-deps chromium
+
+    - name: Start Full Stack with Docker Compose
+      run: docker compose up -d --build
+
+    - name: Wait for Backend and Frontend Services
+      run: |
+        curl --fail --retry 15 --retry-delay 3 http://localhost:8000/health/ready
+        curl --fail --retry 15 --retry-delay 3 http://localhost:3000/health/ready
+        curl --fail --retry 15 --retry-delay 3 http://localhost:3000/
+
+    - name: Run Playwright E2E Tests
+      working-directory: web
+      env:
+        PLAYWRIGHT_BASE_URL: http://localhost:3000
+      run: npm run test:e2e
+
+    - name: Upload Playwright Test Report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-report
+        path: web/playwright-report/
+        retention-days: 7
+
+    - name: Teardown Docker Compose
+      if: always()
+      run: docker compose down -v
