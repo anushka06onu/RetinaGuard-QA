@@ -4,14 +4,20 @@ import * as path from 'path';
 
 test.describe('RetinaGuard-QA Full-Stack End-to-End Test', () => {
   test('verifies backend readiness, uploads fundus fixture, and inspects quality', async ({ page }) => {
-    // 1. Navigate to the frontend application
+    // 1. Verify that /health/ready returns genuine JSON and status is 'ready' (preventing index.html fallback)
+    const readinessResponse = await page.request.get('/health/ready');
+    expect(readinessResponse.ok()).toBeTruthy();
+    const readiness = await readinessResponse.json();
+    expect(readiness.status).toBe('ready');
+
+    // 2. Navigate to the frontend application
     await page.goto('/');
 
-    // 2. Verify page titles and hero structure
+    // 3. Verify page titles and hero structure
     await expect(page.locator('h1')).toContainText('Uncertainty-Aware Quality Control');
     await expect(page.getByText('Three Pillars of Technical Reliability')).toBeVisible();
 
-    // 3. Verify Backend Readiness indicator shows Model Ready
+    // 4. Verify Backend Readiness indicator shows Model Ready
     await expect(page.getByText('Model Ready')).toBeVisible({ timeout: 15000 });
 
     // 4. Create a 100x100 synthetic fundus-like image buffer (>32x32 minimum dimension)
