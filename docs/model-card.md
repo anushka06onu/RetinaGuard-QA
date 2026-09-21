@@ -2,20 +2,19 @@
 
 ## Model Details
 - **Model Name:** RetinaGuard-QA Multi-Task Retinal Quality & Attribute Assessment Model
-- **Version:** v0.2.0
-- **Architecture:** Shared lightweight CNN backbone (`mobilenetv3_large_100` / `efficientnet_b0`) with masked multi-task classification heads.
+- **Version:** v1.0.3
+- **Architecture:** Shared lightweight CNN backbone (`mobilenetv3_large_100`) with four multi-task classification heads.
 - **Runtime:** CPU-optimized ONNX Runtime (`onnxruntime_cpu`) and PyTorch 2.0+.
 - **Input Specification:** Single color retinal fundus image ($384 \times 384 \times 3$, RGB channel ordering, normalized with ImageNet mean `[0.485, 0.456, 0.406]` and std `[0.229, 0.224, 0.225]`).
-- **Primary Model Outputs:**
-  1. `quality_logits` (3 classes: `Good`, `Usable`, `Reject`)
-  2. `overall_quality_logits` (2 classes: `Good`, `Poor-Reject`)
-  3. `artifact_logits` (3 ordinal levels: `0=None`, `1=Mild`, `2=Severe`)
-  4. `clarity_logits` (3 ordinal levels: `0=High`, `1=Moderate`, `2=Low`)
-  5. `field_definition_logits` (3 ordinal levels: `0=Adequate`, `1=Acceptable`, `2=Poor`)
+- **Trained & Deployed Model Outputs:**
+  1. `overall_quality_logits` (2 classes: `Good`, `Poor-Reject`) [Primary Deployed Triage Head]
+  2. `artifact_logits` (3 ordinal levels: `0=None/Minimal`, `1=Moderate`, `2=Severe`)
+  3. `clarity_logits` (3 ordinal levels: `0=Normal/Sharp`, `1=Mild Blur`, `2=Severe Blur`)
+  4. `field_definition_logits` (3 ordinal levels: `0=Standard Centering`, `1=Mild Truncation`, `2=Severe Misalignment`)
 - **Downstream Decision Outputs:**
-  - Calibrated Confidence (Post-hoc temperature-scaled max softmax probability)
-  - Predictive Shannon Entropy ($[0.0, 1.585\text{ bits}]$)
-  - Out-of-Distribution Energy Score ($E(x) = -T \cdot \log \sum \exp(z_i / T)$)
+  - Calibrated Confidence: Post-hoc temperature-scaled max softmax probability ($T = 1.3956$)
+  - Predictive Shannon Entropy: $H(p) \in [0.0, 1.0\text{ bit}]$ for binary overall quality
+  - Out-of-Distribution Energy Score: Research logging ($E(x) = -T \cdot \log \sum \exp(z_i / T)$)
   - Actionable Triage Recommendation: `Accept`, `Recapture`, `Manual review`, `Unsupported input`
 
 ---
@@ -34,15 +33,13 @@
 
 ---
 
-## Datasets & Licensing
-1. **EyeQ Dataset:**
-   - Source: High-resolution fundus photographs from the EyePACS screening programme with three-class quality annotations (`Good`, `Usable`, `Reject`).
-   - License: Research use per EyePACS / EyeQ data agreement.
-2. **DeepDRiD Dataset:**
-   - Source: Second Diabetic Retinopathy Image Dataset Challenge with binary overall quality and fine-grained sub-attribute labels (Artifact, Clarity, Field Definition).
+## Benchmark Datasets & Development Cohort
+1. **DeepDRiD Dataset:**
+   - Source: Diabetic Retinopathy—Grading and Image Quality Estimation Challenge (Patterns 2022) with binary overall quality and fine-grained sub-attribute labels (Artifact, Clarity, Field Definition).
+   - Partitions: 1,200 training images (300 patients), 400 validation images (100 patients), and 400 official evaluation images (100 patients).
    - License: CC BY-NC-ND 4.0 / Challenge Data Agreement.
-3. **Out-of-Distribution Benchmark Sets:**
-   - Non-fundus natural imagery (ImageNet validation subsets, CIFAR-10) and non-retinal medical modalities (OCT, Chest X-ray).
+2. **Synthetic-Noise Stress-Testing:**
+   - Evaluated against synthetic uniform-noise inputs to benchmark input validation and out-of-distribution research logging behavior.
 
 ---
 
@@ -51,8 +48,8 @@
 - **Leakage Safeguards:**
   - Strict disjoint patient partitioning between Train, Validation, and Test sets.
   - Zero eye-level or temporal sequence leakage across splits.
-  - Cross-split and cross-dataset near-duplicate checking using perceptual hashing (pHash) and exact SHA-256 digests.
-  - Fail-fast validation enforced by `scripts/audit_dataset.py` with cryptographic audit reports in `artifacts/reports/`.
+  - Cross-split near-duplicate checking using perceptual hashing (pHash) and exact SHA-256 digests.
+  - Fail-fast validation enforced by `scripts/verify_splits.py` with cryptographic provenance records in `data/splits_provenance.json`.
 
 ---
 
@@ -67,9 +64,9 @@
 ---
 
 ## Uncertainty Quantification & Selective Prediction
-- **Post-Hoc Calibration:** Temperature scaling on held-out validation logits to optimize Expected Calibration Error (ECE) and negative log-likelihood.
-- **Selective Abstention:** Rejection of low-confidence or high-entropy predictions ($H(p) > 1.3474\text{ bits}$), routing borderline cases to `Manual review` to maintain target precision ($\ge 95\%$) on accepted samples.
-- **OOD Energy Gating:** Energy-based out-of-distribution detection with configurable directionality (`lower_is_ood` / `higher_is_ood`).
+- **Post-Hoc Calibration:** Temperature scaling on held-out validation logits ($T = 1.3956$) to optimize Expected Calibration Error (ECE) and negative log-likelihood.
+- **Selective Abstention:** Rejection of high-entropy predictions ($H(p) > 0.9943\text{ bits}$), routing borderline cases to `Manual review` to prevent erroneous automatic acceptance.
+- **OOD Energy Logging:** Energy-based out-of-distribution logging computed and tracked for research analysis.
 
 ---
 
@@ -79,5 +76,4 @@ Every production deployment artifact is bound to source training and export dige
 - Calibration Metadata: `artifacts/models/calibration_metadata.json`
 - Production ONNX Runtime Model: `artifacts/models/model.onnx`
 - Audit Reports: `artifacts/reports/cross_split_isolation_audit.json`, `artifacts/reports/data_flow_report.json`
-- Checksums Manifest: `SHA256SUMS`
-
+- Checksums Manifest: `artifacts/provenance/SHA256SUMS`
