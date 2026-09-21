@@ -12,7 +12,7 @@
 ## Project Status & Scientific Scope
 
 > [!IMPORTANT]
-> **DeepDRiD-Focused Empirical Release (v1.0.2):**
+> **DeepDRiD-Focused Empirical Release (v1.0.3):**
 > This repository implements and evaluates a multi-task quality assessment model trained and validated on the **DeepDRiD** fundus benchmark across three independent random seeds (`[2026, 2027, 2028]`).
 >
 > - **Primary Deployed Task:** Binary overall acquisition quality assessment (`good` vs `poor_or_reject`) via the trained `overall_quality_logits` head.
@@ -236,7 +236,7 @@ retinaguard-qa/
   author = {Fateha Hossain Anushka},
   title = {RetinaGuard-QA: An Uncertainty-Aware, Multi-Task Quality Assurance and Capture-Feedback System for Retinal Fundus Imaging},
   year = {2026},
-  version = {1.0.2},
+  version = {1.0.3},
   url = {https://github.com/anushka06onu/RetinaGuard-QA}
 }
 ```
