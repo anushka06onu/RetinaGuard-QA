@@ -3,22 +3,22 @@
 Reviewers, clinical collaborators, and deployment engineers should explicitly account for the following limitations:
 
 ## 1. No Prospective Clinical Validation
-The system is an investigational research prototype evaluated on retrospective public benchmarks (EyeQ, DeepDRiD). It has not undergone prospective real-world clinical trials or regulatory device clearance.
+The system is an investigational research prototype evaluated retrospectively on the DeepDRiD benchmark. It has not undergone prospective real-world clinical trials or regulatory device clearance.
 
 ## 2. Dataset Shift Across Populations and Disease Severities
 Performance may fluctuate when deployed in clinical environments whose patient demographics, disease prevalence (e.g., severe proliferative diabetic retinopathy vs. healthy screening cohorts), or ocular comorbidities differ from the training distribution.
 
 ## 3. Ground-Truth Inter-Rater Subjectivity
-Quality grading in public datasets reflects human annotator subjectivity. Ambiguity near the `Good` vs. `Usable` and `Usable` vs. `Reject` boundaries exhibits known inter-grader discordance ($\approx 10\text{--}15\%$). RetinaGuard-QA handles boundary uncertainty via selective abstention (`Manual review`).
+Quality grading in public datasets reflects human annotator subjectivity. Ambiguity near classification boundaries exhibits annotator discordance. RetinaGuard-QA addresses boundary uncertainty via calibrated selective abstention (`Manual review`).
 
 ## 4. Optical Hardware & Camera Generalization
-The canonical FOV cropping and feature representations are tuned for standard $45^\circ / 50^\circ$ tabletop fundus cameras (Canon CR-2, Topcon TRC, Zeiss). Generalization to ultra-widefield scanning laser ophthalmoscopes (e.g., Optos $200^\circ$) or smartphone-based adapters is not guaranteed.
+The canonical FOV cropping and feature representations are tuned for standard $45^\circ / 50^\circ$ tabletop color fundus cameras. Generalization to ultra-widefield scanning laser ophthalmoscopes (e.g., Optos $200^\circ$) or smartphone-based portable adapters is not guaranteed.
 
 ## 5. Confounding Media Opacities vs. Acquisition Defocus
 Dense cataracts, corneal opacities, vitreous hemorrhages, and asteroid hyalosis scatter optical light internally, causing optical degradation identical to operator misfocus or inadequate illumination. The model detects technical image degradation but cannot discern ocular pathology from operator error.
 
-## 6. Statistical Retinal Modality & Anatomical Gating
-Modality checks and OOD detection use statistical energy scoring and RGB channel heuristics. While effective against non-fundus natural imagery and non-retinal medical modalities, they cannot guarantee detection of all out-of-distribution inputs.
+## 6. Statistical Retinal Modality & Input Gating
+The current modality-gate benchmark demonstrates rejection of synthetic uniform-noise inputs. Its performance on diverse natural photographs, other medical-imaging modalities, adversarial inputs and real-world malformed captures has not yet been established.
 
 ## 7. No Disease Diagnosis
 Technical image-quality assessment produces zero diagnostic signal regarding diabetic retinopathy, glaucoma, AMD, or other vascular/retinal disorders. A grade of `Good` indicates adequate optical clarity, not an absence of retinal pathology.
@@ -31,4 +31,3 @@ Publicly available retinal quality benchmarks lack granular demographic, racial,
 
 ## 10. Post-Deployment Calibration Drift & Threshold Local Validation
 Temperature scaling calibration parameters and selective prediction abstention thresholds are data-dependent and may drift under deployment distribution shifts. Local validation and threshold tuning are mandatory prior to clinical workflow integration.
-
