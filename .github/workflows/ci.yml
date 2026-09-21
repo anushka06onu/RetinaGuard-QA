@@ -144,9 +144,26 @@ jobs:
 
     - name: Wait for Backend and Frontend Services
       run: |
-        curl --fail --retry 15 --retry-delay 3 http://localhost:8000/health/ready
-        curl --fail --retry 15 --retry-delay 3 http://localhost:3000/health/ready
-        curl --fail --retry 15 --retry-delay 3 http://localhost:3000/
+        for attempt in {1..40}; do
+          backend_code=$(curl -sS -o backend-health.json -w "%{http_code}" http://localhost:8000/health/ready || true)
+          frontend_code=$(curl -sS -o frontend-health.json -w "%{http_code}" http://localhost:3000/health/ready || true)
+          if [ "$backend_code" = "200" ] && [ "$frontend_code" = "200" ]; then
+            echo "Backend and Frontend are ready!"
+            cat backend-health.json
+            echo ""
+            cat frontend-health.json
+            echo ""
+            exit 0
+          fi
+          echo "Attempt $attempt: backend=$backend_code frontend=$frontend_code"
+          cat backend-health.json 2>/dev/null || true
+          cat frontend-health.json 2>/dev/null || true
+          sleep 3
+        done
+        echo "Services failed to become ready in time. Container status and logs:"
+        docker compose ps
+        docker compose logs --no-color api web
+        exit 1
 
     - name: Run Playwright E2E Tests
       working-directory: web
