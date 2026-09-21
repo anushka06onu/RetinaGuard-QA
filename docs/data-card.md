@@ -1,42 +1,33 @@
 # Dataset Card: RetinaGuard-QA Benchmark Cohorts
 
-## 1. Provenance & Primary References
+## 1. Primary Development & Evaluation Benchmark: DeepDRiD
 
-### Primary Development Cohort: EyeQ
-- **Citation:** Fu, H., Xu, B., Lin, S., Wong, D. W. K., Baskaran, M., Mahesh, M., ... & Liu, J. (2019). *Evaluation of retinal image quality with multi-task deep learning.* International Conference on Medical Image Computing and Computer-Assisted Intervention (MICCAI), pp. 248–256. [DOI: 10.1007/978-3-030-32239-7_28](https://doi.org/10.1007/978-3-030-32239-7_28)
-- **Repository:** `https://github.com/HzFu/EyeQ.git`
-- **Source Cohort:** Derived from EyePACS multi-center diabetic retinopathy screening images.
-- **Access & License:** Quality labels (`Label_EyeQ_train.csv`, `Label_EyeQ_test.csv`) distributed under CC BY-NC-SA 4.0. Raw images obtained via EyePACS research data protocol.
-- **Samples & Classes:** 28,792 color fundus photographs acquired across heterogeneous fundus cameras (Centervue DRS, Canon CR-2, Topcon NW-400):
-  - `Good` (58.4%): Sharp vascular margins, clear optic disc, distinct foveal reflex.
-  - `Usable` (22.4%): Mild peripheral artifacts or illumination drop; central macula and optic disc remain interpretable.
-  - `Reject` (19.2%): Severe defocus blur, extreme exposure failure, or extensive field loss impeding clinical evaluation.
+The released RetinaGuard-QA system is trained and evaluated strictly on the **DeepDRiD** (Diabetic Retinopathy—Grading and Image Quality Estimation Challenge) benchmark dataset.
 
-### External & Multi-Task Generalization Cohort: DeepDRiD
 - **Citation:** Liu, R., Wang, X., Wu, Q., Dai, L., Fang, X., Yan, T., ... & Sheng, B. (2022). *DeepDRiD: Diabetic Retinopathy—Grading and Image Quality Estimation Challenge.* Patterns, 3(6), 100512. [DOI: 10.1016/j.patter.2022.100512](https://doi.org/10.1016/j.patter.2022.100512)
 - **Repository:** `https://github.com/deepdrdoc/DeepDRiD.git`
-- **Structure & Partitions:** 2,000 real regular color fundus images across official challenge partitions:
-  - Training partition (`regular-fundus-training`): 1,200 images, 300 patients.
-  - Validation partition (`regular-fundus-validation`): 400 images, 100 patients.
-  - External evaluation partition (`Online-Challenge1&2-Evaluation`): 400 images, 100 patients.
+- **Modality:** Color Retinal Fundus Photographs (Standard 45°/50° Field of View).
+- **Structure & Partitions:** 2,000 real regular color fundus images across official challenge partitions, preserving strict patient isolation and official partition boundaries:
+  - **Training partition (`train.csv` / `regular-fundus-training`):** 1,200 images from 300 unique patients (4 images/patient: two eyes, two fields).
+  - **Validation partition (`val.csv` / `regular-fundus-validation`):** 400 images from 100 unique patients.
+  - **Official Evaluation partition (`test.csv` / `Online-Challenge1&2-Evaluation`):** 400 images from 100 unique patients.
 - **Label Taxonomy:**
-  - `Overall Quality`: Strictly binary (`0: Good`, `1: Poor/Reject`).
-  - `Artifact`: Ordinal 3-level scale (`0: None/Minimal`, `1: Moderate`, `2: Severe`).
-  - `Clarity`: Ordinal 3-level scale (`0: Normal/Sharp`, `1: Mild Blur`, `2: Severe Blur`).
-  - `Field Definition`: Ordinal 3-level scale (`0: Standard Centering`, `1: Mild Truncation`, `2: Severe Misalignment`).
+  - **Overall Quality (`overall_quality_logits`):** Strictly binary classification (`0: Good`, `1: Poor/Reject`).
+  - **Artifact Severity (`artifact_logits`):** 3-level ordinal scale (`0: None/Minimal`, `1: Moderate`, `2: Severe`).
+  - **Clarity Severity (`clarity_logits`):** 3-level ordinal scale (`0: Normal/Sharp`, `1: Mild Blur`, `2: Severe Blur`).
+  - **Field Definition (`field_definition_logits`):** 3-level ordinal scale (`0: Standard Centering`, `1: Mild Truncation`, `2: Severe Misalignment`).
 
 ---
 
-## 2. Out-of-Distribution (OOD) Cohorts
+## 2. Robustness, Corruptions & Stress-Testing Suites
 
-- **Near-OOD:** Ultra-Widefield (UWF) fundus images (DeepDRiD Challenge 3), representing a large optical domain shift from standard 45°/50° color fundus photographs.
-- **Far-OOD:** Non-retinal natural scene images and invalid optical captures tested to verify energy-based abstention.
-- **Synthetic Corruptions Suite:** 10 corruption types across 5 severities:
+- **Synthetic-Noise OOD Stress Testing:** Evaluated against synthetic uniform-noise input distributions to benchmark input-validation gating and energy-score distribution logging.
+- **Optical & Acquisition Corruption Suite:** Evaluated across 10 optical and digital corruption types at 5 severity levels:
   1. Gaussian blur
   2. Defocus blur
   3. Motion blur
-  4. Brightness increase
-  5. Brightness decrease / underexposure
+  4. Brightness increase (overexposure)
+  5. Brightness decrease (underexposure)
   6. Contrast reduction
   7. Gaussian noise
   8. Salt-and-pepper noise
@@ -45,18 +36,17 @@
 
 ---
 
-## 3. Experimental Protocols
+## 3. Data Integrity, Provenance & Leakage Auditing
 
-| Protocol | Training Set | Evaluation Set | Scientific Purpose |
-| :--- | :--- | :--- | :--- |
-| **EyeQ Baseline** | EyeQ Train (only) | EyeQ Test | Single-task baseline on primary screening distribution. |
-| **Multi-Task Supervised** | EyeQ Train + DeepDRiD Train | DeepDRiD Test | Multi-dataset supervised evaluation of quality & attributes. |
-| **Zero-Shot Transfer** | EyeQ Train (only) | DeepDRiD External Test | Unsupervised cross-dataset domain transfer without target tuning. |
+- **Official Partition Preservation:** DeepDRiD challenge partitions are preserved without data leakage or post-hoc data mixing.
+- **Patient Isolation:** Patient grouping guarantees zero patient overlap across training, validation, and evaluation splits (300 / 100 / 100 patient allocation).
+- **Cryptographic & Perceptual De-duplication:** Verified with SHA-256 hashes and perceptual hashing (pHash) to ensure 0 within-split duplicates and 0 cross-split duplicates.
+- **Provenance Manifest:** Cryptographic split fingerprints and dataset distributions are permanently tracked in `data/splits_provenance.json` and verified automatically by `scripts/verify_splits.py`.
 
 ---
 
-## 4. Integrity, De-duplication & Leakage Auditing
+## 4. Future External Validation Cohorts
 
-- **Exact Duplicate Prevention:** Cryptographic SHA-256 computation over every image verifies 0 within-split and 0 cross-split duplicates.
-- **Patient Isolation:** Patient grouping guarantees zero patient overlap across training, validation, and test partitions.
-- **Audit Reports:** Provenance-bound JSON records generated via `scripts/audit_dataset.py` in `artifacts/reports/data_audit.json`.
+The following cohort is planned for future multi-center cross-camera generalizability studies but is **not part of the current v1.0.x released model training or evaluation**:
+
+- **EyeQ Benchmark Cohort:** Derived from EyePACS multi-center diabetic retinopathy screening (Fu et al., MICCAI 2019). Contains 28,792 fundus images categorized into 3 quality tiers (`Good`, `Usable`, `Reject`). Reserved for future prospective cross-cohort domain adaptation studies.
