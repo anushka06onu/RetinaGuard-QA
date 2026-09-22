@@ -44,7 +44,7 @@
 ---
 
 ## Patient-Isolated Splitting Methodology
-- **Split Strategy:** Deterministic hash-based patient grouping (`sha256(patient_id + seed)`).
+- **Split Strategy:** The official DeepDRiD training, validation and evaluation partitions were preserved. Patient identifiers were independently verified to confirm zero cross-partition patient overlap.
 - **Leakage Safeguards:**
   - Strict disjoint patient partitioning between Train, Validation, and Test sets.
   - Zero eye-level or temporal sequence leakage across splits.
